@@ -1,336 +1,137 @@
-<!-- * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * -->
-<!-- * * * * * * * * * * * The content below * * * * * * * * * * * -->
-<!-- * * * * * * * * * * is only a placeholder * * * * * * * * * * -->
-<!-- * * * * * * * * * * and can be replaced.  * * * * * * * * * * -->
-<!-- * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * -->
-<!-- * * * * * * * * * Delete the template below * * * * * * * * * -->
-<!-- * * * * * * * to get started with your project! * * * * * * * -->
-<!-- * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * -->
+<a class="skip-link" href="#main-content">跳至主要內容</a>
+<div class="workspace">
+  <aside class="rail" aria-label="主選單">
+    <button type="button" class="brand-symbol" aria-label="青日茶所首頁" [disabled]="busy" (click)="switchView('pos')"><span>青</span><i></i></button>
+    <div class="rail-caption">門市工作台</div>
+    <nav>
+      <button class="rail-link" [class.active]="view === 'pos'" [disabled]="busy" (click)="switchView('pos')"><span aria-hidden="true">▦</span>點餐收銀</button>
+      <button class="rail-link" [class.active]="view === 'orders'" [disabled]="busy" (click)="switchView('orders')"><span aria-hidden="true">≡</span>訂單管理</button>
+    </nav>
+    <div class="rail-bottom"><div class="leaf-mark" aria-hidden="true">✳</div><p>好茶，慢慢來。<br><span>每一杯，都用心。</span></p></div>
+  </aside>
 
-<style>
-  :host {
-    --bright-blue: oklch(51.01% 0.274 263.83);
-    --electric-violet: oklch(53.18% 0.28 296.97);
-    --french-violet: oklch(47.66% 0.246 305.88);
-    --vivid-pink: oklch(69.02% 0.277 332.77);
-    --hot-red: oklch(61.42% 0.238 15.34);
-    --orange-red: oklch(63.32% 0.24 31.68);
-
-    --gray-900: oklch(19.37% 0.006 300.98);
-    --gray-700: oklch(36.98% 0.014 302.71);
-    --gray-400: oklch(70.9% 0.015 304.04);
-
-    --red-to-pink-to-purple-vertical-gradient: linear-gradient(
-      180deg,
-      var(--orange-red) 0%,
-      var(--vivid-pink) 50%,
-      var(--electric-violet) 100%
-    );
-
-    --red-to-pink-to-purple-horizontal-gradient: linear-gradient(
-      90deg,
-      var(--orange-red) 0%,
-      var(--vivid-pink) 50%,
-      var(--electric-violet) 100%
-    );
-
-    --pill-accent: var(--bright-blue);
-
-    font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-      Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji",
-      "Segoe UI Symbol";
-    box-sizing: border-box;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-  }
-
-  h1 {
-    font-size: 3.125rem;
-    color: var(--gray-900);
-    font-weight: 500;
-    line-height: 100%;
-    letter-spacing: -0.125rem;
-    margin: 0;
-    font-family: "Inter Tight", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-      Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji",
-      "Segoe UI Symbol";
-  }
-
-  p {
-    margin: 0;
-    color: var(--gray-700);
-  }
-
-  main {
-    width: 100%;
-    min-height: 100%;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    padding: 1rem;
-    box-sizing: inherit;
-    position: relative;
-  }
-
-  .angular-logo {
-    max-width: 9.2rem;
-  }
-
-  .content {
-    display: flex;
-    justify-content: space-around;
-    width: 100%;
-    max-width: 700px;
-    margin-bottom: 3rem;
-  }
-
-  .content h1 {
-    margin-top: 1.75rem;
-  }
-
-  .content p {
-    margin-top: 1.5rem;
-  }
-
-  .divider {
-    width: 1px;
-    background: var(--red-to-pink-to-purple-vertical-gradient);
-    margin-inline: 0.5rem;
-  }
-
-  .pill-group {
-    display: flex;
-    flex-direction: column;
-    align-items: start;
-    flex-wrap: wrap;
-    gap: 1.25rem;
-  }
-
-  .pill {
-    display: flex;
-    align-items: center;
-    --pill-accent: var(--bright-blue);
-    background: color-mix(in srgb, var(--pill-accent) 5%, transparent);
-    color: var(--pill-accent);
-    padding-inline: 0.75rem;
-    padding-block: 0.375rem;
-    border-radius: 2.75rem;
-    border: 0;
-    transition: background 0.3s ease;
-    font-family: var(--inter-font);
-    font-size: 0.875rem;
-    font-style: normal;
-    font-weight: 500;
-    line-height: 1.4rem;
-    letter-spacing: -0.00875rem;
-    text-decoration: none;
-  }
-
-  .pill:hover {
-    background: color-mix(in srgb, var(--pill-accent) 15%, transparent);
-  }
-
-  .pill-group .pill:nth-child(6n + 1) {
-    --pill-accent: var(--bright-blue);
-  }
-  .pill-group .pill:nth-child(6n + 2) {
-    --pill-accent: var(--french-violet);
-  }
-  .pill-group .pill:nth-child(6n + 3),
-  .pill-group .pill:nth-child(6n + 4),
-  .pill-group .pill:nth-child(6n + 5) {
-    --pill-accent: var(--hot-red);
-  }
-
-  .pill-group svg {
-    margin-inline-start: 0.25rem;
-  }
-
-  .social-links {
-    display: flex;
-    align-items: center;
-    gap: 0.73rem;
-    margin-top: 1.5rem;
-  }
-
-  .social-links path {
-    transition: fill 0.3s ease;
-    fill: var(--gray-400);
-  }
-
-  .social-links a:hover svg path {
-    fill: var(--gray-900);
-  }
-
-  @media screen and (max-width: 650px) {
-    .content {
-      flex-direction: column;
-      width: max-content;
-    }
-
-    .divider {
-      height: 1px;
-      width: 100%;
-      background: var(--red-to-pink-to-purple-horizontal-gradient);
-      margin-block: 1.5rem;
-    }
-  }
-</style>
-
-<main class="main">
-  <div class="content">
-    <div class="left-side">
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        viewBox="0 0 982 239"
-        fill="none"
-        class="angular-logo"
-      >
-        <g clip-path="url(#a)">
-          <path
-            fill="url(#b)"
-            d="M388.676 191.625h30.849L363.31 31.828h-35.758l-56.215 159.797h30.848l13.174-39.356h60.061l13.256 39.356Zm-65.461-62.675 21.602-64.311h1.227l21.602 64.311h-44.431Zm126.831-7.527v70.202h-28.23V71.839h27.002v20.374h1.392c2.782-6.71 7.2-12.028 13.255-15.956 6.056-3.927 13.584-5.89 22.503-5.89 8.264 0 15.465 1.8 21.684 5.318 6.137 3.518 10.964 8.673 14.319 15.382 3.437 6.71 5.074 14.81 4.992 24.383v76.175h-28.23v-71.92c0-8.019-2.046-14.237-6.219-18.819-4.173-4.5-9.819-6.791-17.102-6.791-4.91 0-9.328 1.063-13.174 3.272-3.846 2.128-6.792 5.237-9.001 9.328-2.046 4.009-3.191 8.918-3.191 14.728ZM589.233 239c-10.147 0-18.82-1.391-26.103-4.091-7.282-2.7-13.092-6.382-17.511-10.964-4.418-4.582-7.528-9.655-9.164-15.219l25.448-6.136c1.145 2.372 2.782 4.663 4.991 6.954 2.209 2.291 5.155 4.255 8.837 5.81 3.683 1.554 8.428 2.291 14.074 2.291 8.019 0 14.647-1.964 19.884-5.81 5.237-3.845 7.856-10.227 7.856-19.064v-22.665h-1.391c-1.473 2.946-3.601 5.892-6.383 9.001-2.782 3.109-6.464 5.645-10.965 7.691-4.582 2.046-10.228 3.109-17.101 3.109-9.165 0-17.511-2.209-25.039-6.545-7.446-4.337-13.42-10.883-17.757-19.474-4.418-8.673-6.628-19.473-6.628-32.565 0-13.091 2.21-24.301 6.628-33.383 4.419-9.082 10.311-15.955 17.839-20.7 7.528-4.746 15.874-7.037 25.039-7.037 7.037 0 12.846 1.145 17.347 3.518 4.582 2.373 8.182 5.236 10.883 8.51 2.7 3.272 4.746 6.382 6.137 9.327h1.554v-19.8h27.821v121.749c0 10.228-2.454 18.737-7.364 25.447-4.91 6.709-11.538 11.7-20.048 15.055-8.509 3.355-18.165 4.991-28.884 4.991Zm.245-71.266c5.974 0 11.047-1.473 15.302-4.337 4.173-2.945 7.446-7.118 9.573-12.519 2.21-5.482 3.274-12.027 3.274-19.637 0-7.609-1.064-14.155-3.274-19.8-2.127-5.646-5.318-10.064-9.491-13.255-4.174-3.11-9.329-4.746-15.384-4.746s-11.537 1.636-15.792 4.91c-4.173 3.272-7.365 7.772-9.492 13.418-2.128 5.727-3.191 12.191-3.191 19.392 0 7.2 1.063 13.745 3.273 19.228 2.127 5.482 5.318 9.736 9.573 12.764 4.174 3.027 9.41 4.582 15.629 4.582Zm141.56-26.51V71.839h28.23v119.786h-27.412v-21.273h-1.227c-2.7 6.709-7.119 12.191-13.338 16.446-6.137 4.255-13.747 6.382-22.748 6.382-7.855 0-14.81-1.718-20.783-5.237-5.974-3.518-10.72-8.591-14.075-15.382-3.355-6.709-5.073-14.891-5.073-24.464V71.839h28.312v71.921c0 7.609 2.046 13.664 6.219 18.083 4.173 4.5 9.655 6.709 16.365 6.709 4.173 0 8.183-.982 12.111-3.028 3.927-2.045 7.118-5.072 9.655-9.082 2.537-4.091 3.764-9.164 3.764-15.218Zm65.707-109.395v159.796h-28.23V31.828h28.23Zm44.841 162.169c-7.61 0-14.402-1.391-20.457-4.091-6.055-2.7-10.883-6.791-14.32-12.109-3.518-5.319-5.237-11.946-5.237-19.801 0-6.791 1.228-12.355 3.765-16.773 2.536-4.419 5.891-7.937 10.228-10.637 4.337-2.618 9.164-4.664 14.647-6.055 5.4-1.391 11.046-2.373 16.856-3.027 7.037-.737 12.683-1.391 17.102-1.964 4.337-.573 7.528-1.555 9.574-2.782 1.963-1.309 3.027-3.273 3.027-5.973v-.491c0-5.891-1.718-10.391-5.237-13.664-3.518-3.191-8.51-4.828-15.056-4.828-6.955 0-12.356 1.473-16.447 4.5-4.009 3.028-6.71 6.546-8.183 10.719l-26.348-3.764c2.046-7.282 5.483-13.336 10.31-18.328 4.746-4.909 10.638-8.59 17.511-11.045 6.955-2.455 14.565-3.682 22.912-3.682 5.809 0 11.537.654 17.265 2.045s10.965 3.6 15.711 6.71c4.746 3.109 8.51 7.282 11.455 12.6 2.864 5.318 4.337 11.946 4.337 19.883v80.184h-27.166v-16.446h-.9c-1.719 3.355-4.092 6.464-7.201 9.328-3.109 2.864-6.955 5.237-11.619 6.955-4.828 1.718-10.229 2.536-16.529 2.536Zm7.364-20.701c5.646 0 10.556-1.145 14.729-3.354 4.173-2.291 7.364-5.237 9.655-9.001 2.292-3.763 3.355-7.854 3.355-12.273v-14.155c-.9.737-2.373 1.391-4.5 2.046-2.128.654-4.419 1.145-7.037 1.636-2.619.491-5.155.9-7.692 1.227-2.537.328-4.746.655-6.628.901-4.173.572-8.019 1.472-11.292 2.781-3.355 1.31-5.973 3.11-7.855 5.401-1.964 2.291-2.864 5.318-2.864 8.918 0 5.237 1.882 9.164 5.728 11.782 3.682 2.782 8.51 4.091 14.401 4.091Zm64.643 18.328V71.839h27.412v19.965h1.227c2.21-6.955 5.974-12.274 11.292-16.038 5.319-3.763 11.456-5.645 18.329-5.645 1.555 0 3.355.082 5.237.163 1.964.164 3.601.328 4.91.573v25.938c-1.227-.41-3.109-.819-5.646-1.146a58.814 58.814 0 0 0-7.446-.49c-5.155 0-9.738 1.145-13.829 3.354-4.091 2.209-7.282 5.236-9.655 9.164-2.373 3.927-3.519 8.427-3.519 13.5v70.448h-28.312ZM222.077 39.192l-8.019 125.923L137.387 0l84.69 39.192Zm-53.105 162.825-57.933 33.056-57.934-33.056 11.783-28.556h92.301l11.783 28.556ZM111.039 62.675l30.357 73.803H80.681l30.358-73.803ZM7.937 165.115 0 39.192 84.69 0 7.937 165.115Z"
-          />
-          <path
-            fill="url(#c)"
-            d="M388.676 191.625h30.849L363.31 31.828h-35.758l-56.215 159.797h30.848l13.174-39.356h60.061l13.256 39.356Zm-65.461-62.675 21.602-64.311h1.227l21.602 64.311h-44.431Zm126.831-7.527v70.202h-28.23V71.839h27.002v20.374h1.392c2.782-6.71 7.2-12.028 13.255-15.956 6.056-3.927 13.584-5.89 22.503-5.89 8.264 0 15.465 1.8 21.684 5.318 6.137 3.518 10.964 8.673 14.319 15.382 3.437 6.71 5.074 14.81 4.992 24.383v76.175h-28.23v-71.92c0-8.019-2.046-14.237-6.219-18.819-4.173-4.5-9.819-6.791-17.102-6.791-4.91 0-9.328 1.063-13.174 3.272-3.846 2.128-6.792 5.237-9.001 9.328-2.046 4.009-3.191 8.918-3.191 14.728ZM589.233 239c-10.147 0-18.82-1.391-26.103-4.091-7.282-2.7-13.092-6.382-17.511-10.964-4.418-4.582-7.528-9.655-9.164-15.219l25.448-6.136c1.145 2.372 2.782 4.663 4.991 6.954 2.209 2.291 5.155 4.255 8.837 5.81 3.683 1.554 8.428 2.291 14.074 2.291 8.019 0 14.647-1.964 19.884-5.81 5.237-3.845 7.856-10.227 7.856-19.064v-22.665h-1.391c-1.473 2.946-3.601 5.892-6.383 9.001-2.782 3.109-6.464 5.645-10.965 7.691-4.582 2.046-10.228 3.109-17.101 3.109-9.165 0-17.511-2.209-25.039-6.545-7.446-4.337-13.42-10.883-17.757-19.474-4.418-8.673-6.628-19.473-6.628-32.565 0-13.091 2.21-24.301 6.628-33.383 4.419-9.082 10.311-15.955 17.839-20.7 7.528-4.746 15.874-7.037 25.039-7.037 7.037 0 12.846 1.145 17.347 3.518 4.582 2.373 8.182 5.236 10.883 8.51 2.7 3.272 4.746 6.382 6.137 9.327h1.554v-19.8h27.821v121.749c0 10.228-2.454 18.737-7.364 25.447-4.91 6.709-11.538 11.7-20.048 15.055-8.509 3.355-18.165 4.991-28.884 4.991Zm.245-71.266c5.974 0 11.047-1.473 15.302-4.337 4.173-2.945 7.446-7.118 9.573-12.519 2.21-5.482 3.274-12.027 3.274-19.637 0-7.609-1.064-14.155-3.274-19.8-2.127-5.646-5.318-10.064-9.491-13.255-4.174-3.11-9.329-4.746-15.384-4.746s-11.537 1.636-15.792 4.91c-4.173 3.272-7.365 7.772-9.492 13.418-2.128 5.727-3.191 12.191-3.191 19.392 0 7.2 1.063 13.745 3.273 19.228 2.127 5.482 5.318 9.736 9.573 12.764 4.174 3.027 9.41 4.582 15.629 4.582Zm141.56-26.51V71.839h28.23v119.786h-27.412v-21.273h-1.227c-2.7 6.709-7.119 12.191-13.338 16.446-6.137 4.255-13.747 6.382-22.748 6.382-7.855 0-14.81-1.718-20.783-5.237-5.974-3.518-10.72-8.591-14.075-15.382-3.355-6.709-5.073-14.891-5.073-24.464V71.839h28.312v71.921c0 7.609 2.046 13.664 6.219 18.083 4.173 4.5 9.655 6.709 16.365 6.709 4.173 0 8.183-.982 12.111-3.028 3.927-2.045 7.118-5.072 9.655-9.082 2.537-4.091 3.764-9.164 3.764-15.218Zm65.707-109.395v159.796h-28.23V31.828h28.23Zm44.841 162.169c-7.61 0-14.402-1.391-20.457-4.091-6.055-2.7-10.883-6.791-14.32-12.109-3.518-5.319-5.237-11.946-5.237-19.801 0-6.791 1.228-12.355 3.765-16.773 2.536-4.419 5.891-7.937 10.228-10.637 4.337-2.618 9.164-4.664 14.647-6.055 5.4-1.391 11.046-2.373 16.856-3.027 7.037-.737 12.683-1.391 17.102-1.964 4.337-.573 7.528-1.555 9.574-2.782 1.963-1.309 3.027-3.273 3.027-5.973v-.491c0-5.891-1.718-10.391-5.237-13.664-3.518-3.191-8.51-4.828-15.056-4.828-6.955 0-12.356 1.473-16.447 4.5-4.009 3.028-6.71 6.546-8.183 10.719l-26.348-3.764c2.046-7.282 5.483-13.336 10.31-18.328 4.746-4.909 10.638-8.59 17.511-11.045 6.955-2.455 14.565-3.682 22.912-3.682 5.809 0 11.537.654 17.265 2.045s10.965 3.6 15.711 6.71c4.746 3.109 8.51 7.282 11.455 12.6 2.864 5.318 4.337 11.946 4.337 19.883v80.184h-27.166v-16.446h-.9c-1.719 3.355-4.092 6.464-7.201 9.328-3.109 2.864-6.955 5.237-11.619 6.955-4.828 1.718-10.229 2.536-16.529 2.536Zm7.364-20.701c5.646 0 10.556-1.145 14.729-3.354 4.173-2.291 7.364-5.237 9.655-9.001 2.292-3.763 3.355-7.854 3.355-12.273v-14.155c-.9.737-2.373 1.391-4.5 2.046-2.128.654-4.419 1.145-7.037 1.636-2.619.491-5.155.9-7.692 1.227-2.537.328-4.746.655-6.628.901-4.173.572-8.019 1.472-11.292 2.781-3.355 1.31-5.973 3.11-7.855 5.401-1.964 2.291-2.864 5.318-2.864 8.918 0 5.237 1.882 9.164 5.728 11.782 3.682 2.782 8.51 4.091 14.401 4.091Zm64.643 18.328V71.839h27.412v19.965h1.227c2.21-6.955 5.974-12.274 11.292-16.038 5.319-3.763 11.456-5.645 18.329-5.645 1.555 0 3.355.082 5.237.163 1.964.164 3.601.328 4.91.573v25.938c-1.227-.41-3.109-.819-5.646-1.146a58.814 58.814 0 0 0-7.446-.49c-5.155 0-9.738 1.145-13.829 3.354-4.091 2.209-7.282 5.236-9.655 9.164-2.373 3.927-3.519 8.427-3.519 13.5v70.448h-28.312ZM222.077 39.192l-8.019 125.923L137.387 0l84.69 39.192Zm-53.105 162.825-57.933 33.056-57.934-33.056 11.783-28.556h92.301l11.783 28.556ZM111.039 62.675l30.357 73.803H80.681l30.358-73.803ZM7.937 165.115 0 39.192 84.69 0 7.937 165.115Z"
-          />
-        </g>
-        <defs>
-          <radialGradient
-            id="c"
-            cx="0"
-            cy="0"
-            r="1"
-            gradientTransform="rotate(118.122 171.182 60.81) scale(205.794)"
-            gradientUnits="userSpaceOnUse"
-          >
-            <stop stop-color="#FF41F8" />
-            <stop offset=".707" stop-color="#FF41F8" stop-opacity=".5" />
-            <stop offset="1" stop-color="#FF41F8" stop-opacity="0" />
-          </radialGradient>
-          <linearGradient
-            id="b"
-            x1="0"
-            x2="982"
-            y1="192"
-            y2="192"
-            gradientUnits="userSpaceOnUse"
-          >
-            <stop stop-color="#F0060B" />
-            <stop offset="0" stop-color="#F0070C" />
-            <stop offset=".526" stop-color="#CC26D5" />
-            <stop offset="1" stop-color="#7702FF" />
-          </linearGradient>
-          <clipPath id="a"><path fill="#fff" d="M0 0h982v239H0z" /></clipPath>
-        </defs>
-      </svg>
-      <h1>Hello, {{ title }}</h1>
-      <p>Congratulations! Your app is running. 🎉</p>
-    </div>
-    <div class="divider" role="separator" aria-label="Divider"></div>
-    <div class="right-side">
-      <div class="pill-group">
-        @for (item of [
-          { title: 'Explore the Docs', link: 'https://angular.dev' },
-          { title: 'Learn with Tutorials', link: 'https://angular.dev/tutorials' },
-          { title: 'CLI Docs', link: 'https://angular.dev/tools/cli' },
-          { title: 'Angular Language Service', link: 'https://angular.dev/tools/language-service' },
-          { title: 'Angular DevTools', link: 'https://angular.dev/tools/devtools' },
-        ]; track item.title) {
-          <a
-            class="pill"
-            [href]="item.link"
-            target="_blank"
-            rel="noopener"
-          >
-            <span>{{ item.title }}</span>
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              height="14"
-              viewBox="0 -960 960 960"
-              width="14"
-              fill="currentColor"
-            >
-              <path
-                d="M200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h280v80H200v560h560v-280h80v280q0 33-23.5 56.5T760-120H200Zm188-212-56-56 372-372H560v-80h280v280h-80v-144L388-332Z"
-              />
-            </svg>
-          </a>
-        }
+  <div class="main-shell">
+    <header class="topbar">
+      <div class="brand-word"><strong>青日茶所<span>QINGRI TEA</span></strong><span class="top-divider"></span><span>門市營運系統</span></div>
+      <div class="top-right"><span class="date-label">{{ todayLabel }}</span>
+        @if (api.staff(); as staff) {
+          <span class="staff-avatar" aria-hidden="true">{{ staff.name.slice(0, 1) }}</span><span class="staff-name">{{ staff.name }}<small>員工 {{ staff.staffId }}</small></span>
+          <button class="text-button" [disabled]="busy" (click)="logout()">登出</button>
+        } @else { <button class="button small primary" (click)="openLogin()">員工登入 <span aria-hidden="true">↗</span></button> }
       </div>
-      <div class="social-links">
-        <a
-          href="https://github.com/angular/angular"
-          aria-label="Github"
-          target="_blank"
-          rel="noopener"
-        >
-          <svg
-            width="25"
-            height="24"
-            viewBox="0 0 25 24"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-            alt="Github"
-          >
-            <path
-              d="M12.3047 0C5.50634 0 0 5.50942 0 12.3047C0 17.7423 3.52529 22.3535 8.41332 23.9787C9.02856 24.0946 9.25414 23.7142 9.25414 23.3871C9.25414 23.0949 9.24389 22.3207 9.23876 21.2953C5.81601 22.0377 5.09414 19.6444 5.09414 19.6444C4.53427 18.2243 3.72524 17.8449 3.72524 17.8449C2.61064 17.082 3.81137 17.0973 3.81137 17.0973C5.04697 17.1835 5.69604 18.3647 5.69604 18.3647C6.79321 20.2463 8.57636 19.7029 9.27978 19.3881C9.39052 18.5924 9.70736 18.0499 10.0591 17.7423C7.32641 17.4347 4.45429 16.3765 4.45429 11.6618C4.45429 10.3185 4.9311 9.22133 5.72065 8.36C5.58222 8.04931 5.16694 6.79833 5.82831 5.10337C5.82831 5.10337 6.85883 4.77319 9.2121 6.36459C10.1965 6.09082 11.2424 5.95546 12.2883 5.94931C13.3342 5.95546 14.3801 6.09082 15.3644 6.36459C17.7023 4.77319 18.7328 5.10337 18.7328 5.10337C19.3942 6.79833 18.9789 8.04931 18.8559 8.36C19.6403 9.22133 20.1171 10.3185 20.1171 11.6618C20.1171 16.3888 17.2409 17.4296 14.5031 17.7321C14.9338 18.1012 15.3337 18.8559 15.3337 20.0084C15.3337 21.6552 15.3183 22.978 15.3183 23.3779C15.3183 23.7009 15.5336 24.0854 16.1642 23.9623C21.0871 22.3484 24.6094 17.7341 24.6094 12.3047C24.6094 5.50942 19.0999 0 12.3047 0Z"
-            />
-          </svg>
-        </a>
-        <a
-          href="https://twitter.com/angular"
-          aria-label="Twitter"
-          target="_blank"
-          rel="noopener"
-        >
-          <svg
-            width="24"
-            height="24"
-            viewBox="0 0 24 24"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-            alt="Twitter"
-          >
-            <path
-              d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"
-            />
-          </svg>
-        </a>
-        <a
-          href="https://www.youtube.com/channel/UCbn1OgGei-DV7aSRo_HaAiw"
-          aria-label="Youtube"
-          target="_blank"
-          rel="noopener"
-        >
-          <svg
-            width="29"
-            height="20"
-            viewBox="0 0 29 20"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-            alt="Youtube"
-          >
-            <path
-              fill-rule="evenodd"
-              clip-rule="evenodd"
-              d="M27.4896 1.52422C27.9301 1.96749 28.2463 2.51866 28.4068 3.12258C29.0004 5.35161 29.0004 10 29.0004 10C29.0004 10 29.0004 14.6484 28.4068 16.8774C28.2463 17.4813 27.9301 18.0325 27.4896 18.4758C27.0492 18.9191 26.5 19.2389 25.8972 19.4032C23.6778 20 14.8068 20 14.8068 20C14.8068 20 5.93586 20 3.71651 19.4032C3.11363 19.2389 2.56449 18.9191 2.12405 18.4758C1.68361 18.0325 1.36732 17.4813 1.20683 16.8774C0.613281 14.6484 0.613281 10 0.613281 10C0.613281 10 0.613281 5.35161 1.20683 3.12258C1.36732 2.51866 1.68361 1.96749 2.12405 1.52422C2.56449 1.08095 3.11363 0.76113 3.71651 0.596774C5.93586 0 14.8068 0 14.8068 0C14.8068 0 23.6778 0 25.8972 0.596774C26.5 0.76113 27.0492 1.08095 27.4896 1.52422ZM19.3229 10L11.9036 5.77905V14.221L19.3229 10Z"
-            />
-          </svg>
-        </a>
-      </div>
-    </div>
+    </header>
+
+    <main id="main-content">
+      @if (preview) {
+        <div class="preview-bar"><span class="status-dot"></span><strong>介面預覽</strong><span>使用範例菜單試選飲品；登入後即可建立門市訂單。</span><button class="text-button" (click)="openLogin()">登入工作台 →</button></div>
+      }
+      @if (error) { <div class="alert error" role="alert">{{ error }}<button class="text-button" (click)="error = ''" aria-label="關閉錯誤訊息">×</button></div> }
+      @if (notice) { <div class="notice" role="status"><span>✓ {{ notice }}</span><button class="text-button" (click)="notice = ''" aria-label="關閉提示">×</button></div> }
+      @if (pending && !checkoutOpen) { <div class="alert warning" role="status"><span>前次送單結果待確認，已保留原內容，避免重複建單。</span><button class="text-button" (click)="openCheckout()">繼續確認 →</button></div> }
+
+      @if (view === 'pos') {
+        <div class="pos-layout">
+          <section class="menu-section" aria-labelledby="menu-title">
+            <div class="page-heading"><div><p class="eyebrow">A GOOD DAY STARTS WITH TEA</p><h1 id="menu-title">今天，來杯好茶。</h1><p class="heading-description">選一杯喜歡的，調成剛剛好的味道。</p></div><span class="section-number">01 / 點餐</span></div>
+            <div class="menu-toolbar"><div class="category-tabs" role="group" aria-label="飲品分類">@for (item of categories; track item) { <button [class.selected]="category === item" [attr.aria-pressed]="category === item" (click)="category = item">{{ item }} @if (item === '全部飲品') { <span>{{ menu.products.length }}</span> }</button> }</div>
+              <label class="search-box"><span aria-hidden="true">⌕</span><input type="search" [(ngModel)]="search" placeholder="搜尋飲品名稱" aria-label="搜尋飲品名稱"></label>
+            </div>
+            <div class="menu-caption"><span>{{ category }} <b>{{ products.length }}</b> 款</span><span>依杯型與加料計價</span></div>
+            <div class="product-grid">
+              @for (drink of products; track drink.product_id) {
+                <button class="product-card" [disabled]="!!pending || busy" (click)="openProduct(drink)" [attr.aria-label]="'客製 ' + drink.name">
+                  <div class="product-art" [class.milk]="drink.category === '奶茶'" [class.fruit]="drink.category === '冰沙'" [class.green]="drink.name.includes('綠茶')">
+                    <span class="art-category">{{ drink.category }}</span><span class="art-circle"></span>
+                    <div class="tea-cup" [class.pearls]="drink.name.includes('珍珠')"><span class="straw"></span><div class="cup-lid"></div><div class="cup-body"><span class="cup-logo">青日<small>QINGRI</small></span></div><span class="cup-shadow"></span></div>
+                    <span class="art-note">{{ drink.hot_allowed ? 'COLD / HOT' : 'COLD ONLY' }}</span>
+                  </div>
+                  <div class="product-info"><div><span class="product-category">{{ drink.category }}</span><h2>{{ drink.name }}</h2><p>{{ drink.hot_allowed ? '冰飲・溫飲・熱飲' : '沁涼冰飲・固定冰甜' }}</p></div><div class="product-bottom"><span class="price">{{ money(drink.base_price) }}<small> 起</small></span><span class="add-circle" aria-hidden="true">＋</span></div></div>
+                </button>
+              } @empty { <div class="empty-search"><span aria-hidden="true">⌕</span><h2>沒有找到這款飲品</h2><p>試試其他名稱，或切換飲品分類。</p><button class="text-button" (click)="search = ''; category = '全部飲品'">顯示全部飲品</button></div> }
+            </div>
+            <div class="menu-footnote"><span class="mini-leaf" aria-hidden="true">✳</span><span>每一杯的冰甜與加料，都可以在選購時調整。</span><span class="foot-brand">QINGRI · DAILY TEA</span></div>
+          </section>
+
+          <aside class="cart-panel" aria-labelledby="cart-title">
+            <div class="cart-header"><div><p class="eyebrow">CURRENT ORDER</p><h2 id="cart-title">本次點餐 <span>{{ cups }}</span></h2></div><span class="cart-label">{{ preview ? '預覽' : '新訂單' }}</span></div>
+            <div class="source-tabs" role="group" aria-label="訂單來源">
+              <button [class.selected]="source === 'DINE_IN'" [disabled]="!!pending" (click)="source = 'DINE_IN'">內用</button>
+              <button [class.selected]="source === 'TAKE_OUT'" [disabled]="!!pending" (click)="source = 'TAKE_OUT'">外帶</button>
+              <button [class.selected]="source === 'PHONE_DELIVERY'" [disabled]="!!pending" (click)="source = 'PHONE_DELIVERY'">電話外送</button>
+              <button [class.selected]="source === 'UBER_EATS'" [disabled]="!!pending" (click)="source = 'UBER_EATS'">Uber Eats</button>
+            </div>
+            <div class="cart-lines">
+              @for (line of cart; track line.key; let index = $index) {
+                <article class="cart-line"><span class="line-number">{{ (index + 1).toString().padStart(2, '0') }}</span><div class="line-content"><div class="line-title"><button class="text-button" [disabled]="!!pending || busy" (click)="openProduct(line.product, line)">{{ line.product.name }}</button><strong>{{ money(line.unitCents * line.qty / 100) }}</strong></div><p>{{ sizes[line.size] }} / {{ temperatures[line.temperature] }} / {{ sugars[line.sugar] }} / {{ ices[line.ice] }}</p>@if (line.toppingIds.length) { <p class="topping-note">＋{{ toppingsText(line.toppingIds) }}</p> }@if (line.note) { <p>備註：{{ line.note }}</p> }
+                  <div class="line-actions"><div class="quantity-stepper"><button aria-label="減少一杯" [disabled]="line.qty <= 1 || !!pending || busy" (click)="quantity(line, -1)">−</button><span>{{ line.qty }}</span><button aria-label="增加一杯" [disabled]="line.qty >= 100 || !!pending || busy" (click)="quantity(line, 1)">＋</button></div><button class="remove-button" [disabled]="!!pending || busy" (click)="remove(line)" [attr.aria-label]="'移除 ' + line.product.name">移除</button></div>
+                </div></article>
+              } @empty { <div class="empty-cart"><div class="empty-cup" aria-hidden="true">♧</div><h3>好茶，從這裡開始。</h3><p>點選左側飲品，<br>加入今天的第一杯。</p><span>YOUR NEXT FAVORITE CUP</span></div> }
+            </div>
+            <div class="cart-footer"><label class="note-input"><span>訂單備註 <small>選填</small></span><textarea rows="2" [(ngModel)]="orderNote" maxlength="255" [disabled]="!!pending || busy" placeholder="例如：分開裝袋"></textarea></label><div class="subtotal"><span>品項小計 · {{ cups }} 杯</span><span>{{ money(totalCents / 100) }}</span></div><div class="grand-total"><span>合計金額</span><strong>{{ money(totalCents / 100) }}</strong></div><button class="button primary checkout-button" [disabled]="!cart.length || busy" (click)="openCheckout()"><span>{{ pending ? '繼續確認送單' : preview ? '登入後結帳' : '前往結帳' }}</span><span aria-hidden="true">→</span></button><p class="cart-hint">{{ preview ? '預覽不會建立訂單或扣除庫存' : '結帳時確認金額與可用庫存' }}</p></div>
+          </aside>
+        </div>
+        @if (lastOrder) { <section class="success-card" role="status"><div><p class="eyebrow">ORDER CONFIRMED</p><h2>訂單已建立 · #{{ lastOrder.order_id }}</h2><p>合計 {{ money(lastOrder.total) }} · {{ paymentText(lastOrder) }} @if (lastOrder.payment === 'CASH') { <span>・找零 {{ money(lastOrder.change_cash ?? 0) }}</span> }</p></div><button class="button secondary" [disabled]="busy" (click)="showLastOrder()">查看訂單 →</button></section> }
+      } @else {
+        <div class="page-heading order-heading"><div><p class="eyebrow">EVERY CUP, WELL TAKEN CARE OF</p><h1>訂單管理</h1><p class="heading-description">待處理看製作、待取餐看交付，完整訂單保留在當日紀錄。</p></div>@if (!preview) { <div class="date-filter"><label for="order-date">營業日</label><input id="order-date" type="date" [(ngModel)]="orderDate" [disabled]="busy || orderLoading" (change)="changeOrderDate()"><button class="button secondary small" [disabled]="orderLoading || busy" (click)="loadOrders()">重新整理</button></div> }</div>
+        @if (preview) { <section class="signin-prompt"><span class="leaf-mark" aria-hidden="true">✳</span><h2>登入後，照顧每一張訂單。</h2><p>使用員工帳號查看門市訂單與製作狀態。</p><button class="button primary" (click)="openLogin()">員工登入 →</button></section> }
+        @else {
+          <nav class="order-tabs" aria-label="訂單篩選">@for (tab of orderTabs; track tab.key) { <button [class.selected]="orderTab === tab.key" [attr.aria-pressed]="orderTab === tab.key" [disabled]="busy" (click)="selectOrderTab(tab.key)">{{ tab.label }} <span>{{ orderLoading ? '…' : orderCount(tab.key) }}</span></button> }</nav>
+          <p class="order-filter-note">{{ orderDate }} · {{ orderTab === 'active' ? '顯示待製作與製作中的訂單。' : orderTab === 'ready' ? '顯示已做好、尚未全部取餐的訂單。' : '保留當天全部訂單，包含已取餐、取消及棄單；可切換營業日查詢。' }}</p>
+          <div class="orders-layout"><section class="order-list" aria-label="訂單列表">@if (orderLoading) { <p class="loading-state" role="status">正在讀取訂單…</p> } @else { @for (order of visibleOrders; track order.order_id) { <button class="order-row" [class.selected]="selectedOrder?.order_id === order.order_id" [disabled]="busy" (click)="showOrder(order.order_id)"><div><strong>#{{ order.order_id }}</strong><span class="status-tag" [attr.data-status]="order.status">{{ statuses[order.status] || order.status }}</span></div><p>{{ sources[order.source] }} · {{ paymentText(order) }} · {{ time(order.created_at) }}</p><div><span>品項金額</span><strong>保留 {{ money(order.total) }}</strong></div>@if (isPaid(order)) { <p>淨收款 {{ money(netReceived(order)) }}</p> }</button> } @empty { <div class="empty-state"><h3>{{ emptyOrdersTitle }}</h3><p>{{ orderTab === 'history' ? '可以切換營業日，或回點餐頁建立訂單。' : '可切換上方頁籤查看其他進度或完整紀錄。' }}</p></div> } }</section>
+          <section class="order-detail" aria-label="訂單明細">@if (selectedOrder; as order) { <div class="detail-heading"><div><p class="eyebrow">ORDER DETAILS</p><h2>訂單 #{{ order.order_id }}</h2><p>{{ order.business_date }} · {{ time(order.created_at) }} · {{ sources[order.source] }}</p></div><span class="status-tag" [attr.data-status]="order.status">{{ statuses[order.status] }}</span></div>
+            <div class="payment-record bulk-actions" aria-label="整單操作">
+              <strong>整單操作</strong><div class="choice-row">
+                <button class="button small secondary" [disabled]="busy || !hasStatus(order, 'PENDING')" (click)="advanceAll('MAKING')">全部開始製作</button>
+                <button class="button small secondary" [disabled]="busy || !hasStatus(order, 'MAKING')" (click)="advanceAll('DONE')">全部製作完成</button>
+                <button class="button small primary" [disabled]="busy || !canPickUpAll(order)" (click)="advanceAll('PICKED_UP')">整單取餐</button>
+              </div><small>批次製作僅推進符合狀態的品項；整單取餐須全部完成且已收款。下方仍可逐項操作，同筆多杯一起處理。</small>
+            </div>
+            @for (item of order.items; track item.item_id) { <article class="detail-line"><div class="line-title"><h3>{{ item.product_name }} <small>× {{ item.qty }}</small></h3><strong>{{ money(item.unit_price * item.qty) }}</strong></div><p>{{ sizes[item.size] }} / {{ temperatures[item.temperature] }} / {{ sugars[item.sugar] }} / {{ ices[item.ice] }}</p>@for (topping of item.toppings; track topping.order_topping_id) { <span class="topping-pill">＋{{ topping.topping_name }}</span> }@if (item.note) { <p>備註：{{ item.note }}</p> }<div class="detail-actions"><span class="status-tag" [attr.data-status]="item.status">{{ statuses[item.status] }}</span>@if (nextStatus(item)) { <button class="button small secondary" [disabled]="busy || (item.status === 'DONE' && !isPaid(order))" (click)="advance(item)">{{ item.status === 'DONE' ? '此項取餐' : nextLabel(item) }}</button> }@if (canCancel(item)) { <button class="text-button danger-text" [disabled]="busy" (click)="openCancel(item)">取消／棄單</button> }@if (item.status === 'WASTED') { <button class="button small secondary" [disabled]="busy" (click)="openPhoto(item)">{{ item.photo_url ? '查看照片' : '損耗照片' }}</button> }</div>@if (item.reason) { <p class="reason-note">原因：{{ item.reason }}</p><p class="detail-meta">退款 {{ money(item.refund_amount ?? 0) }} @if (item.status === 'WASTED') { · 原料損耗 {{ costText([item]) }} }</p> }</article> }
+            <div class="order-totals"><span>保留品項合計</span><strong>{{ money(order.total) }}</strong></div><div class="payment-record"><p>{{ paymentText(order) }}</p><p>已收款（扣除找零） {{ money(paidAmount(order)) }} · 已退款 {{ money(order.refunded_amount ?? 0) }}</p><p>淨收款 {{ money(netReceived(order)) }} · 原料損耗估算 {{ wasteCost(order) }}</p>@if (order.received_cash !== null) { <p>原實收現金 {{ money(order.received_cash) }} · 原找零 {{ money(order.received_cash - paidAmount(order)) }}</p> }<small>原料估算含杯材與加料；不含人事、租金等費用，並非店內淨損益。舊訂單若無成本快照則顯示未建檔。</small>@if (!isPaid(order) && order.status !== 'CANCELLED') { <p>尚未收款，請收款後再完成取餐。</p><button class="button primary" [disabled]="busy" (click)="openCollect(order)">收款 {{ money(order.total) }}</button> }</div>@if (order.note) { <p class="detail-meta">訂單備註：{{ order.note }}</p> }@if (canCancelWhole(order)) { <button class="button danger-outline" [disabled]="busy" (click)="openCancel(null)">取消整張訂單</button> }
+          } @else { <div class="empty-state detail-placeholder"><span aria-hidden="true">≡</span><h3>選擇一張訂單</h3><p>在這裡查看飲品、製作進度與取消紀錄。</p></div> }</section>
+        </div> }
+      }
+      <footer class="page-footer"><span>青日茶所 · 門市工作台</span><span>用心做好每一杯。</span></footer>
+    </main>
   </div>
-</main>
+</div>
 
-<!-- * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * -->
-<!-- * * * * * * * * * * * The content above * * * * * * * * * * * * -->
-<!-- * * * * * * * * * * is only a placeholder * * * * * * * * * * * -->
-<!-- * * * * * * * * * * and can be replaced.  * * * * * * * * * * * -->
-<!-- * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * -->
-<!-- * * * * * * * * * * End of Placeholder  * * * * * * * * * * * * -->
-<!-- * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * -->
+@if (loginOpen) {
+  <app-modal title="歡迎回來，準備好茶。" subtitle="STAFF SIGN IN · 員工登入" [busy]="busy" (dismissed)="loginOpen = false; password = ''">
+    <form (ngSubmit)="login()"><div class="modal-body"><p class="form-intro">使用你的門市員工帳號登入工作台。</p>@if (modalError) { <p class="alert error" role="alert">{{ modalError }}</p> }<label class="field">員工帳號<input name="username" [(ngModel)]="username" autocomplete="username" placeholder="請輸入員工帳號" required [disabled]="busy" autofocus></label><label class="field">密碼<input name="password" type="password" [(ngModel)]="password" autocomplete="current-password" placeholder="請輸入密碼" required [disabled]="busy"></label><p class="muted small-copy">帳號由門市管理人員建立。離職或停用帳號無法登入。</p></div><div class="modal-footer"><button type="button" class="button secondary" [disabled]="busy" (click)="loginOpen = false; password = ''">繼續預覽</button><button type="submit" class="button primary" [disabled]="busy || !username.trim() || !password">{{ busy ? '登入中…' : '登入工作台 →' }}</button></div></form>
+  </app-modal>
+}
+@if (product; as current) {
+  <app-modal [title]="current.name" subtitle="MAKE IT YOURS · 飲品客製" (dismissed)="product = null">
+    <div class="modal-body customizer">@if (modalError) { <p class="alert error" role="alert">{{ modalError }}</p> }@if (adjustment) { <p class="alert warning" role="status">{{ adjustment }}</p> }
+      <fieldset><legend>杯型</legend><div class="choice-row">@for (value of sizeOptions; track value) { <button [class.selected]="selection.size === value" [attr.aria-pressed]="selection.size === value" (click)="choose('size', value)">{{ sizes[value] }} <small>{{ money(current.base_price + (value === 'L' ? current.large_extra : 0)) }}</small></button> }</div></fieldset>
+      <fieldset><legend>溫度</legend><div class="choice-row">@for (value of temperatureOptions; track value) { <button [class.selected]="selection.temperature === value" [disabled]="!!locked['temperature'] || (!current.hot_allowed && value !== 'COLD')" [attr.aria-pressed]="selection.temperature === value" (click)="choose('temperature', value)">{{ temperatures[value] }}</button> }</div>@if (locked['temperature']) { <p class="field-hint">{{ locked['temperature'] }}</p> }</fieldset>
+      <fieldset><legend>甜度</legend><div class="choice-row">@for (value of sugarOptions; track value) { <button [class.selected]="selection.sugar === value" [disabled]="!!locked['sugar']" [attr.aria-pressed]="selection.sugar === value" (click)="choose('sugar', value)">{{ sugars[value] }}</button> }</div>@if (locked['sugar']) { <p class="field-hint">{{ locked['sugar'] }}</p> }</fieldset>
+      <fieldset><legend>冰量</legend><div class="choice-row">@for (value of iceOptions; track value) { <button [class.selected]="selection.ice === value" [disabled]="!!locked['ice']" [attr.aria-pressed]="selection.ice === value" (click)="choose('ice', value)">{{ ices[value] }}</button> }</div>@if (locked['ice']) { <p class="field-hint">{{ locked['ice'] }}</p> }</fieldset>
+      <fieldset><legend>額外加料 <small>可複選</small></legend><div class="topping-choices">@for (topping of menu.toppings; track topping.topping_id) { <div><button [class.selected]="selection.toppingIds.includes(topping.topping_id)" [disabled]="!!toppingReason(topping.topping_id)" [attr.aria-pressed]="selection.toppingIds.includes(topping.topping_id)" [attr.title]="toppingReason(topping.topping_id)" (click)="toggleTopping(topping.topping_id)"><span>{{ topping.name }}</span><span>＋{{ money(topping.price) }}</span></button>@if (toppingReason(topping.topping_id)) { <p class="field-hint">{{ toppingReason(topping.topping_id) }}</p> }</div> }</div></fieldset>
+      <div class="quantity-note"><label class="field">杯數<input type="number" [(ngModel)]="selection.qty" min="1" max="100" step="1" aria-label="杯數"></label><label class="field">單品備註<input [(ngModel)]="selection.note" maxlength="255" placeholder="例如：分開封膜"></label></div>
+    </div><div class="modal-footer"><div class="modal-price"><small>含加料，每杯 {{ money(selectedUnitCents / 100) }}</small><strong>{{ money(selectedUnitCents * (selection.qty || 0) / 100) }}</strong></div><button class="button primary" (click)="addToCart()">{{ editingKey ? '儲存修改' : '加入本次點餐' }} ＋</button></div>
+  </app-modal>
+}
+@if (checkoutOpen) {
+  <app-modal title="確認這一單。" subtitle="CHECKOUT · 結帳" [busy]="busy" (dismissed)="checkoutOpen = false">
+    <div class="modal-body">@if (modalError) { <p class="alert error" role="alert">{{ modalError }}</p> }@if (pending) { <p class="alert warning">本次送單內容已保留，可以繼續確認送單結果。</p> }<div class="checkout-summary"><span>{{ sources[source] }} · {{ cups }} 杯</span><strong>{{ money(totalCents / 100) }}</strong></div><fieldset><legend>收款時間</legend><div class="choice-row"><button [class.selected]="!unpaid" [disabled]="busy || !!pending" (click)="unpaid = false">現在收款</button><button [class.selected]="unpaid" [disabled]="busy || !!pending" (click)="unpaid = true; received = null">先接單，稍後收款</button></div></fieldset>@if (!unpaid) { <fieldset><legend>付款方式</legend><div class="choice-row payments">@for (method of paymentOptions; track method) { <button [class.selected]="payment === method" [disabled]="busy || !!pending" (click)="payment = method; received = null">{{ payments[method] }}</button> }</div></fieldset>@if (payment === 'CASH') { <label class="field">實收現金<input type="number" [(ngModel)]="received" min="0" max="99999999.99" step="0.01" placeholder="請輸入收到的金額" [disabled]="busy || !!pending"></label><div class="change-line"><span>預計找零</span><strong>{{ money(changeCents / 100) }}</strong></div> }<p class="muted small-copy">請先確認已收到款項，再完成結帳。其他付款方式由店員確認收款結果。</p> } @else { <p class="alert warning">本次只接單並扣料，尚未收款。之後請至訂單管理收款；取消時不需退款。</p> }</div><div class="modal-footer"><button class="button secondary" [disabled]="busy" (click)="checkoutOpen = false">返回點餐</button><button class="button primary" [disabled]="busy" (click)="checkout()">{{ busy ? '正在確認訂單…' : pending ? '重試同一筆送單' : unpaid ? '確認接單（未付款） →' : '確認收款並送單 →' }}</button></div>
+  </app-modal>
+}
+@if (cancelTarget; as target) {
+  <app-modal title="取消／棄單確認" subtitle="ORDER CANCELLATION" [busy]="busy" (dismissed)="cancelTarget = null">
+    <div class="modal-body">@if (modalError) { <p class="alert error" role="alert">{{ modalError }}</p> }<p class="form-intro">{{ target.item ? target.item.product_name + '，共 ' + target.item.qty + ' 杯' : '訂單 #' + target.order.order_id + ' 的所有未取消品項' }}</p><div class="alert warning">{{ hasMadeItems ? '含已開始製作的飲品，轉損耗後不回補原料，並記錄目前操作員工。' : '尚未製作的飲品取消後，會回補已扣原料。' }} 同一筆明細的杯數會一起取消。</div><label class="field">常用原因<select [(ngModel)]="cancelReasonChoice" [disabled]="busy"><option value="">請選擇，或直接在下方手填</option>@for (reason of cancelReasonOptions; track reason) { <option [value]="reason">{{ reason }}</option> }</select></label>
+      <label class="field">{{ cancelReasonChoice === '其他' ? '其他原因（必填）' : cancelReasonChoice ? '補充說明（選填）' : '自行填寫原因' }}<textarea rows="3" [(ngModel)]="cancelReason" [maxLength]="cancelNoteMaxLength" [disabled]="busy" placeholder="可以自行填寫，也可以補充常用原因的細節"></textarea></label>
+      @if (combinedCancelReason) { <p class="reason-preview">將記錄：{{ combinedCancelReason }}<small>{{ combinedCancelReason.length }} / 255 字</small></p> }
+      @if (combinedCancelReason.length > 255) { <p class="alert error" role="alert">原因與補充說明合計最多 255 字，請縮短內容。</p> }<div class="payment-record">@if (isPaid(target.order)) { <p><strong>已付款</strong> · 尚可退還的已收款 {{ money(netReceived(target.order)) }}</p><div class="choice-row"><button [class.selected]="wantsRefund" [disabled]="busy || refundAmount <= 0" (click)="wantsRefund = true; refundConfirmed = false">需要退款</button><button [class.selected]="!wantsRefund" [disabled]="busy" (click)="wantsRefund = false; refundConfirmed = false">不退款</button></div>@if (wantsRefund && refundAmount > 0) { <label class="field">本次退款金額（上限 {{ money(refundAmount) }}）<input type="number" [(ngModel)]="refundInput" (ngModelChange)="refundConfirmed = false" min="0.01" [max]="refundAmount" step="0.01" [disabled]="busy"></label><label class="confirmation"><input type="checkbox" [(ngModel)]="refundConfirmed" [disabled]="busy"><span>已完成 {{ money(actualRefund) }} 的人工退款，確認後記錄。</span></label> } @else { <p>本次退款 {{ money(0) }}，保留原收款紀錄。</p> } } @else { <p><strong>尚未收款，本次不需退款。</strong></p><p>{{ hasMadeItems ? '未收款棄單：飲品已製作，將記錄原料損耗。' : '取消後回補原料，本次原料損耗為 $0。' }}</p> }<p>本次原料損耗估算：<strong>{{ cancelCost }}</strong></p><small>售價、退款與原料成本分開記錄；未收取的售價不會再加進原料損耗。</small></div></div><div class="modal-footer"><button class="button secondary" [disabled]="busy" (click)="cancelTarget = null">保留訂單</button><button class="button danger" [disabled]="busy || !combinedCancelReason || combinedCancelReason.length > 255 || (refundNeedsConfirmation && !refundConfirmed)" (click)="confirmCancel()">{{ busy ? '處理中…' : '確認取消' }}</button></div>
+  </app-modal>
+}
+@if (photoItem; as item) {
+  <app-modal [title]="item.photo_url ? '損耗照片' : '上傳損耗照片'" subtitle="WASTAGE RECORD" [busy]="busy" (dismissed)="closePhoto()"><div class="modal-body">@if (modalError) { <p class="alert error" role="alert">{{ modalError }}</p> }<p class="form-intro">{{ item.product_name }} · {{ item.qty }} 杯</p>@if (photoUrl) { <img class="photo-preview" [src]="photoUrl" alt="損耗照片預覽"> }@if (!item.photo_url) { <div class="photo-actions"><label class="button secondary">選擇照片<input class="sr-only" type="file" accept="image/jpeg,image/png" [disabled]="busy" (change)="choosePhoto($event)"></label><label class="button secondary">拍攝照片<input class="sr-only" type="file" accept="image/jpeg,image/png" capture="environment" [disabled]="busy" (change)="choosePhoto($event)"></label></div><p class="muted small-copy">每筆一張，JPEG／PNG、5 MB 內，最多 1200 萬像素。</p> }</div><div class="modal-footer"><button class="button secondary" [disabled]="busy" (click)="closePhoto()">關閉</button>@if (!item.photo_url) { <button class="button primary" [disabled]="busy || !photoFile" (click)="uploadPhoto()">{{ busy ? '上傳中…' : '確認上傳' }}</button> }</div></app-modal>
+}
 
-
-<router-outlet />
+@if (collecting; as order) {
+  <app-modal title="訂單收款" subtitle="PAYMENT" [busy]="busy" (dismissed)="collecting = null">
+    <div class="modal-body">@if (modalError) { <p class="alert error" role="alert">{{ modalError }}</p> }<div class="checkout-summary"><span>訂單 #{{ order.order_id }} · 尚未收款</span><strong>{{ money(order.total) }}</strong></div><fieldset><legend>付款方式</legend><div class="choice-row">@for (method of paymentOptions; track method) { <button [class.selected]="payment === method" [disabled]="busy" (click)="payment = method; received = null">{{ payments[method] }}</button> }</div></fieldset>@if (payment === 'CASH') { <label class="field">實收現金<input type="number" [(ngModel)]="received" min="0" step="0.01" [disabled]="busy"></label><p>預計找零 {{ money(collectionChange(received, order.total)) }}</p> }<p>請確認已收到款項；信用卡與 LINE Pay 由店員確認，系統只記錄收款。</p></div><div class="modal-footer"><button class="button secondary" [disabled]="busy" (click)="collecting = null">返回訂單</button><button class="button primary" [disabled]="busy" (click)="confirmCollect()">{{ busy ? '確認中…' : '確認已收款' }}</button></div>
+  </app-modal>
+}
