@@ -7,10 +7,11 @@ import { PosApiService, errorMessage } from './services/pos-api.service';
 import { PREVIEW_MENU, PREVIEW_RULES } from './services/preview-menu';
 import { applyRules, initialSelection, toppingLimit, unitCents } from './services/menu-rules';
 import { CartLine, CreateOrder, ICE_LABELS, Ice, ItemStatus, Menu, Order, OrderItem, OrderSummary, PAYMENT_LABELS, Payment, Product, Rule, Selection, SIZE_LABELS, SOURCE_LABELS, STATUS_LABELS, SUGAR_LABELS, Sugar, TEMP_LABELS, Temperature, cents, money, taipeiDate } from './models/pos';
-
+import { MemberSelectorComponent } from './member-selector/member-selector.component';
+import { Member, Source } from './models/pos';
 @Component({
   selector: 'app-root',
-  imports: [CommonModule, FormsModule, ModalComponent],
+  imports: [CommonModule, FormsModule, ModalComponent, MemberSelectorComponent],
   templateUrl: './app.component.html',
   styleUrl: './app.component.scss'
 })
@@ -81,6 +82,8 @@ export class AppComponent implements OnDestroy {
   photoFile: File | null = null;
   photoUrl = '';
   private orderLoad = 0;
+  memberPickerOpen = false;
+  member: Member | null = null;
 
   matchesOrderTab(order: OrderSummary, tab = this.orderTab): boolean {
     return tab === 'history' || (tab === 'active' ? ['PENDING', 'MAKING'].includes(order.status) : order.status === 'DONE');
@@ -246,9 +249,11 @@ export class AppComponent implements OnDestroy {
       if (!this.unpaid && this.payment === 'CASH' && (this.received === null || !Number.isFinite(this.received) || this.received > 99999999.99 || Math.abs(this.received * 100 - Math.round(this.received * 100)) > 0.00001 || cents(this.received) < this.totalCents)) {
         this.modalError = '請輸入足夠的實收現金，金額最多兩位小數。'; return;
       }
-      this.pending = { requestId: crypto.randomUUID(), source: this.source, payment: this.unpaid ? null : this.payment, ...(this.unpaid ? { unpaid: true } : {}), note: this.orderNote.trim(),
+      this.pending = {
+        requestId: crypto.randomUUID(), source: this.source, payment: this.unpaid ? null : this.payment, ...(this.unpaid ? { unpaid: true } : {}), note: this.orderNote.trim(),
         ...(!this.unpaid && this.payment === 'CASH' ? { receivedCash: this.received! } : {}),
-        items: this.cart.map(line => ({ productId: line.product.product_id, size: line.size, temperature: line.temperature, sugar: line.sugar, ice: line.ice, qty: line.qty, toppingIds: [...line.toppingIds], note: line.note })) };
+        items: this.cart.map(line => ({ productId: line.product.product_id, size: line.size, temperature: line.temperature, sugar: line.sugar, ice: line.ice, qty: line.qty, toppingIds: [...line.toppingIds], note: line.note })), ...(this.source === 'PHONE_DELIVERY' && this.member ? { memberPhone: this.member.phone } : {})
+      };
       this.storePending();
     }
     this.busy = true;
@@ -385,4 +390,15 @@ export class AppComponent implements OnDestroy {
   private clearPhoto(): void { if (this.photoUrl) URL.revokeObjectURL(this.photoUrl); this.photoUrl = ''; this.photoItem = null; this.photoFile = null; }
   time(value: string): string { return new Date(value).toLocaleTimeString('zh-TW', { timeZone: 'Asia/Taipei', hour: '2-digit', minute: '2-digit', hour12: false }); }
   ngOnDestroy(): void { this.clearPhoto(); }
+  selectSource(next: Source): void {
+    if (this.pending) return;
+    if (next === 'PHONE_DELIVERY') {
+      if (this.preview) { this.openLogin(); return; }   // 預覽模式沒有 API
+      this.memberPickerOpen = true;                     // 先不改 source
+      return;
+    }
+    this.source = next; this.member = null;
+  }
+  onMemberSelected(m: Member): void { this.member = m; this.source = 'PHONE_DELIVERY'; this.memberPickerOpen = false; }
+  onMemberDismissed(): void { this.memberPickerOpen = false; }  // source 維持原值
 }

@@ -19,7 +19,7 @@ export interface Rule {
 export interface Selection { size: Size; temperature: Temperature; sugar: Sugar; ice: Ice; qty: number; toppingIds: number[]; note: string; }
 export interface CartLine extends Selection { key: string; product: Product; unitCents: number; }
 export interface CreateItem { productId: number; size: Size; temperature: Temperature; sugar: Sugar; ice: Ice; qty: number; toppingIds: number[]; note: string; }
-export interface CreateOrder { requestId: string; source: Source; payment: Payment | null; unpaid?: boolean; receivedCash?: number; note: string; items: CreateItem[]; }
+export interface CreateOrder { requestId: string; source: Source; payment: Payment | null; unpaid?: boolean; receivedCash?: number; note: string; items: CreateItem[]; memberPhone?: string; }
 export interface OrderSummary { order_id: number; order_no: string; business_date: string; source: Source; payment: Payment | null; payment_status?: 'UNPAID' | 'PAID'; paid_amount?: number; refunded_amount?: number; total: number; status: string; created_at: string; }
 export interface OrderItem {
   item_id: number; product_name: string; size: Size; temperature: Temperature; sugar: Sugar; ice: Ice; qty: number; unit_price: number;
@@ -44,4 +44,9 @@ export function taipeiDate(): string {
   const parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts();
   const part = (type: string) => parts.find(p => p.type === type)?.value;
   return `${part('year')}-${part('month')}-${part('day')}`;
+}
+export interface Member {
+  phone: string; name: string; address?: string | null;
+  lat?: number | null; lng?: number | null; note?: string | null;
+  createdAt?: string; updatedAt?: string;
 }

@@ -55,10 +55,10 @@
           <aside class="cart-panel" aria-labelledby="cart-title">
             <div class="cart-header"><div><p class="eyebrow">CURRENT ORDER</p><h2 id="cart-title">本次點餐 <span>{{ cups }}</span></h2></div><span class="cart-label">{{ preview ? '預覽' : '新訂單' }}</span></div>
             <div class="source-tabs" role="group" aria-label="訂單來源">
-              <button [class.selected]="source === 'DINE_IN'" [disabled]="!!pending" (click)="source = 'DINE_IN'">內用</button>
-              <button [class.selected]="source === 'TAKE_OUT'" [disabled]="!!pending" (click)="source = 'TAKE_OUT'">外帶</button>
-              <button [class.selected]="source === 'PHONE_DELIVERY'" [disabled]="!!pending" (click)="source = 'PHONE_DELIVERY'">電話外送</button>
-              <button [class.selected]="source === 'UBER_EATS'" [disabled]="!!pending" (click)="source = 'UBER_EATS'">Uber Eats</button>
+              <button [class.selected]="source === 'DINE_IN'" [disabled]="!!pending" (click)="selectSource('DINE_IN')">內用</button>
+              <button [class.selected]="source === 'TAKE_OUT'" [disabled]="!!pending" (click)="selectSource('TAKE_OUT')">外帶</button>
+              <button [class.selected]="source === 'PHONE_DELIVERY'" [disabled]="!!pending" (click)="selectSource('PHONE_DELIVERY')">電話外送</button>
+              <button [class.selected]="source === 'UBER_EATS'" [disabled]="!!pending" (click)="selectSource('UBER_EATS')">Uber Eats</button>
             </div>
             <div class="cart-lines">
               @for (line of cart; track line.key; let index = $index) {
@@ -134,4 +134,7 @@
   <app-modal title="訂單收款" subtitle="PAYMENT" [busy]="busy" (dismissed)="collecting = null">
     <div class="modal-body">@if (modalError) { <p class="alert error" role="alert">{{ modalError }}</p> }<div class="checkout-summary"><span>訂單 #{{ order.order_id }} · 尚未收款</span><strong>{{ money(order.total) }}</strong></div><fieldset><legend>付款方式</legend><div class="choice-row">@for (method of paymentOptions; track method) { <button [class.selected]="payment === method" [disabled]="busy" (click)="payment = method; received = null">{{ payments[method] }}</button> }</div></fieldset>@if (payment === 'CASH') { <label class="field">實收現金<input type="number" [(ngModel)]="received" min="0" step="0.01" [disabled]="busy"></label><p>預計找零 {{ money(collectionChange(received, order.total)) }}</p> }<p>請確認已收到款項；信用卡與 LINE Pay 由店員確認，系統只記錄收款。</p></div><div class="modal-footer"><button class="button secondary" [disabled]="busy" (click)="collecting = null">返回訂單</button><button class="button primary" [disabled]="busy" (click)="confirmCollect()">{{ busy ? '確認中…' : '確認已收款' }}</button></div>
   </app-modal>
+}
+@if (memberPickerOpen) {
+  <app-member-selector (selected)="onMemberSelected($event)" (dismissed)="memberPickerOpen = false" />
 }

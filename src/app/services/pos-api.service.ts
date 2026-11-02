@@ -1,7 +1,7 @@
 import { HttpClient, HttpErrorResponse, HttpHeaders } from '@angular/common/http';
 import { Injectable, inject, signal } from '@angular/core';
 import { firstValueFrom, Observable, timeout, TimeoutError } from 'rxjs';
-import { CancelRequest, CreateOrder, ItemStatus, Menu, Order, OrderSummary, Payment, Rule, Staff } from '../models/pos';
+import { CancelRequest, CreateOrder, ItemStatus, Member, Menu, Order, OrderSummary, Payment, Rule, Staff } from '../models/pos';
 
 export const API_TIMEOUT_MS = 15000;
 
@@ -48,6 +48,16 @@ export class PosApiService {
   }
   photo(id: number, itemId: number): Promise<Blob> {
     return this.wait(this.http.get(`/api/orders/${id}/items/${itemId}/photo`, { headers: this.headers, responseType: 'blob' }));
+  }
+  // 會員api
+  searchMembers(keyword: string): Promise<Member[]> {
+    return this.wait(this.http.get<Member[]>('/api/members', { headers: this.headers, params: { keyword } }));
+  }
+  member(phone: string): Promise<Member> {
+    return this.wait(this.http.get<Member>(`/api/members/${encodeURIComponent(phone)}`, { headers: this.headers }));
+  }
+  createMember(body: Omit<Member, 'createdAt' | 'updatedAt'>): Promise<Member> {
+    return this.wait(this.http.post<Member>('/api/members', body, { headers: this.headers }));
   }
 }
 
