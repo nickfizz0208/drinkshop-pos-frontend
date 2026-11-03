@@ -1555,3 +1555,49 @@ h1 {
   line-height: 1.7;
   margin: 12px 0 18px;
 }
+
+.member-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 20px 7px;
+  padding: 11px 12px 11px 14px;
+  background: var(--bg-card-sub);
+  border: 1px solid var(--border-color);
+  border-radius: 9px;
+}
+
+.member-card-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.member-card-info strong {
+  font-size: 13px;
+  color: var(--text-main);
+}
+
+.member-card-info span {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.5px;
+}
+
+.member-card-info small {
+  font-size: 11px;
+  color: var(--text-sub);
+  line-height: 1.5;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.member-card .text-button {
+  flex-shrink: 0;
+  font-size: 12px;
+  padding: 6px 8px;
+}

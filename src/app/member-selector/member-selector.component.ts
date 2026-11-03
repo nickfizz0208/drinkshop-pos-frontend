@@ -3,7 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { Member } from '../models/pos';
 import { ModalComponent } from '../shared/modal.component';
 import { MemberService } from '../services/member.service';
-import { errorMessage, PosApiService } from '../services/pos-api.service';
+import { errorMessage} from '../services/pos-api.service';
 
 @Component({
   selector: 'app-member-selector',
@@ -25,8 +25,6 @@ export class MemberSelectorComponent implements OnDestroy {
   private timer?: ReturnType<typeof setTimeout>;
   private searchToken = 0;
 
-  get digits(): string { return this.phone.replace(/\D/g, ''); }
-
   onPhoneInput(input: HTMLInputElement): void {
     const value = input.value.replace(/\D/g, '');
     input.value = value;          // 直接改畫面上的值，打 - 會馬上消失
@@ -34,13 +32,13 @@ export class MemberSelectorComponent implements OnDestroy {
     clearTimeout(this.timer);
     const token = ++this.searchToken;
     this.error = '';
-    if (this.digits.length < this.minDigits) {
+    if (this.phone.length < this.minDigits) {
       this.results = []; this.searched = false; this.loading = false;
       return;
     }
     this.loading = true;
     // 停止輸入 300ms 後才搜尋，避免每按一個鍵就打一次 API。
-    this.timer = setTimeout(() => void this.search(this.digits, token), 300);
+    this.timer = setTimeout(() => void this.search(this.phone, token), 300);
   }
 
   private async search(digits: string, token: number): Promise<void> {

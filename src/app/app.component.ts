@@ -229,17 +229,18 @@ export class AppComponent implements OnDestroy {
   }
   private pendingKey(): string { return 'qingri.pending.' + this.api.staff()?.staffId; }
   private storePending(): void {
-    try { sessionStorage.setItem(this.pendingKey(), JSON.stringify({ request: this.pending, cart: this.cart })); }
+    try { sessionStorage.setItem(this.pendingKey(), JSON.stringify({ request: this.pending, cart: this.cart, member: this.member })); }
     catch { /* In-memory retry remains available if browser storage is blocked. */ }
   }
-  private clearPending(): void { try { sessionStorage.removeItem(this.pendingKey()); } catch { /* Storage is optional. */ } this.pending = null; }
+  private clearPending(): void { try { sessionStorage.removeItem(this.pendingKey()); } catch { /* Storage is optional. */ } this.pending = null; this.member = null; this.source = 'DINE_IN'; }
   private restorePending(): void {
     try {
       const raw = sessionStorage.getItem(this.pendingKey());
       if (!raw) return;
-      const saved = JSON.parse(raw) as { request: CreateOrder; cart: CartLine[] };
+      const saved = JSON.parse(raw) as { request: CreateOrder; cart: CartLine[]; member?: Member | null };
       if (!saved.request?.requestId || !Array.isArray(saved.request.items) || !Array.isArray(saved.cart)) return;
       this.pending = saved.request; this.cart = saved.cart; this.source = saved.request.source; this.orderNote = saved.request.note;
+      this.member = saved.member ?? null;
     } catch { /* Invalid browser data never becomes authentication state. */ }
   }
   async checkout(): Promise<void> {

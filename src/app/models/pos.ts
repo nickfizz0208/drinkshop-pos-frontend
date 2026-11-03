@@ -47,6 +47,9 @@ export function taipeiDate(): string {
 }
 export interface Member {
   phone: string; name: string; address?: string | null;
-  lat?: number | null; lng?: number | null; note?: string | null;
+  lat?: number | null; lng?: number | null; geoSource?: 'GEOCODE' | 'MANUAL' | null; note?: string | null;
   createdAt?: string; updatedAt?: string;
 }
+export interface StoreLocation { lat: number; lng: number; }
+export interface PosConfig { hereMapKey: string; store: StoreLocation; }
+

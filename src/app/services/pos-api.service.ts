@@ -1,7 +1,7 @@
 import { HttpClient, HttpErrorResponse, HttpHeaders } from '@angular/common/http';
 import { Injectable, inject, signal } from '@angular/core';
 import { firstValueFrom, Observable, timeout, TimeoutError } from 'rxjs';
-import { CancelRequest, CreateOrder, ItemStatus, Member, Menu, Order, OrderSummary, Payment, Rule, Staff } from '../models/pos';
+import { PosConfig, CancelRequest, CreateOrder, ItemStatus, Member, Menu, Order, OrderSummary, Payment, Rule, Staff } from '../models/pos';
 
 export const API_TIMEOUT_MS = 15000;
 
@@ -59,6 +59,7 @@ export class PosApiService {
   createMember(body: Omit<Member, 'createdAt' | 'updatedAt'>): Promise<Member> {
     return this.wait(this.http.post<Member>('/api/members', body, { headers: this.headers }));
   }
+  config(): Promise<PosConfig> { return this.wait(this.http.get<PosConfig>('/api/config', { headers: this.headers })); }
 }
 
 export function errorMessage(error: unknown): string {

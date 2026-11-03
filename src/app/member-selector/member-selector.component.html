@@ -6,11 +6,11 @@
     </label>
     @if (error) { <p class="alert error" role="alert">{{ error }}</p> }
     <div class="member-results" aria-live="polite">
-      @if (digits.length < minDigits) { <p class="muted small-copy">輸入至少 {{ minDigits }} 碼電話後，會顯示符合的會員。</p>
+      @if (phone.length < minDigits) { <p class="muted small-copy">輸入至少 {{ minDigits }} 碼電話後，會顯示符合的會員。</p>
         } @else if (loading) {
         <p class="muted small-copy">搜尋中…</p>
         } @else if (searched && !results.length && !error) {
-        <p class="muted small-copy">查無電話含「{{ digits }}」的會員。</p>
+        <p class="muted small-copy">查無電話含「{{ phone }}」的會員。</p>
         } @else if (results.length) {
         <ul class="member-list" aria-label="符合的會員">
           @for (member of results; track member.phone) {
