@@ -19,7 +19,7 @@ export interface Rule {
 export interface Selection { size: Size; temperature: Temperature; sugar: Sugar; ice: Ice; qty: number; toppingIds: number[]; note: string; }
 export interface CartLine extends Selection { key: string; product: Product; unitCents: number; }
 export interface CreateItem { productId: number; size: Size; temperature: Temperature; sugar: Sugar; ice: Ice; qty: number; toppingIds: number[]; note: string; }
-export interface CreateOrder { requestId: string; source: Source; payment: Payment | null; unpaid?: boolean; receivedCash?: number; note: string; items: CreateItem[]; memberPhone?: string; }
+export interface CreateOrder { requestId: string; source: Source; payment: Payment | null; unpaid?: boolean; receivedCash?: number; note: string; items: CreateItem[]; memberPhone?: string; addressNote?: string; /** 路線距離（公尺） */ distance?: number; }
 export interface OrderSummary { order_id: number; order_no: string; business_date: string; source: Source; payment: Payment | null; payment_status?: 'UNPAID' | 'PAID'; paid_amount?: number; refunded_amount?: number; total: number; status: string; created_at: string; }
 export interface OrderItem {
   item_id: number; product_name: string; size: Size; temperature: Temperature; sugar: Sugar; ice: Ice; qty: number; unit_price: number;
@@ -52,4 +52,16 @@ export interface Member {
 }
 export interface StoreLocation { lat: number; lng: number; }
 export interface PosConfig { hereMapKey: string; store: StoreLocation; }
+/** 後端回傳的外送路線；polylines 為 HERE flexible polyline。 */
+export interface DeliveryRoute {
+  lat: number; lng: number; geoSource: 'GEOCODE' | 'MANUAL' | null; needsReview: boolean;
+  label: string | null; distanceM: number; polylines: string[];
+}
+/** 這張外送單使用的送達位置；addressNote 有值代表「只用於這張單」的臨時位置。 */
+export interface Delivery { lat: number; lng: number; distanceM: number; addressNote?: string; }
+export interface DeliverySelection { member: Member; delivery: Delivery | null; }
+export type MemberUpdate = Pick<Member, 'name' | 'address' | 'lat' | 'lng' | 'note'>;
+export function distanceText(meters: number): string {
+  return meters >= 1000 ? `${(meters / 1000).toFixed(1)} 公里` : `${Math.round(meters)} 公尺`;
+}
 

@@ -8,7 +8,8 @@ import { PREVIEW_MENU, PREVIEW_RULES } from './services/preview-menu';
 import { applyRules, initialSelection, toppingLimit, unitCents } from './services/menu-rules';
 import { CartLine, CreateOrder, ICE_LABELS, Ice, ItemStatus, Menu, Order, OrderItem, OrderSummary, PAYMENT_LABELS, Payment, Product, Rule, Selection, SIZE_LABELS, SOURCE_LABELS, STATUS_LABELS, SUGAR_LABELS, Sugar, TEMP_LABELS, Temperature, cents, money, taipeiDate } from './models/pos';
 import { MemberSelectorComponent } from './member-selector/member-selector.component';
-import { Member, Source } from './models/pos';
+import { Delivery, DeliverySelection, Member, Source, distanceText } from './models/pos';
+import { HereMapService } from './services/here-map.service';
 @Component({
   selector: 'app-root',
   imports: [CommonModule, FormsModule, ModalComponent, MemberSelectorComponent],
@@ -17,6 +18,8 @@ import { Member, Source } from './models/pos';
 })
 export class AppComponent implements OnDestroy {
   readonly api = inject(PosApiService);
+  private readonly hereMap = inject(HereMapService);
+  readonly distanceText = distanceText;
   readonly title = '青日茶所';
   readonly money = money;
   readonly sizes = SIZE_LABELS;
@@ -84,6 +87,8 @@ export class AppComponent implements OnDestroy {
   private orderLoad = 0;
   memberPickerOpen = false;
   member: Member | null = null;
+  /** 外送的送達位置與路線距離；地圖服務失敗而略過時為 null。 */
+  delivery: Delivery | null = null;
 
   matchesOrderTab(order: OrderSummary, tab = this.orderTab): boolean {
     return tab === 'history' || (tab === 'active' ? ['PENDING', 'MAKING'].includes(order.status) : order.status === 'DONE');
@@ -164,7 +169,7 @@ export class AppComponent implements OnDestroy {
   }
   logout(): void {
     if (this.busy) return;
-    this.api.logout(); this.preview = true; this.menu = PREVIEW_MENU; this.rules = PREVIEW_RULES;
+    this.api.logout(); this.hereMap.reset(); this.member = null; this.delivery = null; this.preview = true; this.menu = PREVIEW_MENU; this.rules = PREVIEW_RULES;
     this.cart = []; this.pending = null; this.lastOrder = null; this.selectedOrder = null; this.orderList = [];
     this.orderLoad++; this.orderTab = 'active'; this.view = 'pos'; this.error = ''; this.notice = ''; this.orderNote = ''; this.source = 'TAKE_OUT';
   }
@@ -229,18 +234,19 @@ export class AppComponent implements OnDestroy {
   }
   private pendingKey(): string { return 'qingri.pending.' + this.api.staff()?.staffId; }
   private storePending(): void {
-    try { sessionStorage.setItem(this.pendingKey(), JSON.stringify({ request: this.pending, cart: this.cart, member: this.member })); }
+    try { sessionStorage.setItem(this.pendingKey(), JSON.stringify({ request: this.pending, cart: this.cart, member: this.member, delivery: this.delivery })); }
     catch { /* In-memory retry remains available if browser storage is blocked. */ }
   }
-  private clearPending(): void { try { sessionStorage.removeItem(this.pendingKey()); } catch { /* Storage is optional. */ } this.pending = null; this.member = null; this.source = 'DINE_IN'; }
+  private clearPending(): void { try { sessionStorage.removeItem(this.pendingKey()); } catch { /* Storage is optional. */ } this.pending = null; this.member = null; this.delivery = null; this.source = 'DINE_IN'; }
   private restorePending(): void {
     try {
       const raw = sessionStorage.getItem(this.pendingKey());
       if (!raw) return;
-      const saved = JSON.parse(raw) as { request: CreateOrder; cart: CartLine[]; member?: Member | null };
+      const saved = JSON.parse(raw) as { request: CreateOrder; cart: CartLine[]; member?: Member | null; delivery?: Delivery | null };
       if (!saved.request?.requestId || !Array.isArray(saved.request.items) || !Array.isArray(saved.cart)) return;
       this.pending = saved.request; this.cart = saved.cart; this.source = saved.request.source; this.orderNote = saved.request.note;
       this.member = saved.member ?? null;
+      this.delivery = saved.delivery ?? null;
     } catch { /* Invalid browser data never becomes authentication state. */ }
   }
   async checkout(): Promise<void> {
@@ -253,7 +259,7 @@ export class AppComponent implements OnDestroy {
       this.pending = {
         requestId: crypto.randomUUID(), source: this.source, payment: this.unpaid ? null : this.payment, ...(this.unpaid ? { unpaid: true } : {}), note: this.orderNote.trim(),
         ...(!this.unpaid && this.payment === 'CASH' ? { receivedCash: this.received! } : {}),
-        items: this.cart.map(line => ({ productId: line.product.product_id, size: line.size, temperature: line.temperature, sugar: line.sugar, ice: line.ice, qty: line.qty, toppingIds: [...line.toppingIds], note: line.note })), ...(this.source === 'PHONE_DELIVERY' && this.member ? { memberPhone: this.member.phone } : {})
+        items: this.cart.map(line => ({ productId: line.product.product_id, size: line.size, temperature: line.temperature, sugar: line.sugar, ice: line.ice, qty: line.qty, toppingIds: [...line.toppingIds], note: line.note })), ...this.deliveryFields()
       };
       this.storePending();
     }
@@ -398,8 +404,20 @@ export class AppComponent implements OnDestroy {
       this.memberPickerOpen = true;                     // 先不改 source
       return;
     }
-    this.source = next; this.member = null;
+    this.source = next; this.member = null; this.delivery = null;
   }
-  onMemberSelected(m: Member): void { this.member = m; this.source = 'PHONE_DELIVERY'; this.memberPickerOpen = false; }
+  onMemberSelected(selection: DeliverySelection): void {
+    this.member = selection.member; this.delivery = selection.delivery;
+    this.source = 'PHONE_DELIVERY'; this.memberPickerOpen = false;
+  }
+  /** 電話外送時送出的會員、路線距離與臨時送達位置。 */
+  private deliveryFields(): Pick<CreateOrder, 'memberPhone' | 'distance' | 'addressNote'> {
+    if (this.source !== 'PHONE_DELIVERY' || !this.member) return {};
+    return {
+      memberPhone: this.member.phone,
+      ...(this.delivery ? { distance: this.delivery.distanceM } : {}),
+      ...(this.delivery?.addressNote ? { addressNote: this.delivery.addressNote } : {})
+    };
+  }
   onMemberDismissed(): void { this.memberPickerOpen = false; }  // source 維持原值
 }

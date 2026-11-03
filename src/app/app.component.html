@@ -120,6 +120,9 @@
               <strong>{{ member.name }}</strong>
               <span>{{ member.phone }}</span>
               <small>{{ member.address || '未建檔地址' }}</small>
+              @if (delivery) {
+              <span class="member-card-route">機車 {{ distanceText(delivery.distanceM) }}{{ delivery.addressNote ? '・本單使用臨時位置' : '' }}</span>
+              }
             </div>
             <button type="button" class="text-button" [disabled]="!!pending || busy"
               (click)="memberPickerOpen = true">更換</button>

@@ -1,4 +1,5 @@
-<app-modal title="選擇外送會員" subtitle="PHONE DELIVERY" (dismissed)="dismissed.emit()">
+<app-modal [title]="step === 'search' ? '選擇外送會員' : '確認外送路線'" subtitle="PHONE DELIVERY" [busy]="saving" (dismissed)="dismissed.emit()">
+  @if (step === 'search') {
   <div class="modal-body">
     <label class="field">會員電話
       <input type="tel" inputmode="numeric" autocomplete="off" maxlength="10" autofocus placeholder="輸入電話（只輸入數字），至少 3 碼"
@@ -15,7 +16,7 @@
         <ul class="member-list" aria-label="符合的會員">
           @for (member of results; track member.phone) {
           <li>
-            <button type="button" class="member-row" (click)="selected.emit(member)">
+            <button type="button" class="member-row" (click)="pick(member)">
               <span class="member-main"><strong>{{ member.name }}</strong><span>{{ member.phone }}</span></span>
               <small>{{ member.address || '未建檔地址' }}</small>
             </button>
@@ -28,4 +29,38 @@
   <div class="modal-footer">
     <button type="button" class="button secondary" (click)="dismissed.emit()">取消</button>
   </div>
+  } @else if (member) {
+  <div class="modal-body route-step">
+    <div class="route-member">
+      <span class="member-main"><strong>{{ member.name }}</strong><span>{{ member.phone }}</span></span>
+      <small>{{ route?.label || member.address || '未建檔地址' }}</small>
+    </div>
+    @if (routeLoading) {
+      <p class="route-status muted small-copy">計算機車路線中…</p>
+    } @else if (route) {
+      <app-route-preview [route]="route" />
+      <div class="route-summary">
+        <span>機車路線距離</span><strong>{{ distanceText(route.distanceM) }}</strong>
+      </div>
+      @if (addressNote) { <p class="route-note">這張單使用臨時位置，會寫在訂單的地址備註；會員資料不變。</p> }
+    }
+    @if (routeError) { <p class="alert error" role="alert">{{ routeError }}</p> }
+  </div>
+  <div class="modal-footer">
+    <button type="button" class="button secondary" [disabled]="saving" (click)="back()">← 重新選擇</button>
+    <div class="route-actions">
+      <button type="button" class="button secondary" [disabled]="routeLoading || saving" (click)="openPicker()">
+        {{ route ? '查看／調整位置' : '在地圖上設定位置' }}
+      </button>
+      <button type="button" class="button primary" [disabled]="routeLoading || saving" (click)="confirm()">
+        {{ route ? '確認外送' : '不使用地圖，直接選取' }}
+      </button>
+    </div>
+  </div>
+  }
 </app-modal>
+
+@if (pickerOpen && member) {
+  <app-destination-picker [destination]="pickerDestination" [label]="route?.label || member.address || ''"
+    [hint]="pickerHint" [busy]="saving" (confirmed)="onPicked($event)" (dismissed)="pickerOpen = false" />
+}
