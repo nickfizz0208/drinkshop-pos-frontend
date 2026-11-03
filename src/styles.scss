@@ -1,4 +1,4 @@
-/* Shared theme tokens for the tea-shop POS workspace. */
+/* 全站共用主題：改 :root 色彩變數可一起調整配色，維持淺色茶綠風格。 */
 :root {
   color-scheme: light;
   --bg-main: #f7f9f5;
@@ -23,6 +23,7 @@
   background: var(--bg-main);
   color: var(--text-main);
 }
+/* 基礎與共用表單設定：包含鍵盤焦點、停用狀態與觸控操作尺寸。 */
 * { box-sizing: border-box; }
 body { margin: 0; min-width: 320px; line-height: 1.6; }
 button, input, textarea, select { font: inherit; }
@@ -40,6 +41,7 @@ textarea { resize: vertical; }
 input[type=checkbox] { accent-color: var(--primary-accent); width: 18px; height: 18px; flex: 0 0 auto; }
 button:disabled { opacity: .55; }
 h1, h2, h3, p { margin-top: 0; }
+/* 共用按鈕：primary 主要動作，secondary 次要動作，danger 用於取消等動作。 */
 .button { display: inline-flex; align-items: center; justify-content: center; gap: 12px; border: 1px solid transparent; border-radius: 11px; min-height: 46px; padding: 11px 19px; font-size: 14px; font-weight: 650; text-decoration: none; }
 .button.primary { background: var(--primary-accent); color: white; }
 .button.primary:hover:not(:disabled) { background: var(--primary-hover); }

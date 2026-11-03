@@ -8,6 +8,11 @@ import { PREVIEW_MENU, PREVIEW_RULES } from './services/preview-menu';
 import { applyRules, initialSelection, toppingLimit, unitCents } from './services/menu-rules';
 import { CartLine, CreateOrder, ICE_LABELS, Ice, ItemStatus, Menu, Order, OrderItem, OrderSummary, PAYMENT_LABELS, Payment, Product, Rule, Selection, SIZE_LABELS, SOURCE_LABELS, STATUS_LABELS, SUGAR_LABELS, Sugar, TEMP_LABELS, Temperature, cents, money, taipeiDate } from './models/pos';
 
+/**
+ * POS 畫面的操作中心：HTML 綁定下方狀態與方法；API 呼叫集中在 PosApiService。
+ * 建議閱讀順序：login → openProduct／addToCart → checkout → loadOrders → confirmCancel。
+ * 目前以 view 切換點餐與訂單管理，並非每個畫面都有獨立路由。
+ */
 @Component({
   selector: 'app-root',
   imports: [CommonModule, FormsModule, ModalComponent],
@@ -17,6 +22,7 @@ import { CartLine, CreateOrder, ICE_LABELS, Ice, ItemStatus, Menu, Order, OrderI
 export class AppComponent implements OnDestroy {
   readonly api = inject(PosApiService);
   readonly title = '青日茶所';
+  // 把顯示工具與中文名稱提供給 HTML；送往後端仍使用 M、CASH 等固定代碼。
   readonly money = money;
   readonly sizes = SIZE_LABELS;
   readonly temperatures = TEMP_LABELS;
@@ -29,17 +35,20 @@ export class AppComponent implements OnDestroy {
   readonly temperatureOptions = Object.keys(TEMP_LABELS) as Temperature[];
   readonly sugarOptions = Object.keys(SUGAR_LABELS) as Sugar[];
   readonly iceOptions = Object.keys(ICE_LABELS) as Ice[];
-  // Uber Eats is an order source and a historical label, not a new payment option.
+  // Uber Eats 是訂單來源；舊資料仍可顯示名稱，但新付款選項不包含它。
   readonly paymentOptions: Payment[] = ['CASH', 'CREDIT_CARD', 'LINE_PAY'];
+  // 未登入只展示假菜單；登入成功後才換成後端資料，結帳也必須登入。
   preview = true;
   view: 'pos' | 'orders' = 'pos';
   menu: Menu = PREVIEW_MENU;
   rules: Rule[] = PREVIEW_RULES;
   category = '全部飲品';
   search = '';
+  // 購物車尚未寫入資料庫；一列可有多杯，同列共用完整客製規格。
   cart: CartLine[] = [];
   source: CreateOrder['source'] = 'TAKE_OUT';
   orderNote = '';
+  // busy 防止重複操作；error／notice 顯示頁面訊息，modalError 顯示彈窗內錯誤。
   busy = false;
   error = '';
   notice = '';
@@ -47,6 +56,7 @@ export class AppComponent implements OnDestroy {
   loginOpen = false;
   username = '';
   password = '';
+  // product 有值就開客製彈窗；editingKey 有值表示正在修改購物車中的既有列。
   product: Product | null = null;
   editingKey: string | null = null;
   selection = initialSelection();
@@ -60,6 +70,7 @@ export class AppComponent implements OnDestroy {
   wantsRefund = true;
   refundInput: number | null = null;
   received: number | null = null;
+  // pending 是已送出但結果可能不明的請求；重試必須沿用內容與 requestId，不能當新單。
   pending: CreateOrder | null = null;
   lastOrder: Order | null = null;
   orderDate = taipeiDate();
@@ -80,8 +91,10 @@ export class AppComponent implements OnDestroy {
   photoItem: OrderItem | null = null;
   photoFile: File | null = null;
   photoUrl = '';
+  // 每次讀列表累加版本號，讓比較晚回來的舊請求不會覆寫新日期或登出後的畫面。
   private orderLoad = 0;
 
+  // 這裡只篩選顯示，沒有刪訂單：待處理看 PENDING／MAKING，待取看 DONE，紀錄看全部。
   matchesOrderTab(order: OrderSummary, tab = this.orderTab): boolean {
     return tab === 'history' || (tab === 'active' ? ['PENDING', 'MAKING'].includes(order.status) : order.status === 'DONE');
   }
@@ -104,6 +117,7 @@ export class AppComponent implements OnDestroy {
     return this.menu.products.filter(p => (this.category === '全部飲品' || p.category === this.category) && p.name.toLocaleLowerCase().includes(search));
   }
   get cups(): number { return this.cart.reduce((sum, line) => sum + line.qty, 0); }
+  // 前端先把金額乘 100 變整數「分」計算，顯示時除回 100；正式價格仍以後端重算為準。
   get totalCents(): number { return this.cart.reduce((sum, line) => sum + line.unitCents * line.qty, 0); }
   get selectedUnitCents(): number { return this.product ? unitCents(this.product, this.selection, this.menu.toppings) : 0; }
   get changeCents(): number { return Math.max(0, cents(this.received ?? 0) - this.totalCents); }
@@ -117,6 +131,8 @@ export class AppComponent implements OnDestroy {
   paymentText(order: OrderSummary): string { return this.isPaid(order) && order.payment ? '已付款 · ' + this.payments[order.payment] : '未付款'; }
   paidAmount(order: OrderSummary): number { return order.paid_amount ?? order.total; }
   netReceived(order: OrderSummary): number { return this.paidAmount(order) - (order.refunded_amount ?? 0); }
+  // 這是本次「可退上限」；actualRefund 才是店員選擇要記錄的實際退款。
+  // 已付款不代表一定全退，也不能退超過本次取消售價或尚未退還的已收款。
   get refundAmount(): number {
     if (!this.cancelTarget || !this.isPaid(this.cancelTarget.order)) return 0;
     const items = this.cancelTarget.item ? [this.cancelTarget.item] : this.cancelTarget.order.items.filter(i => this.canCancel(i));
@@ -125,6 +141,8 @@ export class AppComponent implements OnDestroy {
   }
   get actualRefund(): number { return this.wantsRefund && this.cancelTarget && this.isPaid(this.cancelTarget.order) ? this.refundInput ?? 0 : 0; }
   get refundNeedsConfirmation(): boolean { return this.actualRefund > 0; }
+  // 原料成本與退款分開算；null 表示歷史成本未建檔，不可顯示成 $0。
+  // material_cost 已包含這筆明細的全部杯數，所以這裡不能再乘 qty。
   costText(items: OrderItem[]): string {
     if (!items.length) return money(0);
     return items.some(i => i.material_cost == null) ? '成本未建檔，無法完整估算' : money(items.reduce((sum, i) => sum + cents(i.material_cost!), 0) / 100);
@@ -144,6 +162,7 @@ export class AppComponent implements OnDestroy {
   }
   get todayLabel(): string { return new Intl.DateTimeFormat('zh-TW', { timeZone: 'Asia/Taipei', month: 'long', day: 'numeric', weekday: 'long' }).format(new Date()); }
 
+  // 先驗證員工，再同時取菜單與規則；其中任一步失敗，就清除登入狀態。
   async login(): Promise<void> {
     if (this.busy || !this.username.trim() || !this.password) return;
     this.busy = true; this.modalError = '';
@@ -177,6 +196,7 @@ export class AppComponent implements OnDestroy {
     this.selection = line ? { size: line.size, temperature: line.temperature, sugar: line.sugar, ice: line.ice, qty: line.qty, toppingIds: [...line.toppingIds], note: line.note } : initialSelection();
     this.modalError = ''; this.adjustment = ''; this.normalize();
   }
+  // 每次切換規格重新套規則：例如冰沙固定冰甜、切熱飲後移除不相容加料。
   private normalize(): void {
     if (!this.product) return;
     const result = applyRules(this.product, this.selection, this.rules);
@@ -196,6 +216,7 @@ export class AppComponent implements OnDestroy {
     this.selection.toppingIds = this.selection.toppingIds.includes(id) ? this.selection.toppingIds.filter(t => t !== id) : [...this.selection.toppingIds, id];
     this.normalize();
   }
+  // 相同商品、杯型、冰甜、加料及備註才可合併杯數；不同客製必須保留不同列。
   addToCart(): void {
     if (!this.product || this.pending) return;
     if (!Number.isInteger(this.selection.qty) || this.selection.qty < 1 || this.selection.qty > 100) { this.modalError = '杯數請輸入 1～100 的整數。'; return; }
@@ -224,12 +245,14 @@ export class AppComponent implements OnDestroy {
     this.modalError = ''; this.checkoutOpen = true;
     this.unpaid = this.pending?.unpaid ?? false; this.payment = this.pending?.payment ?? 'CASH'; this.received = this.pending?.receivedCash ?? null;
   }
+  // 待確認送單以員工分開存 sessionStorage；只存訂單內容，不存登入帳密。
+  // 此儲存只協助同分頁恢復重試，不是離線接單功能。
   private pendingKey(): string { return 'qingri.pending.' + this.api.staff()?.staffId; }
   private storePending(): void {
     try { sessionStorage.setItem(this.pendingKey(), JSON.stringify({ request: this.pending, cart: this.cart })); }
-    catch { /* In-memory retry remains available if browser storage is blocked. */ }
+    catch { /* 瀏覽器禁止儲存時，仍可用記憶體中的 pending 重試。 */ }
   }
-  private clearPending(): void { try { sessionStorage.removeItem(this.pendingKey()); } catch { /* Storage is optional. */ } this.pending = null; }
+  private clearPending(): void { try { sessionStorage.removeItem(this.pendingKey()); } catch { /* 儲存不可用時仍要清除記憶體中的請求。 */ } this.pending = null; }
   private restorePending(): void {
     try {
       const raw = sessionStorage.getItem(this.pendingKey());
@@ -237,8 +260,9 @@ export class AppComponent implements OnDestroy {
       const saved = JSON.parse(raw) as { request: CreateOrder; cart: CartLine[] };
       if (!saved.request?.requestId || !Array.isArray(saved.request.items) || !Array.isArray(saved.cart)) return;
       this.pending = saved.request; this.cart = saved.cart; this.source = saved.request.source; this.orderNote = saved.request.note;
-    } catch { /* Invalid browser data never becomes authentication state. */ }
+    } catch { /* 忽略壞掉的暫存；這裡的資料不能作為登入憑證。 */ }
   }
+  /** 結帳：檢查輸入 → 保存固定請求 → 呼叫後端 → 成功才清空購物車。 */
   async checkout(): Promise<void> {
     if (this.busy || this.preview || !this.cart.length) return;
     this.modalError = '';
@@ -257,10 +281,12 @@ export class AppComponent implements OnDestroy {
       this.clearPending(); this.cart = []; this.checkoutOpen = false; this.orderNote = '';
       this.notice = '訂單已建立，庫存已同步更新。'; this.error = '';
     } catch (error) {
+      // 明確被拒絕可修正後再送；斷線／逾時可能其實已建單，保留原請求供安全重試。
       if (error instanceof HttpErrorResponse && [400, 403, 404, 409].includes(error.status)) this.clearPending();
       this.modalError = (this.pending ? '送單結果尚待確認，請用相同內容重試。' : '') + errorMessage(error);
     } finally { this.busy = false; }
   }
+  // 操作成功後重讀列表；訂單離開目前頁籤就收起詳情，避免完成／取消後仍佔工作區。
   async loadOrders(): Promise<void> {
     if (this.preview) return;
     if (this.selectedOrder && !this.matchesOrderTab(this.selectedOrder)) {
@@ -291,6 +317,7 @@ export class AppComponent implements OnDestroy {
     const id = this.lastOrder.order_id; this.orderDate = this.lastOrder.business_date; this.orderTab = 'history';
     await this.showOrder(id); await this.loadOrders();
   }
+  // 每次只前進一階段；後端會再次檢查合法順序與是否已付款。
   nextStatus(item: OrderItem): ItemStatus | null {
     return item.status === 'PENDING' ? 'MAKING' : item.status === 'MAKING' ? 'DONE' : item.status === 'DONE' ? 'PICKED_UP' : null;
   }
@@ -298,6 +325,7 @@ export class AppComponent implements OnDestroy {
   canPickUpAll(order: Order): boolean {
     return this.isPaid(order) && this.hasStatus(order, 'DONE') && !this.hasStatus(order, 'PENDING') && !this.hasStatus(order, 'MAKING');
   }
+  // 整單按鈕與逐項按鈕並存，後端只更新符合上一階段的明細。
   async advanceAll(status: ItemStatus): Promise<void> {
     if (!this.selectedOrder || this.busy) return;
     this.busy = true; this.error = '';
@@ -319,10 +347,13 @@ export class AppComponent implements OnDestroy {
   }
   canCancel(item: OrderItem): boolean { return ['PENDING', 'MAKING', 'DONE'].includes(item.status); }
   canCancelWhole(order: Order): boolean { return order.items.some(item => this.canCancel(item)) && !order.items.some(item => item.status === 'PICKED_UP'); }
+  // null 表示取消整單；指定 item 則取消該列的全部杯數，先預填可退上限。
   openCancel(item: OrderItem | null): void {
     if (!this.selectedOrder || this.busy) return;
     this.cancelTarget = { order: this.selectedOrder, item }; this.cancelReason = ''; this.cancelReasonChoice = ''; this.refundConfirmed = false; this.wantsRefund = true; this.refundInput = this.refundAmount; this.modalError = '';
   }
+  // 人工退款完成後才勾選確認；API 只記錄退款，不會真的操作信用卡／LINE Pay。
+  // 回補或轉損耗由後端依製作狀態判定，前端不自行改庫存。
   async confirmCancel(): Promise<void> {
     if (!this.cancelTarget || !this.combinedCancelReason || (this.refundNeedsConfirmation && !this.refundConfirmed) || this.busy) return;
     if (!Number.isFinite(this.actualRefund) || this.actualRefund < 0 || this.actualRefund > this.refundAmount || Math.abs(this.actualRefund * 100 - Math.round(this.actualRefund * 100)) > 0.00001 || (this.wantsRefund && this.refundAmount > 0 && this.actualRefund === 0)) { this.modalError = '請輸入大於零且不超過退款上限的金額（最多兩位小數），或選擇不退款。'; return; }
@@ -340,6 +371,7 @@ export class AppComponent implements OnDestroy {
     if (this.busy) return;
     this.collecting = order; this.payment = 'CASH'; this.received = null; this.modalError = '';
   }
+  // 補收款更新原訂單，不重新建單，也不再次扣料。
   async confirmCollect(): Promise<void> {
     if (!this.collecting || this.busy) return;
     this.busy = true; this.modalError = '';
@@ -349,6 +381,7 @@ export class AppComponent implements OnDestroy {
     } catch (error) { this.modalError = errorMessage(error); }
     finally { this.busy = false; }
   }
+  // 既有照片需帶登入憑證讀成 Blob，再轉成本機預覽網址，不能直接公開檔案路徑。
   async openPhoto(item: OrderItem): Promise<void> {
     if (!this.selectedOrder || this.busy) return;
     this.clearPhoto(); this.photoItem = item; this.modalError = '';
@@ -358,6 +391,7 @@ export class AppComponent implements OnDestroy {
     catch (error) { this.modalError = errorMessage(error); }
     finally { this.busy = false; }
   }
+  // 選檔先驗證格式、大小與像素，再顯示預覽；確認上傳後才真正傳送檔案。
   async choosePhoto(event: Event): Promise<void> {
     const input = event.target as HTMLInputElement; const file = input.files?.[0]; input.value = '';
     if (!file) return;
@@ -382,6 +416,7 @@ export class AppComponent implements OnDestroy {
     finally { this.busy = false; }
   }
   closePhoto(): void { if (!this.busy) this.clearPhoto(); }
+  // Object URL 會佔用瀏覽器資源，換照片、關窗或離開元件時要釋放。
   private clearPhoto(): void { if (this.photoUrl) URL.revokeObjectURL(this.photoUrl); this.photoUrl = ''; this.photoItem = null; this.photoFile = null; }
   time(value: string): string { return new Date(value).toLocaleTimeString('zh-TW', { timeZone: 'Asia/Taipei', hour: '2-digit', minute: '2-digit', hour12: false }); }
   ngOnDestroy(): void { this.clearPhoto(); }

@@ -3,8 +3,13 @@ import { Injectable, inject, signal } from '@angular/core';
 import { firstValueFrom, Observable, timeout, TimeoutError } from 'rxjs';
 import { CancelRequest, CreateOrder, ItemStatus, Menu, Order, OrderSummary, Payment, Rule, Staff } from '../models/pos';
 
+// 一般請求最多等 15 秒，照片上傳另給 30 秒，避免畫面一直停在處理中。
 export const API_TIMEOUT_MS = 15000;
 
+/**
+ * 前後端串接集中處：Component 呼叫這裡，不在畫面程式裡散寫網址。
+ * /api 使用相對路徑，開發時由專案代理設定轉給後端；型別在 models/pos.ts。
+ */
 @Injectable({ providedIn: 'root' })
 export class PosApiService {
   private readonly http = inject(HttpClient);
@@ -12,7 +17,8 @@ export class PosApiService {
   readonly staff = signal<Staff | null>(null);
 
   async login(username: string, password: string): Promise<void> {
-    // Keep Basic credentials in memory only; never copy the old JWT/localStorage logic.
+    // Basic 憑證僅放記憶體，不存 localStorage；重整頁面會清除，切換元件內畫面則不會。
+    // Base64 是編碼，不是加密；登入是否成功以後端 /auth/me 回應為準。
     const bytes = new TextEncoder().encode(`${username}:${password}`);
     const credentials = 'Basic ' + btoa(Array.from(bytes, b => String.fromCharCode(b)).join(''));
     const staff = await this.wait(this.http.get<Staff>('/api/auth/me', { headers: new HttpHeaders({ Authorization: credentials }) }));
@@ -21,6 +27,7 @@ export class PosApiService {
   }
   logout(): void { this.credentials = ''; this.staff.set(null); }
   private get headers(): HttpHeaders { return new HttpHeaders({ Authorization: this.credentials }); }
+  // HttpClient 回傳 Observable，轉成 Promise 才能用 await，並加上逾時處理。
   private wait<T>(request: Observable<T>, milliseconds = API_TIMEOUT_MS): Promise<T> {
     return firstValueFrom(request.pipe(timeout({ first: milliseconds })));
   }
@@ -38,11 +45,13 @@ export class PosApiService {
   statusAll(id: number, status: ItemStatus): Promise<Order> {
     return this.wait(this.http.post<Order>(`/api/orders/${id}/status`, { status }, { headers: this.headers }));
   }
+  // 整單與單筆取消走不同網址，但回傳的都是更新後完整訂單。
   cancel(id: number, itemId: number | null, request: CancelRequest): Promise<Order> {
     const path = itemId === null ? `/api/orders/${id}/cancel` : `/api/orders/${id}/items/${itemId}/cancel`;
     return this.wait(this.http.post<Order>(path, request, { headers: this.headers }));
   }
   upload(id: number, itemId: number, file: File): Promise<{ photo_url: string }> {
+    // 欄位名 file 對應後端 @RequestPart；Content-Type 與 boundary 由瀏覽器自行產生。
     const data = new FormData(); data.append('file', file);
     return this.wait(this.http.post<{ photo_url: string }>(`/api/orders/${id}/items/${itemId}/photo`, data, { headers: this.headers }), 30000);
   }
@@ -51,6 +60,7 @@ export class PosApiService {
   }
 }
 
+// 將網路錯誤與後端 message 轉成人能讀的提示，供頁面及彈窗共用。
 export function errorMessage(error: unknown): string {
   if (error instanceof TimeoutError) return '等候回應逾時，請確認門市連線後重試。';
   if (error instanceof HttpErrorResponse) {

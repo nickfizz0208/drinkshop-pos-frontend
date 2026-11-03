@@ -1,5 +1,7 @@
 import { AfterViewInit, OnDestroy, Component, ElementRef, EventEmitter, Input, Output, ViewChild } from '@angular/core';
 
+// 共用彈窗外殼：title／busy 由父元件傳入，ng-content 放各種表單內容。
+// dismissed 只通知父元件關閉，真正清除哪個狀態由 AppComponent 決定。
 @Component({
   selector: 'app-modal',
   standalone: true,
@@ -26,6 +28,7 @@ export class ModalComponent implements AfterViewInit, OnDestroy {
   @Output() dismissed = new EventEmitter<void>();
   @ViewChild('dialog', { static: true }) dialog!: ElementRef<HTMLDialogElement>;
   private previousOverflow = '';
+  // 等 HTML dialog 建好後才開啟，並暫停背景捲動；銷毀時恢復原設定。
   ngAfterViewInit(): void {
     this.previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
@@ -35,6 +38,7 @@ export class ModalComponent implements AfterViewInit, OnDestroy {
     this.dialog.nativeElement.close();
     document.body.style.overflow = this.previousOverflow;
   }
+  // 阻止 Esc 的原生直接關窗；送單／上傳中 busy=true 時也不能點背景關閉。
   cancel(event: Event): void { event.preventDefault(); if (!this.busy) this.dismissed.emit(); }
   backdrop(event: MouseEvent): void { if (event.target === this.dialog.nativeElement && !this.busy) this.dismissed.emit(); }
 }

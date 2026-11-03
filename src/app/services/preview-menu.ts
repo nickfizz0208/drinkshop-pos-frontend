@@ -1,6 +1,7 @@
 import { Menu, Rule } from '../models/pos';
 
-// Explicit read-only preview, matching the five fictional seeded products.
+// 未登入時使用的五款虛構飲品與規則，只供介面預覽，不代表後端目前庫存或真實菜單。
+// 登入成功後 AppComponent 會改用 API 資料；新增正式商品要改資料庫，不是只改這份。
 export const PREVIEW_MENU: Menu = {
   products: [
     { product_id: 1, name: '經典紅茶', category: '茶類', base_price: 25, large_extra: 5, hot_allowed: true },
