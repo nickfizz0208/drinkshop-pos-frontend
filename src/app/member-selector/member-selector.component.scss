@@ -21,3 +21,9 @@
 .route-summary strong { font-size: 20px; color: var(--primary-accent); font-variant-numeric: tabular-nums; }
 .route-note { margin: 0; font-size: 12px; color: var(--warning-color); }
 .route-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+
+.no-member { display: grid; gap: 10px; justify-items: start; }
+.no-member p { margin: 0; }
+.create-step .field-optional { font-weight: 400; font-size: 11px; color: var(--text-muted); margin-left: 4px; }
+.create-step .field-hint { margin: -8px 0 12px; }
+.create-step .alert { margin: 0; }

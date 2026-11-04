@@ -1,4 +1,5 @@
 import { Component, EventEmitter, OnDestroy, Output, inject } from '@angular/core';
+import { HttpErrorResponse } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { Delivery, DeliveryRoute, DeliverySelection, Member, distanceText } from '../models/pos';
 import { ModalComponent } from '../shared/modal.component';
@@ -29,8 +30,16 @@ export class MemberSelectorComponent implements OnDestroy {
   private timer?: ReturnType<typeof setTimeout>;
   private searchToken = 0;
 
+  // 新增會員（查無會員時直接建立，建好就進入路線預覽）
+  /** 建立會員需要完整電話；與後端規則相同，但至少 8 碼才提示建立，避免拿部分號碼建會員。 */
+  readonly minCreateDigits = 8;
+  newMember = { phone: '', name: '', address: '', note: '' };
+  creating = false;
+  createError = '';
+  createConflict = false;
+
   // 第二步：路線預覽
-  step: 'search' | 'route' = 'search';
+  step: 'search' | 'create' | 'route' = 'search';
   member: Member | null = null;
   route: DeliveryRoute | null = null;
   /** 有值代表使用「只用於這張單」的臨時位置。 */
@@ -72,6 +81,58 @@ export class MemberSelectorComponent implements OnDestroy {
   /** 按 Enter 時，只有剛好一筆結果才直接選取，避免選錯人。 */
   pickOnlyResult(): void {
     if (!this.loading && this.results.length === 1) this.pick(this.results[0]);
+  }
+
+  /** 開啟新增會員表單，帶入剛剛輸入的電話。 */
+  startCreate(): void {
+    this.newMember = { phone: this.phone, name: '', address: '', note: '' };
+    this.createError = ''; this.createConflict = false;
+    this.step = 'create';
+  }
+
+  cancelCreate(): void {
+    if (this.creating) return;
+    this.step = 'search';
+  }
+
+  onNewPhoneInput(input: HTMLInputElement): void {
+    const value = input.value.replace(/\D/g, '');
+    input.value = value;
+    this.newMember.phone = value;
+    this.createError = ''; this.createConflict = false;
+  }
+
+  get canCreate(): boolean {
+    return /^\d{8,20}$/.test(this.newMember.phone) && this.newMember.name.trim().length > 0 && !this.creating;
+  }
+
+  async create(): Promise<void> {
+    if (!this.canCreate) return;
+    this.creating = true; this.createError = ''; this.createConflict = false;
+    try {
+      const member = await this.api.createMember({
+        phone: this.newMember.phone,
+        name: this.newMember.name.trim(),
+        address: this.newMember.address.trim() || null,
+        note: this.newMember.note.trim() || null
+      });
+      this.pick(member); // 建好直接算路線
+    } catch (error) {
+      this.createError = errorMessage(error);
+      this.createConflict = error instanceof HttpErrorResponse && error.status === 409;
+    } finally {
+      this.creating = false;
+    }
+  }
+
+  /** 電話已是會員（409）時，回到搜尋並帶入這支電話。 */
+  searchExisting(): void {
+    this.step = 'search';
+    this.phone = this.newMember.phone;
+    this.error = '';
+    this.loading = true;
+    const token = ++this.searchToken;
+    void this.search(this.phone, token);
   }
 
   /** 選了會員 → 進入路線預覽。 */

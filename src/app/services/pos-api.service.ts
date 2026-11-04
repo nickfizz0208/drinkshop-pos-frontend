@@ -65,7 +65,8 @@ export class PosApiService {
   member(phone: string): Promise<Member> {
     return this.wait(this.http.get<Member>(`/api/members/${encodeURIComponent(phone)}`, { headers: this.headers }));
   }
-  createMember(body: Omit<Member, 'createdAt' | 'updatedAt'>): Promise<Member> {
+  /** 只送後端 Create 接受的欄位；多送 geoSource 等欄位會被回 400。 */
+  createMember(body: Pick<Member, 'phone' | 'name' | 'address' | 'note'>): Promise<Member> {
     return this.wait(this.http.post<Member>('/api/members', body, { headers: this.headers }));
   }
   updateMember(phone: string, body: MemberUpdate): Promise<Member> {

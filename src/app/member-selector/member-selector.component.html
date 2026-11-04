@@ -1,4 +1,5 @@
-<app-modal [title]="step === 'search' ? '選擇外送會員' : '確認外送路線'" subtitle="PHONE DELIVERY" [busy]="saving" (dismissed)="dismissed.emit()">
+<app-modal [title]="step === 'search' ? '選擇外送會員' : step === 'create' ? '新增會員' : '確認外送路線'" subtitle="PHONE DELIVERY"
+  [busy]="saving || creating" (dismissed)="dismissed.emit()">
   @if (step === 'search') {
   <div class="modal-body">
     <label class="field">會員電話
@@ -11,7 +12,14 @@
         } @else if (loading) {
         <p class="muted small-copy">搜尋中…</p>
         } @else if (searched && !results.length && !error) {
-        <p class="muted small-copy">查無電話含「{{ phone }}」的會員。</p>
+        <div class="no-member">
+          <p class="muted small-copy">查無電話含「{{ phone }}」的會員。</p>
+          @if (phone.length >= minCreateDigits) {
+          <button type="button" class="button primary small" (click)="startCreate()">以 {{ phone }} 建立會員</button>
+          } @else {
+          <p class="muted small-copy">新客人請輸入完整電話，或按下方「新增會員」。</p>
+          }
+        </div>
         } @else if (results.length) {
         <ul class="member-list" aria-label="符合的會員">
           @for (member of results; track member.phone) {
@@ -28,6 +36,39 @@
   </div>
   <div class="modal-footer">
     <button type="button" class="button secondary" (click)="dismissed.emit()">取消</button>
+    <button type="button" class="button secondary" (click)="startCreate()">＋ 新增會員</button>
+  </div>
+  } @else if (step === 'create') {
+  <form id="create-member" class="modal-body create-step" (ngSubmit)="create()">
+    <label class="field">電話
+      <input type="tel" inputmode="numeric" autocomplete="off" maxlength="20" required placeholder="完整電話，只輸入數字"
+        [value]="newMember.phone" (input)="onNewPhoneInput($any($event.target))" [disabled]="creating">
+    </label>
+    <label class="field">姓名
+      <input type="text" name="name" autocomplete="off" maxlength="50" required [(ngModel)]="newMember.name" [disabled]="creating">
+    </label>
+    <label class="field">地址 <small class="field-optional">外送建議填寫</small>
+      <input type="text" name="address" autocomplete="off" maxlength="255" placeholder="例如：高雄市前鎮區復興四路2號"
+        [(ngModel)]="newMember.address" [disabled]="creating">
+    </label>
+    <label class="field">備註 <small class="field-optional">選填</small>
+      <input type="text" name="note" autocomplete="off" maxlength="255" placeholder="例如：少冰、放管理室"
+        [(ngModel)]="newMember.note" [disabled]="creating">
+    </label>
+    @if (!newMember.address.trim()) {
+      <p class="field-hint">沒有地址也能建立，之後可在地圖上設定送達位置。</p>
+    }
+    @if (createError) {
+      <p class="alert error" role="alert">{{ createError }}
+        @if (createConflict) { <button type="button" class="text-button" (click)="searchExisting()">改為搜尋這支電話</button> }
+      </p>
+    }
+  </form>
+  <div class="modal-footer">
+    <button type="button" class="button secondary" [disabled]="creating" (click)="cancelCreate()">← 返回搜尋</button>
+    <button type="submit" form="create-member" class="button primary" [disabled]="!canCreate">
+      {{ creating ? '建立中…' : '建立並選取' }}
+    </button>
   </div>
   } @else if (member) {
   <div class="modal-body route-step">
