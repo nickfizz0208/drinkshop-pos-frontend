@@ -7,6 +7,9 @@ import { PosApiService, errorMessage } from './services/pos-api.service';
 import { PREVIEW_MENU, PREVIEW_RULES } from './services/preview-menu';
 import { applyRules, initialSelection, toppingLimit, unitCents } from './services/menu-rules';
 import { CartLine, CreateOrder, ICE_LABELS, Ice, ItemStatus, Menu, Order, OrderItem, OrderSummary, PAYMENT_LABELS, Payment, Product, Rule, Selection, SIZE_LABELS, SOURCE_LABELS, STATUS_LABELS, SUGAR_LABELS, Sugar, TEMP_LABELS, Temperature, cents, money, taipeiDate } from './models/pos';
+import { MemberSelectorComponent } from './member-selector/member-selector.component';
+import { Delivery, DeliverySelection, Member, Source, distanceText } from './models/pos';
+import { HereMapService } from './services/here-map.service';
 
 /**
  * POS 畫面的操作中心：HTML 綁定下方狀態與方法；API 呼叫集中在 PosApiService。
@@ -15,12 +18,14 @@ import { CartLine, CreateOrder, ICE_LABELS, Ice, ItemStatus, Menu, Order, OrderI
  */
 @Component({
   selector: 'app-root',
-  imports: [CommonModule, FormsModule, ModalComponent],
+  imports: [CommonModule, FormsModule, ModalComponent, MemberSelectorComponent],
   templateUrl: './app.component.html',
   styleUrl: './app.component.scss'
 })
 export class AppComponent implements OnDestroy {
   readonly api = inject(PosApiService);
+  private readonly hereMap = inject(HereMapService);
+  readonly distanceText = distanceText;
   readonly title = '青日茶所';
   // 把顯示工具與中文名稱提供給 HTML；送往後端仍使用 M、CASH 等固定代碼。
   readonly money = money;
@@ -93,6 +98,10 @@ export class AppComponent implements OnDestroy {
   photoUrl = '';
   // 每次讀列表累加版本號，讓比較晚回來的舊請求不會覆寫新日期或登出後的畫面。
   private orderLoad = 0;
+  memberPickerOpen = false;
+  member: Member | null = null;
+  /** 外送的送達位置與路線距離；地圖服務失敗而略過時為 null。 */
+  delivery: Delivery | null = null;
 
   // 這裡只篩選顯示，沒有刪訂單：待處理看 PENDING／MAKING，待取看 DONE，紀錄看全部。
   matchesOrderTab(order: OrderSummary, tab = this.orderTab): boolean {
@@ -180,7 +189,8 @@ export class AppComponent implements OnDestroy {
   }
   logout(): void {
     if (this.busy) return;
-    this.api.logout(); this.preview = true; this.menu = PREVIEW_MENU; this.rules = PREVIEW_RULES;
+    this.memberPickerOpen = false;
+    this.api.logout(); this.hereMap.reset(); this.member = null; this.delivery = null; this.preview = true; this.menu = PREVIEW_MENU; this.rules = PREVIEW_RULES;
     this.cart = []; this.pending = null; this.lastOrder = null; this.selectedOrder = null; this.orderList = [];
     this.orderLoad++; this.orderTab = 'active'; this.view = 'pos'; this.error = ''; this.notice = ''; this.orderNote = ''; this.source = 'TAKE_OUT';
   }
@@ -249,18 +259,24 @@ export class AppComponent implements OnDestroy {
   // 此儲存只協助同分頁恢復重試，不是離線接單功能。
   private pendingKey(): string { return 'qingri.pending.' + this.api.staff()?.staffId; }
   private storePending(): void {
-    try { sessionStorage.setItem(this.pendingKey(), JSON.stringify({ request: this.pending, cart: this.cart })); }
-    catch { /* 瀏覽器禁止儲存時，仍可用記憶體中的 pending 重試。 */ }
+    try { sessionStorage.setItem(this.pendingKey(), JSON.stringify({ request: this.pending, cart: this.cart, member: this.member, delivery: this.delivery })); }
+    catch { /* In-memory retry remains available if browser storage is blocked. */ }
   }
-  private clearPending(): void { try { sessionStorage.removeItem(this.pendingKey()); } catch { /* 儲存不可用時仍要清除記憶體中的請求。 */ } this.pending = null; }
+  // 只清除送單重試資料：庫存不足時仍需保留購物車、會員與外送位置，供修正後再送。
+  private clearPending(): void {
+    try { sessionStorage.removeItem(this.pendingKey()); } catch { /* 瀏覽器儲存不可用時仍清除記憶體中的請求。 */ }
+    this.pending = null;
+  }
   private restorePending(): void {
     try {
       const raw = sessionStorage.getItem(this.pendingKey());
       if (!raw) return;
-      const saved = JSON.parse(raw) as { request: CreateOrder; cart: CartLine[] };
+      const saved = JSON.parse(raw) as { request: CreateOrder; cart: CartLine[]; member?: Member | null; delivery?: Delivery | null };
       if (!saved.request?.requestId || !Array.isArray(saved.request.items) || !Array.isArray(saved.cart)) return;
       this.pending = saved.request; this.cart = saved.cart; this.source = saved.request.source; this.orderNote = saved.request.note;
-    } catch { /* 忽略壞掉的暫存；這裡的資料不能作為登入憑證。 */ }
+      this.member = saved.member ?? null;
+      this.delivery = saved.delivery ?? null;
+    } catch { /* Invalid browser data never becomes authentication state. */ }
   }
   /** 結帳：檢查輸入 → 保存固定請求 → 呼叫後端 → 成功才清空購物車。 */
   async checkout(): Promise<void> {
@@ -270,15 +286,19 @@ export class AppComponent implements OnDestroy {
       if (!this.unpaid && this.payment === 'CASH' && (this.received === null || !Number.isFinite(this.received) || this.received > 99999999.99 || Math.abs(this.received * 100 - Math.round(this.received * 100)) > 0.00001 || cents(this.received) < this.totalCents)) {
         this.modalError = '請輸入足夠的實收現金，金額最多兩位小數。'; return;
       }
-      this.pending = { requestId: crypto.randomUUID(), source: this.source, payment: this.unpaid ? null : this.payment, ...(this.unpaid ? { unpaid: true } : {}), note: this.orderNote.trim(),
+      this.pending = {
+        requestId: crypto.randomUUID(), source: this.source, payment: this.unpaid ? null : this.payment, ...(this.unpaid ? { unpaid: true } : {}), note: this.orderNote.trim(),
         ...(!this.unpaid && this.payment === 'CASH' ? { receivedCash: this.received! } : {}),
-        items: this.cart.map(line => ({ productId: line.product.product_id, size: line.size, temperature: line.temperature, sugar: line.sugar, ice: line.ice, qty: line.qty, toppingIds: [...line.toppingIds], note: line.note })) };
+        items: this.cart.map(line => ({ productId: line.product.product_id, size: line.size, temperature: line.temperature, sugar: line.sugar, ice: line.ice, qty: line.qty, toppingIds: [...line.toppingIds], note: line.note })), ...this.deliveryFields()
+      };
       this.storePending();
     }
     this.busy = true;
     try {
       this.lastOrder = await this.api.create(this.pending);
       this.clearPending(); this.cart = []; this.checkoutOpen = false; this.orderNote = '';
+      // 確認建單成功才清除這一單的會員及配送內容，避免帶到下一張單。
+      this.member = null; this.delivery = null; this.source = 'DINE_IN';
       this.notice = '訂單已建立，庫存已同步更新。'; this.error = '';
     } catch (error) {
       // 明確被拒絕可修正後再送；斷線／逾時可能其實已建單，保留原請求供安全重試。
@@ -420,4 +440,27 @@ export class AppComponent implements OnDestroy {
   private clearPhoto(): void { if (this.photoUrl) URL.revokeObjectURL(this.photoUrl); this.photoUrl = ''; this.photoItem = null; this.photoFile = null; }
   time(value: string): string { return new Date(value).toLocaleTimeString('zh-TW', { timeZone: 'Asia/Taipei', hour: '2-digit', minute: '2-digit', hour12: false }); }
   ngOnDestroy(): void { this.clearPhoto(); }
+  selectSource(next: Source): void {
+    if (this.pending) return;
+    if (next === 'PHONE_DELIVERY') {
+      if (this.preview) { this.openLogin(); return; }   // 預覽模式沒有 API
+      this.memberPickerOpen = true;                     // 先不改 source
+      return;
+    }
+    this.source = next; this.member = null; this.delivery = null;
+  }
+  onMemberSelected(selection: DeliverySelection): void {
+    this.member = selection.member; this.delivery = selection.delivery;
+    this.source = 'PHONE_DELIVERY'; this.memberPickerOpen = false;
+  }
+  /** 電話外送時送出的會員、路線距離與臨時送達位置。 */
+  private deliveryFields(): Pick<CreateOrder, 'memberPhone' | 'distance' | 'addressNote'> {
+    if (this.source !== 'PHONE_DELIVERY' || !this.member) return {};
+    return {
+      memberPhone: this.member.phone,
+      ...(this.delivery ? { distance: this.delivery.distanceM } : {}),
+      ...(this.delivery?.addressNote ? { addressNote: this.delivery.addressNote } : {})
+    };
+  }
+  onMemberDismissed(): void { this.memberPickerOpen = false; }  // source 維持原值
 }

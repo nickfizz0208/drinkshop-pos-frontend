@@ -25,8 +25,8 @@ export interface Selection { size: Size; temperature: Temperature; sugar: Sugar;
 // CartLine 是前端暫存；CreateItem 才是送單格式，不傳商品物件與前端算出的售價。
 export interface CartLine extends Selection { key: string; product: Product; unitCents: number; }
 export interface CreateItem { productId: number; size: Size; temperature: Temperature; sugar: Sugar; ice: Ice; qty: number; toppingIds: number[]; note: string; }
-export interface CreateOrder { requestId: string; source: Source; payment: Payment | null; unpaid?: boolean; receivedCash?: number; note: string; items: CreateItem[]; }
-// total 是保留品項金額；paid_amount 是收款扣掉原找零，淨收款再減 refunded_amount。
+export interface CreateOrder { requestId: string; source: Source; payment: Payment | null; unpaid?: boolean; receivedCash?: number; note: string; items: CreateItem[]; memberPhone?: string; addressNote?: string; /** 路線距離（公尺） */ distance?: number; }
+// total 是保留品項金額；淨收款為 paid_amount 減 refunded_amount。
 export interface OrderSummary { order_id: number; order_no: string; business_date: string; source: Source; payment: Payment | null; payment_status?: 'UNPAID' | 'PAID'; paid_amount?: number; refunded_amount?: number; total: number; status: string; created_at: string; }
 // 一筆明細可有 qty 杯；unit_price 是含加料單杯售價，material_cost 是整筆明細原料成本。
 export interface OrderItem {
@@ -55,4 +55,23 @@ export function taipeiDate(): string {
   const parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts();
   const part = (type: string) => parts.find(p => p.type === type)?.value;
   return `${part('year')}-${part('month')}-${part('day')}`;
+}
+export interface Member {
+  phone: string; name: string; address?: string | null;
+  lat?: number | null; lng?: number | null; geoSource?: 'GEOCODE' | 'MANUAL' | null; note?: string | null;
+  createdAt?: string; updatedAt?: string;
+}
+export interface StoreLocation { lat: number; lng: number; }
+export interface PosConfig { hereMapKey: string; store: StoreLocation; }
+/** 後端回傳的外送路線；polylines 為 HERE flexible polyline。 */
+export interface DeliveryRoute {
+  lat: number; lng: number; geoSource: 'GEOCODE' | 'MANUAL' | null; needsReview: boolean;
+  label: string | null; distanceM: number; polylines: string[];
+}
+/** 這張外送單使用的送達位置；addressNote 有值代表「只用於這張單」的臨時位置。 */
+export interface Delivery { lat: number; lng: number; distanceM: number; addressNote?: string; }
+export interface DeliverySelection { member: Member; delivery: Delivery | null; }
+export type MemberUpdate = Pick<Member, 'name' | 'address' | 'lat' | 'lng' | 'note'>;
+export function distanceText(meters: number): string {
+  return meters >= 1000 ? `${(meters / 1000).toFixed(1)} 公里` : `${Math.round(meters)} 公尺`;
 }
