@@ -1,17 +1,33 @@
-/* 全站共用主題：改 :root 色彩變數可一起調整配色，維持淺色茶綠風格。 */
+/* Hallmark · checked: 2026-11-05 · genre: modern-minimal · shape: app screen
+ * built: the project · redesign: polish · tea-green POS · v2.0.0
+ * Tokens, readable labels, local Lucide icons; operational layout and bindings preserved. */
+/* Hallmark · waived 39b · product cards are intentional full-card touch targets, not toolbar buttons.
+ * finish-review: subagent · ship · 0 findings · gap: none
+ * reworded "訂單已建立 · #" to "訂單已建立 / #" · gate 63 removes decorative middle-dot joins. */
 :root {
   color-scheme: light;
-  --bg-main: #f7f9f5;
-  --bg-card: #ffffff;
-  --bg-card-sub: #f1f5ee;
-  --bg-input: #fbfcfa;
-  --border-color: #e0e7dd;
+  --bg-main: #f3f5f0;
+  --bg-card: #fffffc;
+  --bg-card-sub: #eaf0e5;
+  --bg-input: #f8faf5;
+  --border-color: #d5dfd1;
   --border-focus: #39775d;
-  --text-main: #233c32;
-  --text-muted: #64766a;
-  --text-sub: #758578;
-  --primary-accent: #28674e;
-  --primary-hover: #1d513c;
+  --text-main: #203c30;
+  --text-muted: #526453;
+  --text-sub: #5c6e5c;
+  --primary-accent: #235c43;
+  --primary-hover: #184830;
+  --on-accent: #fffffc;
+  --focus-ring: #174d39;
+  --field-border: #788971;
+  --rail-surface: #edf2e8;
+  --selected-surface: #dae8d2;
+  --art-surface: #edf0e2;
+  --art-milk-surface: #f2e9dd;
+  --art-fruit-surface: #f5edcd;
+  --art-ink: #4c5b40;
+  --shadow-panel: 0 6px 24px #263d3010;
+  --font-body: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft JhengHei', sans-serif;
   --success-color: #28674e;
   --warning-color: #8b5b21;
   --danger-color: #b34439;
@@ -19,40 +35,43 @@
   --radius-md: 12px;
   --radius-sm: 8px;
   --shadow-card: 0 4px 22px #283b2b06;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft JhengHei', sans-serif;
+  font-family: var(--font-body);
   background: var(--bg-main);
   color: var(--text-main);
 }
 /* 基礎與共用表單設定：包含鍵盤焦點、停用狀態與觸控操作尺寸。 */
 * { box-sizing: border-box; }
-body { margin: 0; min-width: 320px; line-height: 1.6; }
+body { margin: 0; min-width: 0; line-height: 1.6; }
+html, body { overflow-x: clip; }
 button, input, textarea, select { font: inherit; }
 button, a, input, textarea, select { -webkit-tap-highlight-color: transparent; }
 button { cursor: pointer; color: inherit; }
 button:disabled { cursor: not-allowed; }
 a { color: var(--primary-accent); }
 button, input, textarea, select { transition: border-color .16s, background .16s, box-shadow .16s; }
-:focus-visible { outline: 3px solid #6da68a; outline-offset: 3px; }
-input:not([type=checkbox]), textarea, select { width: 100%; border: 1px solid #ccd8c9; border-radius: 10px; background: var(--bg-input); color: var(--text-main); padding: 11px 13px; min-height: 44px; }
+:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 3px; }
+h1, h2, h3 { overflow-wrap: break-word; min-width: 0; }
+button:not(:disabled):active { filter: brightness(.95); }
+input:not([type=checkbox]), textarea, select { width: 100%; border: 1px solid var(--field-border); border-radius: 10px; background: var(--bg-input); color: var(--text-main); padding: 11px 13px; min-height: 44px; }
 input::placeholder, textarea::placeholder { color: #7b887c; }
-input:focus, textarea:focus, select:focus { border-color: var(--primary-accent); }
+input:not([type=checkbox]):focus, textarea:focus, select:focus { border-color: var(--focus-ring); outline: 2px solid var(--focus-ring); outline-offset: -2px; }
 input:disabled, textarea:disabled { background: #f0f2ed; }
 textarea { resize: vertical; }
 input[type=checkbox] { accent-color: var(--primary-accent); width: 18px; height: 18px; flex: 0 0 auto; }
 button:disabled { opacity: .55; }
 h1, h2, h3, p { margin-top: 0; }
 /* 共用按鈕：primary 主要動作，secondary 次要動作，danger 用於取消等動作。 */
-.button { display: inline-flex; align-items: center; justify-content: center; gap: 12px; border: 1px solid transparent; border-radius: 11px; min-height: 46px; padding: 11px 19px; font-size: 14px; font-weight: 650; text-decoration: none; }
+.button { display: inline-flex; align-items: center; justify-content: center; gap: 10px; border: 1px solid transparent; border-radius: 10px; min-height: 46px; padding: 11px 19px; font-size: 14px; font-weight: 650; text-decoration: none; }
 .button.primary { background: var(--primary-accent); color: white; }
 .button.primary:hover:not(:disabled) { background: var(--primary-hover); }
 .button.secondary { background: white; border-color: #d1ddcd; }
 .button.secondary:hover:not(:disabled) { background: #f0f5ec; border-color: #97b395; }
-.button.small { min-height: 38px; padding: 7px 13px; font-size: 12px; }
+.button.small { min-height: 44px; padding: 9px 13px; font-size: 13px; }
 .button.danger { color: white; background: var(--danger-color); }
 .button.danger-outline { background: white; border-color: #e5c7c1; color: #a44135; }
-.text-button { background: none; border: 0; padding: 4px; color: var(--primary-accent); font-size: inherit; }
+.text-button { background: none; border: 0; padding: 4px; min-height: 44px; color: var(--primary-accent); font-size: inherit; }
 .text-button:hover:not(:disabled) { text-decoration: underline; }
-.icon-button { border: 1px solid var(--border-color); border-radius: 50%; width: 34px; height: 34px; background: white; font-size: 23px; line-height: 1; }
+.icon-button { border: 1px solid var(--border-color); border-radius: 50%; width: 44px; height: 44px; background: var(--bg-card); font-size: 23px; line-height: 1; flex-shrink: 0; }
 .eyebrow { font-size: 10px; font-weight: 650; letter-spacing: 2px; color: var(--text-muted); margin: 0 0 8px; }
 .muted { color: var(--text-muted); }
 .small-copy { font-size: 12px; line-height: 1.8; }

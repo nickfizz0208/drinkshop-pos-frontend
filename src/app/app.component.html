@@ -3,459 +3,71 @@
 <div class="workspace">
   <!-- 主選單用 switchView 切換內容，不重新載入網頁，因此不會因點首頁而清除登入憑證。 -->
   <aside class="rail" aria-label="主選單">
-    <button type="button" class="brand-symbol" aria-label="青日茶所首頁" [disabled]="busy"
+    <button type="button" class="brand-symbol" aria-label="青日茶所首頁" [disabled]="ui.busy"
       (click)="switchView('pos')"><span>青</span><i></i></button>
     <div class="rail-caption">門市工作台</div>
     <nav>
-      <button class="rail-link" [class.active]="view === 'pos'" [disabled]="busy" (click)="switchView('pos')"><span
-          aria-hidden="true">▦</span>點餐收銀</button>
-      <button class="rail-link" [class.active]="view === 'orders'" [disabled]="busy"
-        (click)="switchView('orders')"><span aria-hidden="true">≡</span>訂單管理</button>
+      <button class="rail-link" [class.active]="ui.view === 'pos'" [disabled]="ui.busy" (click)="switchView('pos')"><app-icon name="layout-grid" />點餐收銀</button>
+      <button class="rail-link" [class.active]="ui.view === 'orders'" [disabled]="ui.busy"
+        (click)="switchView('orders')"><app-icon name="receipt-text" />訂單管理</button>
+      <button class="rail-link" [class.active]="ui.view === 'store'" [disabled]="ui.busy"
+        (click)="switchView('store')"><app-icon name="clipboard-list" />日結與報廢</button>
     </nav>
     <div class="rail-bottom">
-      <div class="leaf-mark" aria-hidden="true">✳</div>
+      <app-icon class="leaf-mark" name="leaf" />
       <p>好茶，慢慢來。<br><span>每一杯，都用心。</span></p>
     </div>
   </aside>
 
   <div class="main-shell">
     <header class="topbar">
-      <div class="brand-word"><strong>青日茶所<span>QINGRI TEA</span></strong><span
+      <div class="brand-word"><strong>青日茶所<span>Qingri Tea</span></strong><span
           class="top-divider"></span><span>門市營運系統</span></div>
       <div class="top-right"><span class="date-label">{{ todayLabel }}</span>
         @if (api.staff(); as staff) {
         <span class="staff-avatar" aria-hidden="true">{{ staff.name.slice(0, 1) }}</span><span class="staff-name">{{
           staff.name }}<small>員工 {{ staff.staffId }}</small></span>
-        <button class="text-button" [disabled]="busy" (click)="logout()">登出</button>
-        } @else { <button class="button small primary" (click)="openLogin()">員工登入 <span
-            aria-hidden="true">↗</span></button> }
+        <button class="text-button" [disabled]="ui.busy" (click)="logout()">登出</button>
+        } @else { <button class="button small primary" (click)="ui.openLogin()">員工登入 <app-icon name="log-in" /></button> }
       </div>
     </header>
 
     <main id="main-content">
-      @if (preview) {
-      <div class="preview-bar"><span
-          class="status-dot"></span><strong>介面預覽</strong><span>使用範例菜單試選飲品；登入後即可建立門市訂單。</span><button class="text-button"
-          (click)="openLogin()">登入工作台 →</button></div>
+      @if (ui.preview) {
+      <div class="preview-bar"><strong>介面預覽</strong><span>使用範例菜單試選飲品；登入後即可建立門市訂單。</span><button class="text-button"
+          (click)="ui.openLogin()">登入工作台</button></div>
       }
-      @if (error) { <div class="alert error" role="alert">{{ error }}<button class="text-button" (click)="error = ''"
+      @if (ui.error) { <div class="alert error" role="alert">{{ ui.error }}<button class="text-button" (click)="ui.error = ''"
           aria-label="關閉錯誤訊息">×</button></div> }
-      @if (notice) { <div class="notice" role="status"><span>✓ {{ notice }}</span><button class="text-button"
-          (click)="notice = ''" aria-label="關閉提示">×</button></div> }
-      @if (pending && !checkoutOpen) { <div class="alert warning" role="status">
-        <span>前次送單結果待確認，已保留原內容，避免重複建單。</span><button class="text-button" (click)="openCheckout()">繼續確認 →</button></div>
+      @if (ui.notice) { <div class="notice" role="status"><span>✓ {{ ui.notice }}</span><button class="text-button"
+          (click)="ui.notice = ''" aria-label="關閉提示">×</button></div> }
+      @switch (ui.view) {
+        @case ('pos') { <app-pos /> }
+        @case ('orders') { <app-orders /> }
+        @case ('store') { <app-store-ops /> }
       }
-
-      <!-- 點餐頁：左側選飲料，右側暫存購物車；按結帳後才呼叫後端建單。 -->
-      @if (view === 'pos') {
-      <div class="pos-layout">
-        <section class="menu-section" aria-labelledby="menu-title">
-          <div class="page-heading">
-            <div>
-              <p class="eyebrow">A GOOD DAY STARTS WITH TEA</p>
-              <h1 id="menu-title">今天，來杯好茶。</h1>
-              <p class="heading-description">選一杯喜歡的，調成剛剛好的味道。</p>
-            </div><span class="section-number">01 / 點餐</span>
-          </div>
-          <div class="menu-toolbar">
-            <div class="category-tabs" role="group" aria-label="飲品分類">@for (item of categories; track item) { <button
-                [class.selected]="category === item" [attr.aria-pressed]="category === item"
-                (click)="category = item">{{ item }} @if (item === '全部飲品') { <span>{{ menu.products.length }}</span>
-                }</button> }</div>
-            <label class="search-box"><span aria-hidden="true">⌕</span><input type="search" [(ngModel)]="search"
-                placeholder="搜尋飲品名稱" aria-label="搜尋飲品名稱"></label>
-          </div>
-          <div class="menu-caption"><span>{{ category }} <b>{{ products.length }}</b> 款</span><span>依杯型與加料計價</span>
-          </div>
-          <div class="product-grid">
-            @for (drink of products; track drink.product_id) {
-            <button class="product-card" [disabled]="!!pending || busy" (click)="openProduct(drink)"
-              [attr.aria-label]="'客製 ' + drink.name">
-              <div class="product-art" [class.milk]="drink.category === '奶茶'" [class.fruit]="drink.category === '冰沙'"
-                [class.green]="drink.name.includes('綠茶')">
-                <span class="art-category">{{ drink.category }}</span><span class="art-circle"></span>
-                <div class="tea-cup" [class.pearls]="drink.name.includes('珍珠')"><span class="straw"></span>
-                  <div class="cup-lid"></div>
-                  <div class="cup-body"><span class="cup-logo">青日<small>QINGRI</small></span></div><span
-                    class="cup-shadow"></span>
-                </div>
-                <span class="art-note">{{ drink.hot_allowed ? 'COLD / HOT' : 'COLD ONLY' }}</span>
-              </div>
-              <div class="product-info">
-                <div><span class="product-category">{{ drink.category }}</span>
-                  <h2>{{ drink.name }}</h2>
-                  <p>{{ drink.hot_allowed ? '冰飲・溫飲・熱飲' : '沁涼冰飲・固定冰甜' }}</p>
-                </div>
-                <div class="product-bottom"><span class="price">{{ money(drink.base_price) }}<small>
-                      起</small></span><span class="add-circle" aria-hidden="true">＋</span></div>
-              </div>
-            </button>
-            } @empty { <div class="empty-search"><span aria-hidden="true">⌕</span>
-              <h2>沒有找到這款飲品</h2>
-              <p>試試其他名稱，或切換飲品分類。</p><button class="text-button" (click)="search = ''; category = '全部飲品'">顯示全部飲品</button>
-            </div> }
-          </div>
-          <div class="menu-footnote"><span class="mini-leaf"
-              aria-hidden="true">✳</span><span>每一杯的冰甜與加料，都可以在選購時調整。</span><span class="foot-brand">QINGRI · DAILY
-              TEA</span></div>
-        </section>
-
-          <!-- cart 一列可有多杯；pending 存在時鎖住編輯，避免送單重試變成不同內容。 -->
-        <aside class="cart-panel" aria-labelledby="cart-title">
-          <div class="cart-header">
-            <div>
-              <p class="eyebrow">CURRENT ORDER</p>
-              <h2 id="cart-title">本次點餐 <span>{{ cups }}</span></h2>
-            </div><span class="cart-label">{{ preview ? '預覽' : '新訂單' }}</span>
-          </div>
-          <div class="source-tabs" role="group" aria-label="訂單來源">
-            <button [class.selected]="source === 'DINE_IN'" [disabled]="!!pending"
-              (click)="selectSource('DINE_IN')">內用</button>
-            <button [class.selected]="source === 'TAKE_OUT'" [disabled]="!!pending"
-              (click)="selectSource('TAKE_OUT')">外帶</button>
-            <button [class.selected]="source === 'PHONE_DELIVERY'" [disabled]="!!pending"
-              (click)="selectSource('PHONE_DELIVERY')">電話外送</button>
-            <button [class.selected]="source === 'UBER_EATS'" [disabled]="!!pending"
-              (click)="selectSource('UBER_EATS')">Uber Eats</button>
-          </div>
-          @if (source === 'PHONE_DELIVERY' && member) {
-          <article class="member-card">
-            <div class="member-card-info">
-              <strong>{{ member.name }}</strong>
-              <span>{{ member.phone }}</span>
-              <small>{{ member.address || '未建檔地址' }}</small>
-              @if (delivery) {
-              <span class="member-card-route">機車 {{ distanceText(delivery.distanceM) }}{{ delivery.addressNote ? '・本單使用臨時位置' : '' }}</span>
-              }
-            </div>
-            <button type="button" class="text-button" [disabled]="!!pending || busy"
-              (click)="memberPickerOpen = true">更換</button>
-          </article>
-          }
-          <div class="cart-lines">
-            @for (line of cart; track line.key; let index = $index) {
-            <article class="cart-line"><span class="line-number">{{ (index + 1).toString().padStart(2, '0') }}</span>
-              <div class="line-content">
-                <div class="line-title"><button class="text-button" [disabled]="!!pending || busy"
-                    (click)="openProduct(line.product, line)">{{ line.product.name }}</button><strong>{{
-                    money(line.unitCents * line.qty / 100) }}</strong></div>
-                <p>{{ sizes[line.size] }} / {{ temperatures[line.temperature] }} / {{ sugars[line.sugar] }} / {{
-                  ices[line.ice] }}</p>@if (line.toppingIds.length) { <p class="topping-note">＋{{
-                  toppingsText(line.toppingIds) }}</p> }@if (line.note) { <p>備註：{{ line.note }}</p> }
-                <div class="line-actions">
-                  <div class="quantity-stepper"><button aria-label="減少一杯"
-                      [disabled]="line.qty <= 1 || !!pending || busy" (click)="quantity(line, -1)">−</button><span>{{
-                      line.qty }}</span><button aria-label="增加一杯" [disabled]="line.qty >= 100 || !!pending || busy"
-                      (click)="quantity(line, 1)">＋</button></div><button class="remove-button"
-                    [disabled]="!!pending || busy" (click)="remove(line)"
-                    [attr.aria-label]="'移除 ' + line.product.name">移除</button>
-                </div>
-              </div>
-            </article>
-            } @empty { <div class="empty-cart">
-              <div class="empty-cup" aria-hidden="true">♧</div>
-              <h3>好茶，從這裡開始。</h3>
-              <p>點選左側飲品，<br>加入今天的第一杯。</p><span>YOUR NEXT FAVORITE CUP</span>
-            </div> }
-          </div>
-          <div class="cart-footer"><label class="note-input"><span>訂單備註 <small>選填</small></span><textarea rows="2"
-                [(ngModel)]="orderNote" maxlength="255" [disabled]="!!pending || busy"
-                placeholder="例如：分開裝袋"></textarea></label>
-            <div class="subtotal"><span>品項小計 · {{ cups }} 杯</span><span>{{ money(totalCents / 100) }}</span></div>
-            <div class="grand-total"><span>合計金額</span><strong>{{ money(totalCents / 100) }}</strong></div><button
-              class="button primary checkout-button" [disabled]="!cart.length || busy" (click)="openCheckout()"><span>{{
-                pending ? '繼續確認送單' : preview ? '登入後結帳' : '前往結帳' }}</span><span aria-hidden="true">→</span></button>
-            <p class="cart-hint">{{ preview ? '預覽不會建立訂單或扣除庫存' : '結帳時確認金額與可用庫存' }}</p>
-          </div>
-        </aside>
-      </div>
-      @if (lastOrder) { <section class="success-card" role="status">
-        <div>
-          <p class="eyebrow">ORDER CONFIRMED</p>
-          <h2>訂單已建立 · #{{ lastOrder.order_id }}</h2>
-          <p>合計 {{ money(lastOrder.total) }} · {{ paymentText(lastOrder) }} @if (lastOrder.payment === 'CASH') {
-            <span>・找零 {{ money(lastOrder.change_cash ?? 0) }}</span> }</p>
-        </div><button class="button secondary" [disabled]="busy" (click)="showLastOrder()">查看訂單 →</button>
-      </section> }
-      } @else {
-          <!-- 訂單只依狀態分頁顯示；完成或取消後仍可在當日紀錄查到。 -->
-      <div class="page-heading order-heading">
-        <div>
-          <p class="eyebrow">EVERY CUP, WELL TAKEN CARE OF</p>
-          <h1>訂單管理</h1>
-          <p class="heading-description">待處理看製作、待取餐看交付，完整訂單保留在當日紀錄。</p>
-        </div>@if (!preview) { <div class="date-filter"><label for="order-date">營業日</label><input id="order-date"
-            type="date" [(ngModel)]="orderDate" [disabled]="busy || orderLoading" (change)="changeOrderDate()"><button
-            class="button secondary small" [disabled]="orderLoading || busy" (click)="loadOrders()">重新整理</button></div>
-        }
-      </div>
-      @if (preview) { <section class="signin-prompt"><span class="leaf-mark" aria-hidden="true">✳</span>
-        <h2>登入後，照顧每一張訂單。</h2>
-        <p>使用員工帳號查看門市訂單與製作狀態。</p><button class="button primary" (click)="openLogin()">員工登入 →</button>
-      </section> }
-      @else {
-      <nav class="order-tabs" aria-label="訂單篩選">@for (tab of orderTabs; track tab.key) { <button
-          [class.selected]="orderTab === tab.key" [attr.aria-pressed]="orderTab === tab.key" [disabled]="busy"
-          (click)="selectOrderTab(tab.key)">{{ tab.label }} <span>{{ orderLoading ? '…' : orderCount(tab.key)
-            }}</span></button> }</nav>
-      <p class="order-filter-note">{{ orderDate }} · {{ orderTab === 'active' ? '顯示待製作與製作中的訂單。' : orderTab === 'ready' ?
-        '顯示已做好、尚未全部取餐的訂單。' : '保留當天全部訂單，包含已取餐、取消及棄單；可切換營業日查詢。' }}</p>
-      <div class="orders-layout">
-        <section class="order-list" aria-label="訂單列表">@if (orderLoading) { <p class="loading-state" role="status">
-            正在讀取訂單…</p> } @else { @for (order of visibleOrders; track order.order_id) { <button class="order-row"
-            [class.selected]="selectedOrder?.order_id === order.order_id" [disabled]="busy"
-            (click)="showOrder(order.order_id)">
-            <div><strong>#{{ order.order_id }}</strong><span class="status-tag" [attr.data-status]="order.status">{{
-                statuses[order.status] || order.status }}</span></div>
-            <p>{{ sources[order.source] }} · {{ paymentText(order) }} · {{ time(order.created_at) }}</p>
-            <div><span>品項金額</span><strong>保留 {{ money(order.total) }}</strong></div>@if (isPaid(order)) { <p>淨收款 {{
-              money(netReceived(order)) }}</p> }
-          </button> } @empty { <div class="empty-state">
-            <h3>{{ emptyOrdersTitle }}</h3>
-            <p>{{ orderTab === 'history' ? '可以切換營業日，或回點餐頁建立訂單。' : '可切換上方頁籤查看其他進度或完整紀錄。' }}</p>
-          </div> } }</section>
-        <section class="order-detail" aria-label="訂單明細">@if (selectedOrder; as order) { <div class="detail-heading">
-            <div>
-              <p class="eyebrow">ORDER DETAILS</p>
-              <h2>訂單 #{{ order.order_id }}</h2>
-              <p>{{ order.business_date }} · {{ time(order.created_at) }} · {{ sources[order.source] }}</p>
-            </div><span class="status-tag" [attr.data-status]="order.status">{{ statuses[order.status] }}</span>
-          </div>
-          <div class="payment-record bulk-actions" aria-label="整單操作">
-            <strong>整單操作</strong>
-            <div class="choice-row">
-              <button class="button small secondary" [disabled]="busy || !hasStatus(order, 'PENDING')"
-                (click)="advanceAll('MAKING')">全部開始製作</button>
-              <button class="button small secondary" [disabled]="busy || !hasStatus(order, 'MAKING')"
-                (click)="advanceAll('DONE')">全部製作完成</button>
-              <button class="button small primary" [disabled]="busy || !canPickUpAll(order)"
-                (click)="advanceAll('PICKED_UP')">整單取餐</button>
-            </div><small>批次製作僅推進符合狀態的品項；整單取餐須全部完成且已收款。下方仍可逐項操作，同筆多杯一起處理。</small>
-          </div>
-          @for (item of order.items; track item.item_id) { <article class="detail-line">
-            <div class="line-title">
-              <h3>{{ item.product_name }} <small>× {{ item.qty }}</small></h3><strong>{{ money(item.unit_price *
-                item.qty) }}</strong>
-            </div>
-            <p>{{ sizes[item.size] }} / {{ temperatures[item.temperature] }} / {{ sugars[item.sugar] }} / {{
-              ices[item.ice] }}</p>@for (topping of item.toppings; track topping.order_topping_id) { <span
-              class="topping-pill">＋{{ topping.topping_name }}</span> }@if (item.note) { <p>備註：{{ item.note }}</p> }<div
-              class="detail-actions"><span class="status-tag" [attr.data-status]="item.status">{{ statuses[item.status]
-                }}</span>@if (nextStatus(item)) { <button class="button small secondary"
-                [disabled]="busy || (item.status === 'DONE' && !isPaid(order))" (click)="advance(item)">{{ item.status
-                === 'DONE' ? '此項取餐' : nextLabel(item) }}</button> }@if (canCancel(item)) { <button
-                class="text-button danger-text" [disabled]="busy" (click)="openCancel(item)">取消／棄單</button> }@if
-              (item.status === 'WASTED') { <button class="button small secondary" [disabled]="busy"
-                (click)="openPhoto(item)">{{ item.photo_url ? '查看照片' : '損耗照片' }}</button> }</div>@if (item.reason) { <p
-              class="reason-note">原因：{{ item.reason }}</p>
-            <p class="detail-meta">退款 {{ money(item.refund_amount ?? 0) }} @if (item.status === 'WASTED') { · 原料損耗 {{
-              costText([item]) }} }</p> }
-          </article> }
-          <div class="order-totals"><span>保留品項合計</span><strong>{{ money(order.total) }}</strong></div>
-          <div class="payment-record">
-            <p>{{ paymentText(order) }}</p>
-            <p>已收款（扣除找零） {{ money(paidAmount(order)) }} · 已退款 {{ money(order.refunded_amount ?? 0) }}</p>
-            <p>淨收款 {{ money(netReceived(order)) }} · 原料損耗估算 {{ wasteCost(order) }}</p>@if (order.received_cash !== null)
-            { <p>原實收現金 {{ money(order.received_cash) }} · 原找零 {{ money(order.received_cash - paidAmount(order)) }}</p>
-            }<small>原料估算含杯材與加料；不含人事、租金等費用，並非店內淨損益。舊訂單若無成本快照則顯示未建檔。</small>@if (!isPaid(order) && order.status !==
-            'CANCELLED') { <p>尚未收款，請收款後再完成取餐。</p><button class="button primary" [disabled]="busy"
-              (click)="openCollect(order)">收款 {{ money(order.total) }}</button> }
-          </div>@if (order.note) { <p class="detail-meta">訂單備註：{{ order.note }}</p> }@if (canCancelWhole(order)) {
-          <button class="button danger-outline" [disabled]="busy" (click)="openCancel(null)">取消整張訂單</button> }
-          } @else { <div class="empty-state detail-placeholder"><span aria-hidden="true">≡</span>
-            <h3>選擇一張訂單</h3>
-            <p>在這裡查看飲品、製作進度與取消紀錄。</p>
-          </div> }
-        </section>
-      </div> }
-      }
-      <footer class="page-footer"><span>青日茶所 · 門市工作台</span><span>用心做好每一杯。</span></footer>
+      <footer class="page-footer"><span>青日茶所 / 門市工作台</span><span>用心做好每一杯。</span></footer>
     </main>
   </div>
 </div>
 
 <!-- 共用 app-modal 是外殼；下方各區塊提供自己的表單與確認動作。 -->
 <!-- 員工登入：不是會員登入。 -->
-@if (loginOpen) {
-<app-modal title="歡迎回來，準備好茶。" subtitle="STAFF SIGN IN · 員工登入" [busy]="busy"
-  (dismissed)="loginOpen = false; password = ''">
+@if (ui.loginOpen) {
+<app-modal title="歡迎回來，準備好茶。" subtitle="STAFF SIGN IN / 員工登入" [busy]="ui.busy"
+  (dismissed)="ui.loginOpen = false; ui.password = ''">
   <form (ngSubmit)="login()">
     <div class="modal-body">
-      <p class="form-intro">使用你的門市員工帳號登入工作台。</p>@if (modalError) { <p class="alert error" role="alert">{{ modalError }}
-      </p> }<label class="field">員工帳號<input name="username" [(ngModel)]="username" autocomplete="username"
-          placeholder="請輸入員工帳號" required [disabled]="busy" autofocus></label><label class="field">密碼<input
-          name="password" type="password" [(ngModel)]="password" autocomplete="current-password" placeholder="請輸入密碼"
-          required [disabled]="busy"></label>
+      <p class="form-intro">使用你的門市員工帳號登入工作台。</p>@if (ui.modalError) { <p class="alert error" role="alert">{{ ui.modalError }}
+      </p> }<label class="field">員工帳號<input name="username" [(ngModel)]="ui.username" autocomplete="username"
+          placeholder="請輸入員工帳號" required [disabled]="ui.busy" autofocus></label><label class="field">密碼<input
+          name="password" type="password" [(ngModel)]="ui.password" autocomplete="current-password" placeholder="請輸入密碼"
+          required [disabled]="ui.busy"></label>
       <p class="muted small-copy">帳號由門市管理人員建立。離職或停用帳號無法登入。</p>
     </div>
-    <div class="modal-footer"><button type="button" class="button secondary" [disabled]="busy"
-        (click)="loginOpen = false; password = ''">繼續預覽</button><button type="submit" class="button primary"
-        [disabled]="busy || !username.trim() || !password">{{ busy ? '登入中…' : '登入工作台 →' }}</button></div>
+    <div class="modal-footer"><button type="button" class="button secondary" [disabled]="ui.busy"
+        (click)="ui.loginOpen = false; ui.password = ''">繼續預覽</button><button type="submit" class="button primary"
+        [disabled]="ui.busy || !ui.username.trim() || !ui.password">{{ ui.busy ? '登入中…' : '登入工作台' }}</button></div>
   </form>
 </app-modal>
-}
-<!-- 飲品客製：選項受規則控制，加入購物車前仍可調整。 -->
-@if (product; as current) {
-<app-modal [title]="current.name" subtitle="MAKE IT YOURS · 飲品客製" (dismissed)="product = null">
-  <div class="modal-body customizer">@if (modalError) { <p class="alert error" role="alert">{{ modalError }}</p> }@if
-    (adjustment) { <p class="alert warning" role="status">{{ adjustment }}</p> }
-    <fieldset>
-      <legend>杯型</legend>
-      <div class="choice-row">@for (value of sizeOptions; track value) { <button
-          [class.selected]="selection.size === value" [attr.aria-pressed]="selection.size === value"
-          (click)="choose('size', value)">{{ sizes[value] }} <small>{{ money(current.base_price + (value === 'L' ?
-            current.large_extra : 0)) }}</small></button> }</div>
-    </fieldset>
-    <fieldset>
-      <legend>溫度</legend>
-      <div class="choice-row">@for (value of temperatureOptions; track value) { <button
-          [class.selected]="selection.temperature === value"
-          [disabled]="!!locked['temperature'] || (!current.hot_allowed && value !== 'COLD')"
-          [attr.aria-pressed]="selection.temperature === value" (click)="choose('temperature', value)">{{
-          temperatures[value] }}</button> }</div>@if (locked['temperature']) { <p class="field-hint">{{
-        locked['temperature'] }}</p> }
-    </fieldset>
-    <fieldset>
-      <legend>甜度</legend>
-      <div class="choice-row">@for (value of sugarOptions; track value) { <button
-          [class.selected]="selection.sugar === value" [disabled]="!!locked['sugar']"
-          [attr.aria-pressed]="selection.sugar === value" (click)="choose('sugar', value)">{{ sugars[value] }}</button>
-        }</div>@if (locked['sugar']) { <p class="field-hint">{{ locked['sugar'] }}</p> }
-    </fieldset>
-    <fieldset>
-      <legend>冰量</legend>
-      <div class="choice-row">@for (value of iceOptions; track value) { <button
-          [class.selected]="selection.ice === value" [disabled]="!!locked['ice']"
-          [attr.aria-pressed]="selection.ice === value" (click)="choose('ice', value)">{{ ices[value] }}</button> }
-      </div>@if (locked['ice']) { <p class="field-hint">{{ locked['ice'] }}</p> }
-    </fieldset>
-    <fieldset>
-      <legend>額外加料 <small>可複選</small></legend>
-      <div class="topping-choices">@for (topping of menu.toppings; track topping.topping_id) { <div><button
-            [class.selected]="selection.toppingIds.includes(topping.topping_id)"
-            [disabled]="!!toppingReason(topping.topping_id)"
-            [attr.aria-pressed]="selection.toppingIds.includes(topping.topping_id)"
-            [attr.title]="toppingReason(topping.topping_id)" (click)="toggleTopping(topping.topping_id)"><span>{{
-              topping.name }}</span><span>＋{{ money(topping.price) }}</span></button>@if
-          (toppingReason(topping.topping_id)) { <p class="field-hint">{{ toppingReason(topping.topping_id) }}</p> }
-        </div> }</div>
-    </fieldset>
-    <div class="quantity-note"><label class="field">杯數<input type="number" [(ngModel)]="selection.qty" min="1" max="100"
-          step="1" aria-label="杯數"></label><label class="field">單品備註<input [(ngModel)]="selection.note" maxlength="255"
-          placeholder="例如：分開封膜"></label></div>
-  </div>
-  <div class="modal-footer">
-    <div class="modal-price"><small>含加料，每杯 {{ money(selectedUnitCents / 100) }}</small><strong>{{
-        money(selectedUnitCents * (selection.qty || 0) / 100) }}</strong></div><button class="button primary"
-      (click)="addToCart()">{{ editingKey ? '儲存修改' : '加入本次點餐' }} ＋</button>
-  </div>
-</app-modal>
-}
-<!-- 結帳：現在付款或先接未付款單；前端金額只是預估，後端重新計價與檢查庫存。 -->
-@if (checkoutOpen) {
-<app-modal title="確認這一單。" subtitle="CHECKOUT · 結帳" [busy]="busy" (dismissed)="checkoutOpen = false">
-  <div class="modal-body">@if (modalError) { <p class="alert error" role="alert">{{ modalError }}</p> }@if (pending) {
-    <p class="alert warning">本次送單內容已保留，可以繼續確認送單結果。</p> }<div class="checkout-summary"><span>{{ sources[source] }} · {{
-        cups }} 杯</span><strong>{{ money(totalCents / 100) }}</strong></div>
-    <fieldset>
-      <legend>收款時間</legend>
-      <div class="choice-row"><button [class.selected]="!unpaid" [disabled]="busy || !!pending"
-          (click)="unpaid = false">現在收款</button><button [class.selected]="unpaid" [disabled]="busy || !!pending"
-          (click)="unpaid = true; received = null">先接單，稍後收款</button></div>
-    </fieldset>@if (!unpaid) { <fieldset>
-      <legend>付款方式</legend>
-      <div class="choice-row payments">@for (method of paymentOptions; track method) { <button
-          [class.selected]="payment === method" [disabled]="busy || !!pending"
-          (click)="payment = method; received = null">{{ payments[method] }}</button> }</div>
-    </fieldset>@if (payment === 'CASH') { <label class="field">實收現金<input type="number" [(ngModel)]="received" min="0"
-        max="99999999.99" step="0.01" placeholder="請輸入收到的金額" [disabled]="busy || !!pending"></label>
-    <div class="change-line"><span>預計找零</span><strong>{{ money(changeCents / 100) }}</strong></div> }<p
-      class="muted small-copy">請先確認已收到款項，再完成結帳。其他付款方式由店員確認收款結果。</p> } @else { <p class="alert warning">
-      本次只接單並扣料，尚未收款。之後請至訂單管理收款；取消時不需退款。</p> }
-  </div>
-  <div class="modal-footer"><button class="button secondary" [disabled]="busy"
-      (click)="checkoutOpen = false">返回點餐</button><button class="button primary" [disabled]="busy"
-      (click)="checkout()">{{ busy ? '正在確認訂單…' : pending ? '重試同一筆送單' : unpaid ? '確認接單（未付款） →' : '確認收款並送單 →' }}</button>
-  </div>
-</app-modal>
-}
-<!-- 取消／棄單：原因、實際退款、原料損耗各自記錄；是否回補依後端製作狀態決定。 -->
-@if (cancelTarget; as target) {
-<app-modal title="取消／棄單確認" subtitle="ORDER CANCELLATION" [busy]="busy" (dismissed)="cancelTarget = null">
-  <div class="modal-body">@if (modalError) { <p class="alert error" role="alert">{{ modalError }}</p> }<p
-      class="form-intro">{{ target.item ? target.item.product_name + '，共 ' + target.item.qty + ' 杯' : '訂單 #' +
-      target.order.order_id + ' 的所有未取消品項' }}</p>
-    <div class="alert warning">{{ hasMadeItems ? '含已開始製作的飲品，轉損耗後不回補原料，並記錄目前操作員工。' : '尚未製作的飲品取消後，會回補已扣原料。' }}
-      同一筆明細的杯數會一起取消。</div><label class="field">常用原因<select [(ngModel)]="cancelReasonChoice" [disabled]="busy">
-        <option value="">請選擇，或直接在下方手填</option>@for (reason of cancelReasonOptions; track reason) { <option
-          [value]="reason">{{ reason }}</option> }
-      </select></label>
-    <label class="field">{{ cancelReasonChoice === '其他' ? '其他原因（必填）' : cancelReasonChoice ? '補充說明（選填）' : '自行填寫原因'
-      }}<textarea rows="3" [(ngModel)]="cancelReason" [maxLength]="cancelNoteMaxLength" [disabled]="busy"
-        placeholder="可以自行填寫，也可以補充常用原因的細節"></textarea></label>
-    @if (combinedCancelReason) { <p class="reason-preview">將記錄：{{ combinedCancelReason }}<small>{{
-        combinedCancelReason.length }} / 255 字</small></p> }
-    @if (combinedCancelReason.length > 255) { <p class="alert error" role="alert">原因與補充說明合計最多 255 字，請縮短內容。</p> }<div
-      class="payment-record">@if (isPaid(target.order)) { <p><strong>已付款</strong> · 尚可退還的已收款 {{
-        money(netReceived(target.order)) }}</p>
-      <div class="choice-row"><button [class.selected]="wantsRefund" [disabled]="busy || refundAmount <= 0"
-          (click)="wantsRefund = true; refundConfirmed = false">需要退款</button><button [class.selected]="!wantsRefund"
-          [disabled]="busy" (click)="wantsRefund = false; refundConfirmed = false">不退款</button></div>@if (wantsRefund &&
-      refundAmount > 0) { <label class="field">本次退款金額（上限 {{ money(refundAmount) }}）<input type="number"
-          [(ngModel)]="refundInput" (ngModelChange)="refundConfirmed = false" min="0.01" [max]="refundAmount"
-          step="0.01" [disabled]="busy"></label><label class="confirmation"><input type="checkbox"
-          [(ngModel)]="refundConfirmed" [disabled]="busy"><span>已完成 {{ money(actualRefund) }}
-          的人工退款，確認後記錄。</span></label> } @else { <p>本次退款 {{ money(0) }}，保留原收款紀錄。</p> } } @else { <p>
-        <strong>尚未收款，本次不需退款。</strong></p>
-      <p>{{ hasMadeItems ? '未收款棄單：飲品已製作，將記錄原料損耗。' : '取消後回補原料，本次原料損耗為 $0。' }}</p> }<p>本次原料損耗估算：<strong>{{ cancelCost
-          }}</strong></p><small>售價、退款與原料成本分開記錄；未收取的售價不會再加進原料損耗。</small>
-    </div>
-  </div>
-  <div class="modal-footer"><button class="button secondary" [disabled]="busy"
-      (click)="cancelTarget = null">保留訂單</button><button class="button danger"
-      [disabled]="busy || !combinedCancelReason || combinedCancelReason.length > 255 || (refundNeedsConfirmation && !refundConfirmed)"
-      (click)="confirmCancel()">{{ busy ? '處理中…' : '確認取消' }}</button></div>
-</app-modal>
-}
-<!-- 損耗照片：選檔／相機先預覽，確認上傳才送檔；目前限制每筆一張、5 MB。 -->
-@if (photoItem; as item) {
-<app-modal [title]="item.photo_url ? '損耗照片' : '上傳損耗照片'" subtitle="WASTAGE RECORD" [busy]="busy"
-  (dismissed)="closePhoto()">
-  <div class="modal-body">@if (modalError) { <p class="alert error" role="alert">{{ modalError }}</p> }<p
-      class="form-intro">{{ item.product_name }} · {{ item.qty }} 杯</p>@if (photoUrl) { <img class="photo-preview"
-      [src]="photoUrl" alt="損耗照片預覽"> }@if (!item.photo_url) { <div class="photo-actions"><label
-        class="button secondary">選擇照片<input class="sr-only" type="file" accept="image/jpeg,image/png" [disabled]="busy"
-          (change)="choosePhoto($event)"></label><label class="button secondary">拍攝照片<input class="sr-only" type="file"
-          accept="image/jpeg,image/png" capture="environment" [disabled]="busy" (change)="choosePhoto($event)"></label>
-    </div>
-    <p class="muted small-copy">每筆一張，JPEG／PNG、5 MB 內，最多 1200 萬像素。</p> }
-  </div>
-  <div class="modal-footer"><button class="button secondary" [disabled]="busy" (click)="closePhoto()">關閉</button>@if
-    (!item.photo_url) { <button class="button primary" [disabled]="busy || !photoFile" (click)="uploadPhoto()">{{ busy ?
-      '上傳中…' : '確認上傳' }}</button> }</div>
-</app-modal>
-}
-
-<!-- 舊訂單補收款：記錄店員已收款的結果，不直接串金流。 -->
-@if (collecting; as order) {
-<app-modal title="訂單收款" subtitle="PAYMENT" [busy]="busy" (dismissed)="collecting = null">
-  <div class="modal-body">@if (modalError) { <p class="alert error" role="alert">{{ modalError }}</p> }<div
-      class="checkout-summary"><span>訂單 #{{ order.order_id }} · 尚未收款</span><strong>{{ money(order.total) }}</strong>
-    </div>
-    <fieldset>
-      <legend>付款方式</legend>
-      <div class="choice-row">@for (method of paymentOptions; track method) { <button
-          [class.selected]="payment === method" [disabled]="busy" (click)="payment = method; received = null">{{
-          payments[method] }}</button> }</div>
-    </fieldset>@if (payment === 'CASH') { <label class="field">實收現金<input type="number" [(ngModel)]="received" min="0"
-        step="0.01" [disabled]="busy"></label>
-    <p>預計找零 {{ money(collectionChange(received, order.total)) }}</p> }<p>請確認已收到款項；信用卡與 LINE Pay 由店員確認，系統只記錄收款。</p>
-  </div>
-  <div class="modal-footer"><button class="button secondary" [disabled]="busy"
-      (click)="collecting = null">返回訂單</button><button class="button primary" [disabled]="busy"
-      (click)="confirmCollect()">{{ busy ? '確認中…' : '確認已收款' }}</button></div>
-</app-modal>
-}
-@if (memberPickerOpen) {
-<app-member-selector (selected)="onMemberSelected($event)" (dismissed)="memberPickerOpen = false" />
 }

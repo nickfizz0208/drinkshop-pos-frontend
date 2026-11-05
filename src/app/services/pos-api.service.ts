@@ -2,6 +2,7 @@ import { HttpClient, HttpErrorResponse, HttpHeaders } from '@angular/common/http
 import { Injectable, inject, signal } from '@angular/core';
 import { firstValueFrom, Observable, timeout, TimeoutError } from 'rxjs';
 import { DeliveryRoute, MemberUpdate, PosConfig, CancelRequest, CreateOrder, ItemStatus, Member, Menu, Order, OrderSummary, Payment, Rule, Staff } from '../models/pos';
+import { ClosingSummary, DailyShift, Inventory, RawWastageRequest, WastageSummary } from '../models/store-ops';
 
 // 一般請求最多等 15 秒，照片上傳另給 30 秒，避免畫面一直停在處理中。
 export const API_TIMEOUT_MS = 15000;
@@ -33,6 +34,18 @@ export class PosApiService {
   }
   menu(): Promise<Menu> { return this.wait(this.http.get<Menu>('/api/menu', { headers: this.headers })); }
   rules(): Promise<Rule[]> { return this.wait(this.http.get<Rule[]>('/api/rules', { headers: this.headers })); }
+  shift(date: string): Promise<DailyShift> { return this.wait(this.http.get<DailyShift>(`/api/daily-shifts/${date}`, { headers: this.headers })); }
+  openShift(businessDate: string, pettyCash: number): Promise<DailyShift> {
+    return this.wait(this.http.post<DailyShift>('/api/daily-shifts/open', { businessDate, pettyCash, rolesJson: '[]' }, { headers: this.headers }));
+  }
+  closeShift(businessDate: string, countedCash: number, diffReason: string): Promise<ClosingSummary> {
+    return this.wait(this.http.post<ClosingSummary>('/api/daily-shifts/close', { businessDate, countedCash, diffReason }, { headers: this.headers }));
+  }
+  inventories(): Promise<Inventory[]> { return this.wait(this.http.get<Inventory[]>('/api/inventories', { headers: this.headers })); }
+  wastages(date: string): Promise<WastageSummary> { return this.wait(this.http.get<WastageSummary>('/api/wastages/daily-summary', { headers: this.headers, params: { date } })); }
+  rawWastage(request: RawWastageRequest): Promise<Inventory> {
+    return this.wait(this.http.post<Inventory>('/api/wastages/raw-material', request, { headers: this.headers }));
+  }
   orders(date: string): Promise<OrderSummary[]> { return this.wait(this.http.get<OrderSummary[]>('/api/orders', { headers: this.headers, params: { date } })); }
   order(id: number): Promise<Order> { return this.wait(this.http.get<Order>(`/api/orders/${id}`, { headers: this.headers })); }
   create(request: CreateOrder): Promise<Order> { return this.wait(this.http.post<Order>('/api/orders', request, { headers: this.headers })); }

@@ -1,0 +1,166 @@
+          <!-- 訂單只依狀態分頁顯示；完成或取消後仍可在當日紀錄查到。 -->
+      <div class="page-heading order-heading">
+        <div>
+          <h1>訂單管理</h1>
+          <p class="heading-description">待處理看製作、待取餐看交付，完整訂單保留在當日紀錄。</p>
+        </div>@if (!ui.preview) { <div class="date-filter"><label for="order-date">營業日</label><input id="order-date"
+            type="date" [(ngModel)]="state.orderDate" [disabled]="ui.busy || state.orderLoading" (change)="state.changeOrderDate()"><button
+            class="button secondary small" [disabled]="state.orderLoading || ui.busy" (click)="state.loadOrders()">重新整理</button></div>
+        }
+      </div>
+      @if (ui.preview) { <section class="signin-prompt"><app-icon class="leaf-mark" name="clipboard-list" />
+        <h2>登入後，照顧每一張訂單。</h2>
+        <p>使用員工帳號查看門市訂單與製作狀態。</p><button class="button primary" (click)="ui.openLogin()">員工登入</button>
+      </section> }
+      @else {
+      <nav class="order-tabs" aria-label="訂單篩選">@for (tab of state.orderTabs; track tab.key) { <button
+          [class.selected]="state.orderTab === tab.key" [attr.aria-pressed]="state.orderTab === tab.key" [disabled]="ui.busy"
+          (click)="state.selectOrderTab(tab.key)">{{ tab.label }} <span>{{ state.orderLoading ? '…' : state.orderCount(tab.key)
+            }}</span></button> }</nav>
+      <p class="order-filter-note">{{ state.orderDate }} / {{ state.orderTab === 'active' ? '顯示待製作與製作中的訂單。' : state.orderTab === 'ready' ?
+        '顯示已做好、尚未全部取餐的訂單。' : '保留當天全部訂單，包含已取餐、取消及棄單；可切換營業日查詢。' }}</p>
+      <div class="orders-layout">
+        <section class="order-list" aria-label="訂單列表">@if (state.orderLoading) { <p class="loading-state" role="status">
+            正在讀取訂單…</p> } @else { @for (order of state.visibleOrders; track order.order_id) { <button class="order-row"
+            [class.selected]="state.selectedOrder?.order_id === order.order_id" [disabled]="ui.busy"
+            (click)="state.showOrder(order.order_id)">
+            <div><strong>#{{ order.order_id }}</strong><span class="status-tag" [attr.data-status]="order.status">{{
+                state.statuses[order.status] || order.status }}</span></div>
+            <p>{{ state.sources[order.source] }} / {{ state.paymentText(order) }} / {{ state.time(order.created_at) }}</p>
+            <div><span>品項金額</span><strong>保留 {{ state.money(order.total) }}</strong></div>@if (state.isPaid(order)) { <p>淨收款 {{
+              state.money(state.netReceived(order)) }}</p> }
+          </button> } @empty { <div class="empty-state">
+            <h3>{{ state.emptyOrdersTitle }}</h3>
+            <p>{{ state.orderTab === 'history' ? '可以切換營業日，或回點餐頁建立訂單。' : '可切換上方頁籤查看其他進度或完整紀錄。' }}</p>
+          </div> } }</section>
+        <section class="order-detail" aria-label="訂單明細">@if (state.selectedOrder; as order) { <div class="detail-heading">
+            <div>
+              <h2>訂單 #{{ order.order_id }}</h2>
+              <p>{{ order.business_date }} / {{ state.time(order.created_at) }} / {{ state.sources[order.source] }}</p>
+            </div><span class="status-tag" [attr.data-status]="order.status">{{ state.statuses[order.status] }}</span>
+          </div>
+          <div class="payment-record bulk-actions" aria-label="整單操作">
+            <strong>整單操作</strong>
+            <div class="choice-row">
+              <button class="button small secondary" [disabled]="ui.busy || !state.hasStatus(order, 'PENDING')"
+                (click)="state.advanceAll('MAKING')">全部開始製作</button>
+              <button class="button small secondary" [disabled]="ui.busy || !state.hasStatus(order, 'MAKING')"
+                (click)="state.advanceAll('DONE')">全部製作完成</button>
+              <button class="button small primary" [disabled]="ui.busy || !state.canPickUpAll(order)"
+                (click)="state.advanceAll('PICKED_UP')">整單取餐</button>
+            </div><small>批次製作僅推進符合狀態的品項；整單取餐須全部完成且已收款。下方仍可逐項操作，同筆多杯一起處理。</small>
+          </div>
+          @for (item of order.items; track item.item_id) { <article class="detail-line">
+            <div class="line-title">
+              <h3>{{ item.product_name }} <small>× {{ item.qty }}</small></h3><strong>{{ state.money(item.unit_price *
+                item.qty) }}</strong>
+            </div>
+            <p>{{ state.sizes[item.size] }} / {{ state.temperatures[item.temperature] }} / {{ state.sugars[item.sugar] }} / {{
+              state.ices[item.ice] }}</p>@for (topping of item.toppings; track topping.order_topping_id) { <span
+              class="topping-pill">＋{{ topping.topping_name }}</span> }@if (item.note) { <p>備註：{{ item.note }}</p> }<div
+              class="detail-actions"><span class="status-tag" [attr.data-status]="item.status">{{ state.statuses[item.status]
+                }}</span>@if (state.nextStatus(item)) { <button class="button small secondary"
+                [disabled]="ui.busy || (item.status === 'DONE' && !state.isPaid(order))" (click)="state.advance(item)">{{ item.status
+                === 'DONE' ? '此項取餐' : state.nextLabel(item) }}</button> }@if (state.canCancel(item)) { <button
+                class="text-button danger-text" [disabled]="ui.busy" (click)="state.openCancel(item)">{{ item.status === 'PENDING' ? '取消' : '報廢／棄單' }}</button> }@if
+              (item.status === 'WASTED') { <button class="button small secondary" [disabled]="ui.busy"
+                (click)="state.openPhoto(item)">{{ item.photo_url ? '查看照片' : '損耗照片' }}</button> }</div>@if (item.reason) { <p
+              class="reason-note">原因：{{ item.reason }}</p>
+            <p class="detail-meta">退款 {{ state.money(item.refund_amount ?? 0) }} @if (item.status === 'WASTED') { / 原料損耗 {{
+              state.costText([item]) }} }</p> }
+          </article> }
+          <div class="order-totals"><span>保留品項合計</span><strong>{{ state.money(order.total) }}</strong></div>
+          <div class="payment-record">
+            <p>{{ state.paymentText(order) }}</p>
+            <p>已收款（扣除找零） {{ state.money(state.paidAmount(order)) }} / 已退款 {{ state.money(order.refunded_amount ?? 0) }}</p>
+            <p>淨收款 {{ state.money(state.netReceived(order)) }} / 原料損耗估算 {{ state.wasteCost(order) }}</p>@if (order.received_cash !== null)
+            { <p>原實收現金 {{ state.money(order.received_cash) }} / 原找零 {{ state.money(order.received_cash - state.paidAmount(order)) }}</p>
+            }<small>原料估算含杯材與加料；不含人事、租金等費用，並非店內淨損益。舊訂單若無成本快照則顯示未建檔。</small>@if (!state.isPaid(order) && order.status !==
+            'CANCELLED') { <p>尚未收款，請收款後再完成取餐。</p><button class="button primary" [disabled]="ui.busy"
+              (click)="state.openCollect(order)">收款 {{ state.money(order.total) }}</button> }
+          </div>@if (order.note) { <p class="detail-meta">訂單備註：{{ order.note }}</p> }@if (state.canCancelWhole(order)) {
+          <button class="button danger-outline" [disabled]="ui.busy" (click)="state.openCancel(null)">取消整張訂單</button> }
+          } @else { <div class="empty-state detail-placeholder"><app-icon name="receipt-text" />
+            <h3>選擇一張訂單</h3>
+            <p>在這裡查看飲品、製作進度與取消紀錄。</p>
+          </div> }
+        </section>
+      </div> }
+
+<!-- 取消／棄單：原因、實際退款、原料損耗各自記錄；是否回補依後端製作狀態決定。 -->
+@if (state.cancelTarget; as target) {
+<app-modal title="取消／棄單確認" subtitle="ORDER CANCELLATION" [busy]="ui.busy" (dismissed)="state.cancelTarget = null">
+  <div class="modal-body">@if (ui.modalError) { <p class="alert error" role="alert">{{ ui.modalError }}</p> }<p
+      class="form-intro">{{ target.item ? target.item.product_name + '，共 ' + target.item.qty + ' 杯' : '訂單 #' +
+      target.order.order_id + ' 的所有未取消品項' }}</p>
+    <div class="alert warning">{{ state.hasMadeItems ? '含已開始製作的飲品，轉損耗後不回補原料，並記錄目前操作員工。' : '尚未製作的飲品取消後，會回補已扣原料。' }}
+      同一筆明細的杯數會一起取消。</div><label class="field">常用原因<select [(ngModel)]="state.cancelReasonChoice" [disabled]="ui.busy">
+        <option value="">請選擇，或直接在下方手填</option>@for (reason of state.cancelReasonOptions; track reason) { <option
+          [value]="reason">{{ reason }}</option> }
+      </select></label>
+    <label class="field">{{ state.cancelReasonChoice === '其他' ? '其他原因（必填）' : state.cancelReasonChoice ? '補充說明（選填）' : '自行填寫原因'
+      }}<textarea rows="3" [(ngModel)]="state.cancelReason" [maxLength]="state.cancelNoteMaxLength" [disabled]="ui.busy"
+        placeholder="可以自行填寫，也可以補充常用原因的細節"></textarea></label>
+    @if (state.combinedCancelReason) { <p class="reason-preview">將記錄：{{ state.combinedCancelReason }}<small>{{
+        state.combinedCancelReason.length }} / 255 字</small></p> }
+    @if (state.combinedCancelReason.length > 255) { <p class="alert error" role="alert">原因與補充說明合計最多 255 字，請縮短內容。</p> }<div
+      class="payment-record">@if (state.isPaid(target.order)) { <p><strong>已付款</strong> / 尚可退還的已收款 {{
+        state.money(state.netReceived(target.order)) }}</p>
+      <div class="choice-row"><button [class.selected]="state.wantsRefund" [disabled]="ui.busy || state.refundAmount <= 0"
+          (click)="state.wantsRefund = true; state.refundConfirmed = false">需要退款</button><button [class.selected]="!state.wantsRefund"
+          [disabled]="ui.busy" (click)="state.wantsRefund = false; state.refundConfirmed = false">不退款</button></div>@if (state.wantsRefund &&
+      state.refundAmount > 0) { <label class="field">本次退款金額（上限 {{ state.money(state.refundAmount) }}）<input type="number"
+          [(ngModel)]="state.refundInput" (ngModelChange)="state.refundConfirmed = false" min="0.01" [max]="state.refundAmount"
+          step="0.01" [disabled]="ui.busy"></label><label class="confirmation"><input type="checkbox"
+          [(ngModel)]="state.refundConfirmed" [disabled]="ui.busy"><span>已完成 {{ state.money(state.actualRefund) }}
+          的人工退款，確認後記錄。</span></label> } @else { <p>本次退款 {{ state.money(0) }}，保留原收款紀錄。</p> } } @else { <p>
+        <strong>尚未收款，本次不需退款。</strong></p>
+      <p>{{ state.hasMadeItems ? '未收款棄單：飲品已製作，將記錄原料損耗。' : '取消後回補原料，本次原料損耗為 $0。' }}</p> }<p>本次原料損耗估算：<strong>{{ state.cancelCost
+          }}</strong></p><small>售價、退款與原料成本分開記錄；未收取的售價不會再加進原料損耗。</small>
+    </div>
+  </div>
+  <div class="modal-footer"><button class="button secondary" [disabled]="ui.busy"
+      (click)="state.cancelTarget = null">保留訂單</button><button class="button danger"
+      [disabled]="ui.busy || !state.combinedCancelReason || state.combinedCancelReason.length > 255 || (state.refundNeedsConfirmation && !state.refundConfirmed)"
+      (click)="state.confirmCancel()">{{ ui.busy ? '處理中…' : '確認取消' }}</button></div>
+</app-modal>
+}
+<!-- 損耗照片：選檔／相機先預覽，確認上傳才送檔；目前限制每筆一張、5 MB。 -->
+@if (state.photoItem; as item) {
+<app-modal [title]="item.photo_url ? '損耗照片' : '上傳損耗照片'" subtitle="WASTAGE RECORD" [busy]="ui.busy"
+  (dismissed)="state.closePhoto()">
+  <div class="modal-body">@if (ui.modalError) { <p class="alert error" role="alert">{{ ui.modalError }}</p> }<p
+      class="form-intro">{{ item.product_name }} / {{ item.qty }} 杯</p>@if (state.photoUrl) { <img class="photo-preview"
+      [src]="state.photoUrl" alt="損耗照片預覽"> }@if (!item.photo_url) { <div class="photo-actions"><label
+        class="button secondary">選擇照片<input class="sr-only" type="file" accept="image/jpeg,image/png" [disabled]="ui.busy"
+          (change)="state.choosePhoto($event)"></label><label class="button secondary">拍攝照片<input class="sr-only" type="file"
+          accept="image/jpeg,image/png" capture="environment" [disabled]="ui.busy" (change)="state.choosePhoto($event)"></label>
+    </div>
+    <p class="muted small-copy">每筆一張，JPEG／PNG、5 MB 內，最多 1200 萬像素。</p> }
+  </div>
+  <div class="modal-footer"><button class="button secondary" [disabled]="ui.busy" (click)="state.closePhoto()">關閉</button>@if
+    (!item.photo_url) { <button class="button primary" [disabled]="ui.busy || !state.photoFile" (click)="state.uploadPhoto()">{{ ui.busy ?
+      '上傳中…' : '確認上傳' }}</button> }</div>
+</app-modal>
+}
+
+<!-- 舊訂單補收款：記錄店員已收款的結果，不直接串金流。 -->
+@if (state.collecting; as order) {
+<app-modal title="訂單收款" subtitle="PAYMENT" [busy]="ui.busy" (dismissed)="state.collecting = null">
+  <div class="modal-body">@if (ui.modalError) { <p class="alert error" role="alert">{{ ui.modalError }}</p> }<div
+      class="checkout-summary"><span>訂單 #{{ order.order_id }} / 尚未收款</span><strong>{{ state.money(order.total) }}</strong>
+    </div>
+    <fieldset>
+      <legend>付款方式</legend>
+      <div class="choice-row">@for (method of state.paymentOptions; track method) { <button
+          [class.selected]="state.payment === method" [disabled]="ui.busy" (click)="state.payment = method; state.received = null">{{
+          state.payments[method] }}</button> }</div>
+    </fieldset>@if (state.payment === 'CASH') { <label class="field">實收現金<input type="number" [(ngModel)]="state.received" min="0"
+        step="0.01" [disabled]="ui.busy"></label>
+    <p>預計找零 {{ state.money(state.collectionChange(state.received, order.total)) }}</p> }<p>請確認已收到款項；信用卡與 LINE Pay 由店員確認，系統只記錄收款。</p>
+  </div>
+  <div class="modal-footer"><button class="button secondary" [disabled]="ui.busy"
+      (click)="state.collecting = null">返回訂單</button><button class="button primary" [disabled]="ui.busy"
+      (click)="state.confirmCollect()">{{ ui.busy ? '確認中…' : '確認已收款' }}</button></div>
+</app-modal>
+}

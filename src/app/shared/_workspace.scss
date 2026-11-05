@@ -1,0 +1,69 @@
+// 跨畫面共用的標題、品項金額列與收款卡；由各元件引入以保留封裝。
+
+
+.leaf-mark {
+  font-size: 38px;
+  color: var(--text-muted);
+}
+
+main > .alert {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.page-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 7px 0 25px;
+}
+
+h1 {
+  font-size: 30px;
+  letter-spacing: 0;
+  font-weight: 650;
+  line-height: 1.4;
+  margin: 0 0 9px;
+}
+
+.heading-description {
+  color: var(--text-muted);
+  font-size: 14px;
+  margin: 0;
+}
+
+.line-title {
+  display: flex;
+  justify-content: space-between;
+  gap: 9px;
+  align-items: baseline;
+}
+
+.line-title .text-button {
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+  padding: 0;
+  color: var(--text-main);
+}
+
+.line-title strong {
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+@media (max-width: 760px) {
+  .page-heading {
+    margin: 12px 0 22px;
+  }
+  h1 {
+    font-size: 27px;
+  }
+}
+
+.line-title .text-button {
+  font-size: 14px;
+}

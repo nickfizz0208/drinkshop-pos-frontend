@@ -1,0 +1,97 @@
+<div class="page-heading">
+  <div><h1>日結與報廢</h1><p class="heading-description">核對錢櫃、完成日結，並追蹤飲品與原料損耗。</p></div>
+  @if (!ui.preview) {
+    <div class="date-tools"><label for="ops-date">營業日</label><input id="ops-date" type="date" [(ngModel)]="state.date" (change)="changeDate()" [disabled]="ui.busy || state.loading">
+      <button class="button secondary" (click)="state.load()" [disabled]="ui.busy || state.loading">重新整理</button></div>
+  }
+</div>
+@if (ui.preview) {
+  <section class="panel signin"><h2>登入後管理門市營運</h2><p>使用員工帳號查詢班次、核對現金及查看損耗。預覽不會關班或扣除庫存。</p><button class="button primary" (click)="ui.openLogin()">員工登入</button></section>
+} @else {
+  @if (state.error) { <p class="alert error" role="alert">{{ state.error }}</p> }
+  @if (state.rawReview; as review) {
+    <section class="panel review-panel" aria-label="報廢結果待核對">
+      <h2>上次報廢結果待核對</h2>
+      <p>{{ review.date }} / {{ review.materialName }} / {{ review.request.wastageQty }} {{ review.unit }} / {{ review.request.reason }}</p>
+      <p>請核對送出時間 {{ review.sentAt }} 前後的紀錄與實際庫存。若跨午夜，也要核對今日紀錄；相似紀錄不一定是同一次操作。核對前禁止再次登記。</p>
+      <button class="button secondary" (click)="state.inspectReview()" [disabled]="ui.busy">讀取待核對日期的紀錄</button>
+      @if (state.reviewLoaded) {
+        @for (day of state.reviewRows; track day.date) {
+          <h3>{{ day.date }}</h3>
+          @if (!day.rawWastageEnabled) { <p class="alert warning">該日原料紀錄目前未啟用，畫面無法證明是否已扣料，請向負責人核對。</p> }
+          <ul>@for (row of day.rawMaterialWastages; track row.wastageId) { <li>#{{ row.wastageId }} / 原料 {{ row.inventoryId }} / {{ row.quantity }} / {{ row.reason }} / {{ row.reportedAt }}</li> } @empty { <li>沒有可顯示的原料紀錄，仍請核對實際庫存與送出時間。</li> }</ul>
+        }
+        <label class="confirmation"><input type="checkbox" [(ngModel)]="state.reviewChecked" [disabled]="ui.busy"><span>我已核對上述日期的報廢紀錄與實際庫存，知道再次登記會再次扣料。</span></label>
+        <button class="button secondary" (click)="state.acknowledgeReview()" [disabled]="ui.busy || !state.reviewChecked">已核對紀錄，解除鎖定</button>
+      }
+    </section>
+  }
+  @if (state.loading) { <p class="loading" role="status">正在讀取班次、收款與損耗紀錄…</p> }
+  @if (state.ready) {
+    <div class="ops-grid">
+      <section class="panel" aria-labelledby="shift-title">
+        <div class="panel-heading"><h2 id="shift-title">班次與現金</h2><span class="badge">{{ state.shift?.status === 'CLOSED' ? '已日結' : state.shift ? '開班中' : '未開班' }}</span></div>
+        @if (state.shift; as shift) {
+          <p class="muted">開班員工 {{ shift.openedBy }} / {{ shift.openedAt }}</p>
+          <dl class="totals"><div><dt>開班底金</dt><dd>{{ state.money(shift.pettyCash) }}</dd></div>
+            @for (receipt of state.receipts; track receipt.label) { <div><dt>{{ receipt.label }}淨收款</dt><dd>{{ state.money(receipt.value) }}</dd></div> }
+            <div class="grand"><dt>{{ shift.status === 'OPEN' ? '預估應有現金' : '日結應有現金' }}</dt><dd>{{ state.expectedCash === null ? '無法完整預估' : state.money(state.expectedCash) }}</dd></div>
+          </dl>
+          <p class="hint">應有現金為底金加現金淨收款；非現金收款與損耗成本不增減錢櫃。淨收款已扣找零與退款。</p>
+          @if (shift.status === 'CLOSED') {
+            <dl class="totals"><div><dt>實際清點</dt><dd>{{ shift.countedCash === null ? '未建檔' : state.money(shift.countedCash) }}</dd></div><div><dt>現金差額</dt><dd>{{ shift.countedCash === null || shift.expectedCash === null ? '未建檔' : state.money(shift.countedCash - shift.expectedCash) }}</dd></div><div><dt>銷售杯數</dt><dd>{{ shift.cups === null ? '未建檔' : shift.cups + ' 杯' }}</dd></div></dl>
+            <p>差額原因：{{ shift.diffReason || '無差額' }}</p><p class="muted">關班員工 {{ shift.closedBy }} / {{ shift.closedAt }}</p>
+            <p class="alert warning">已日結，這個營業日不能接單、改單或登記報廢。</p>
+          } @else {
+            <p class="hint">以上依本次查詢預估；其他工作台仍可能異動，實際結果以後端關班時的結算為準。</p>
+            <form (ngSubmit)="state.closeShift()">
+              <label class="field">清點現金<input name="countedCash" type="number" [(ngModel)]="state.countedCash" (ngModelChange)="state.closeConfirmed = false" min="0" max="99999999.99" step="0.01" required [disabled]="ui.busy"></label>
+              <p>預估差額：<strong>{{ state.difference === null ? '待清點／核對' : state.money(state.difference) }}</strong></p>
+              <label class="field">差額／核對說明{{ state.difference !== 0 ? '（必填）' : '（選填）' }}<textarea name="diffReason" [(ngModel)]="state.diffReason" (ngModelChange)="state.closeConfirmed = false" maxlength="255" rows="2" [disabled]="ui.busy"></textarea></label>
+              <div class="alert warning">尚有 {{ state.unfinished }} 張未完成訂單、{{ state.unpaid }} 張未付款訂單。本機購物車 {{ state.pos.cups }} 杯。關班後這個營業日不能再收款、取餐、取消或報廢。</div>
+              @if (state.pos.pending) { <p class="alert error">本機有送單結果待確認，請先回點餐確認，暫不可關班。</p> }
+              <label class="confirmation"><input name="closeConfirmed" type="checkbox" [(ngModel)]="state.closeConfirmed" [disabled]="ui.busy || !!state.pos.pending"><span>我已核對現金及未完成訂單，確認結束 {{ state.date }} 的營業。</span></label>
+              <button class="button primary action" type="submit" [disabled]="ui.busy || !state.closeConfirmed || !!state.pos.pending">{{ ui.busy ? '處理中…' : '確認關班日結' }}</button>
+            </form>
+          }
+        } @else {
+          <p>這個營業日尚未開班。開班後才可建立訂單與登記原料損耗。</p>
+          <form (ngSubmit)="state.openShift()"><label class="field">開班底金<input name="pettyCash" type="number" [(ngModel)]="state.pettyCash" min="0" max="99999999.99" step="0.01" required [disabled]="ui.busy"></label><button type="submit" class="button primary" [disabled]="ui.busy">{{ ui.busy ? '處理中…' : '確認開班' }}</button></form>
+        }
+      </section>
+
+      <section class="panel" aria-labelledby="raw-title">
+        <h2 id="raw-title">原料報廢</h2><p>登記過期、打翻或製作失敗的原料。確認後會扣除庫存，並保存原因與成本。</p>
+        @if (!state.wastage?.rawWastageEnabled) { <p class="alert warning">原料損耗紀錄尚未啟用。請由資料庫負責人確認啟用；這裡不會修改資料表或扣料。</p> }
+        @else if (!state.canRaw && !state.rawReview) { <p class="alert warning">只可登記台北今日且開班中的原料損耗。查看歷史日期不會回填當天庫存。</p> }
+        <form (ngSubmit)="state.prepareRaw()">
+          <fieldset [disabled]="ui.busy || !state.canRaw">
+            <label class="field">原料<select name="rawId" [(ngModel)]="state.rawId" required><option [ngValue]="null">選擇原料</option>@for (item of state.inventory; track item.inventoryId) { <option [ngValue]="item.inventoryId">{{ item.name }} / 庫存 {{ item.bookQty }} {{ item.baseUnit }}</option> }</select></label>
+            <label class="field">報廢數量{{ state.selectedMaterial ? '（' + state.selectedMaterial.baseUnit + '）' : '' }}<input name="rawQty" type="number" [(ngModel)]="state.rawQty" min="0.01" [max]="state.selectedMaterial?.bookQty ?? 9999999999.99" step="0.01" required></label>
+            <label class="field">報廢原因<textarea name="rawReason" [(ngModel)]="state.rawReason" rows="3" maxlength="255" required placeholder="例如：珍珠煮壞、茶湯打翻"></textarea></label>
+            <button type="submit" class="button danger-outline">確認報廢內容</button>
+          </fieldset>
+        </form>
+      </section>
+    </div>
+
+    @if (state.closing; as result) { @if (result.businessDate === state.date) { <section class="panel closing-result" role="status"><h2>本次日結結果</h2><p>保留品項售價 {{ state.money(result.totalRevenue) }}（包含未付款品項） / {{ result.totalCups }} 杯；現金差額 {{ state.money(result.diffAmount) }}。正式現金結果已保存於上方班次。</p></section> } }
+
+    @if (state.wastage; as waste) {
+      <section class="panel wastage-panel" aria-labelledby="waste-title"><div class="panel-heading"><h2 id="waste-title">{{ waste.date }} 損耗紀錄</h2><button class="button secondary" (click)="state.showOrder()" [disabled]="ui.busy">到訂單管理登記飲品報廢</button></div>
+        <p>飲品報廢 {{ waste.totalWastedCount }} 杯 / 原料與飲品成本：<strong>{{ waste.costComplete && waste.totalWastageCost !== null ? state.money(waste.totalWastageCost) : '成本未建檔，無法完整估算' }}</strong></p>
+        @if (!waste.rawWastageEnabled) { <p class="hint">目前只含飲品損耗；原料事件未啟用，不代表沒有原料損耗。</p> }
+        <p class="hint">飲品在訂單明細選「報廢／棄單」；待製作請選取消。已製作的飲品不回補原料，也不再扣一次。損耗成本不是售價，也不等於店內淨損益。</p>
+        <h3>飲品明細</h3><div class="table-scroll"><table><thead><tr><th>訂單</th><th>飲品</th><th>杯數</th><th>操作</th></tr></thead><tbody>@for (item of waste.wastedItems; track item.itemId) { <tr><td>#{{ item.orderId }}</td><td>{{ item.productName }}</td><td>{{ item.qty }}</td><td><button class="text-button" (click)="state.showOrder(item.orderId)" [disabled]="ui.busy">查看原因與照片</button></td></tr> } @empty { <tr><td colspan="4">這一天沒有飲品報廢紀錄。</td></tr> }</tbody></table></div>
+        <h3>原料明細</h3><div class="table-scroll"><table><thead><tr><th>原料編號</th><th>數量</th><th>成本</th><th>原因</th><th>時間／員工</th></tr></thead><tbody>@for (item of waste.rawMaterialWastages; track item.wastageId) { <tr><td>#{{ item.inventoryId }}</td><td>{{ item.quantity }}</td><td>{{ item.materialCost === null ? '未建檔' : state.money(item.materialCost) }}</td><td>{{ item.reason }}</td><td>{{ item.reportedAt }} / {{ item.reportedBy }}</td></tr> } @empty { <tr><td colspan="5">{{ waste.rawWastageEnabled ? '這一天沒有原料報廢紀錄。' : '原料紀錄尚未啟用。' }}</td></tr> }</tbody></table></div>
+      </section>
+    }
+  }
+}
+
+@if (state.rawConfirm; as confirm) {
+  <app-modal title="確認原料報廢" subtitle="確認後會扣除庫存" [busy]="ui.busy" (dismissed)="state.rawConfirm = null">
+    <div class="modal-body"><p><strong>{{ confirm.materialName }}</strong> / {{ confirm.request.wastageQty }} {{ confirm.unit }}</p><p>{{ confirm.request.reason }}</p><p class="alert warning">將扣除台北今日的原料庫存。這不是盤點，也不會回補先前已扣的飲品用料。</p></div>
+    <div class="modal-footer"><button class="button secondary" (click)="state.rawConfirm = null" [disabled]="ui.busy">返回修改</button><button class="button danger" (click)="state.submitRaw()" [disabled]="ui.busy">{{ ui.busy ? '登記中…' : '確認扣料並登記' }}</button></div>
+  </app-modal>
+}
