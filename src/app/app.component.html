@@ -11,6 +11,10 @@
           aria-hidden="true">▦</span>點餐收銀</button>
       <button class="rail-link" [class.active]="view === 'orders'" [disabled]="busy"
         (click)="switchView('orders')"><span aria-hidden="true">≡</span>訂單管理</button>
+      <button class="rail-link" [class.active]="view === 'time-tracker'" [disabled]="busy"
+        (click)="switchView('time-tracker')"><span aria-hidden="true">◷</span>工時管理</button>
+      <button class="rail-link" [class.active]="view === 'schedule'" [disabled]="busy"
+        (click)="switchView('schedule')"><span aria-hidden="true">◷</span>排班管理</button>
     </nav>
     <div class="rail-bottom">
       <div class="leaf-mark" aria-hidden="true">✳</div>
@@ -43,7 +47,8 @@
       @if (notice) { <div class="notice" role="status"><span>✓ {{ notice }}</span><button class="text-button"
           (click)="notice = ''" aria-label="關閉提示">×</button></div> }
       @if (pending && !checkoutOpen) { <div class="alert warning" role="status">
-        <span>前次送單結果待確認，已保留原內容，避免重複建單。</span><button class="text-button" (click)="openCheckout()">繼續確認 →</button></div>
+        <span>前次送單結果待確認，已保留原內容，避免重複建單。</span><button class="text-button" (click)="openCheckout()">繼續確認 →</button>
+      </div>
       }
 
       <!-- 點餐頁：左側選飲料，右側暫存購物車；按結帳後才呼叫後端建單。 -->
@@ -100,7 +105,7 @@
               TEA</span></div>
         </section>
 
-          <!-- cart 一列可有多杯；pending 存在時鎖住編輯，避免送單重試變成不同內容。 -->
+        <!-- cart 一列可有多杯；pending 存在時鎖住編輯，避免送單重試變成不同內容。 -->
         <aside class="cart-panel" aria-labelledby="cart-title">
           <div class="cart-header">
             <div>
@@ -125,7 +130,8 @@
               <span>{{ member.phone }}</span>
               <small>{{ member.address || '未建檔地址' }}</small>
               @if (delivery) {
-              <span class="member-card-route">機車 {{ distanceText(delivery.distanceM) }}{{ delivery.addressNote ? '・本單使用臨時位置' : '' }}</span>
+              <span class="member-card-route">機車 {{ distanceText(delivery.distanceM) }}{{ delivery.addressNote ?
+                '・本單使用臨時位置' : '' }}</span>
               }
             </div>
             <button type="button" class="text-button" [disabled]="!!pending || busy"
@@ -174,11 +180,12 @@
           <p class="eyebrow">ORDER CONFIRMED</p>
           <h2>訂單已建立 · #{{ lastOrder.order_id }}</h2>
           <p>合計 {{ money(lastOrder.total) }} · {{ paymentText(lastOrder) }} @if (lastOrder.payment === 'CASH') {
-            <span>・找零 {{ money(lastOrder.change_cash ?? 0) }}</span> }</p>
+            <span>・找零 {{ money(lastOrder.change_cash ?? 0) }}</span> }
+          </p>
         </div><button class="button secondary" [disabled]="busy" (click)="showLastOrder()">查看訂單 →</button>
       </section> }
-      } @else {
-          <!-- 訂單只依狀態分頁顯示；完成或取消後仍可在當日紀錄查到。 -->
+      } @else if (view === 'orders') {
+      <!-- 訂單只依狀態分頁顯示；完成或取消後仍可在當日紀錄查到。 -->
       <div class="page-heading order-heading">
         <div>
           <p class="eyebrow">EVERY CUP, WELL TAKEN CARE OF</p>
@@ -268,6 +275,12 @@
           </div> }
         </section>
       </div> }
+      }
+      @else if(view === 'time-tracker') {
+      <app-time-tracker></app-time-tracker>
+      }
+      @else if(view === 'schedule') {
+      <app-schedule-shift></app-schedule-shift>
       }
       <footer class="page-footer"><span>青日茶所 · 門市工作台</span><span>用心做好每一杯。</span></footer>
     </main>
@@ -406,7 +419,8 @@
           step="0.01" [disabled]="busy"></label><label class="confirmation"><input type="checkbox"
           [(ngModel)]="refundConfirmed" [disabled]="busy"><span>已完成 {{ money(actualRefund) }}
           的人工退款，確認後記錄。</span></label> } @else { <p>本次退款 {{ money(0) }}，保留原收款紀錄。</p> } } @else { <p>
-        <strong>尚未收款，本次不需退款。</strong></p>
+        <strong>尚未收款，本次不需退款。</strong>
+      </p>
       <p>{{ hasMadeItems ? '未收款棄單：飲品已製作，將記錄原料損耗。' : '取消後回補原料，本次原料損耗為 $0。' }}</p> }<p>本次原料損耗估算：<strong>{{ cancelCost
           }}</strong></p><small>售價、退款與原料成本分開記錄；未收取的售價不會再加進原料損耗。</small>
     </div>

@@ -10,6 +10,8 @@ import { CartLine, CreateOrder, ICE_LABELS, Ice, ItemStatus, Menu, Order, OrderI
 import { MemberSelectorComponent } from './member-selector/member-selector.component';
 import { Delivery, DeliverySelection, Member, Source, distanceText } from './models/pos';
 import { HereMapService } from './services/here-map.service';
+import { TimeTrackerComponent } from './time-tracker/time-tracker.component';
+import { ScheduleShiftComponent } from './schedule-shift/schedule-shift.component';
 
 /**
  * POS 畫面的操作中心：HTML 綁定下方狀態與方法；API 呼叫集中在 PosApiService。
@@ -18,7 +20,7 @@ import { HereMapService } from './services/here-map.service';
  */
 @Component({
   selector: 'app-root',
-  imports: [CommonModule, FormsModule, ModalComponent, MemberSelectorComponent],
+  imports: [CommonModule, FormsModule, ModalComponent, MemberSelectorComponent, TimeTrackerComponent, ScheduleShiftComponent],
   templateUrl: './app.component.html',
   styleUrl: './app.component.scss'
 })
@@ -44,7 +46,7 @@ export class AppComponent implements OnDestroy {
   readonly paymentOptions: Payment[] = ['CASH', 'CREDIT_CARD', 'LINE_PAY'];
   // 未登入只展示假菜單；登入成功後才換成後端資料，結帳也必須登入。
   preview = true;
-  view: 'pos' | 'orders' = 'pos';
+  view: 'pos' | 'orders' | 'time-tracker' | 'schedule' = 'pos';
   menu: Menu = PREVIEW_MENU;
   rules: Rule[] = PREVIEW_RULES;
   category = '全部飲品';
@@ -195,7 +197,7 @@ export class AppComponent implements OnDestroy {
     this.orderLoad++; this.orderTab = 'active'; this.view = 'pos'; this.error = ''; this.notice = ''; this.orderNote = ''; this.source = 'TAKE_OUT';
   }
   openLogin(): void { this.modalError = ''; this.password = ''; this.loginOpen = true; }
-  async switchView(view: 'pos' | 'orders'): Promise<void> {
+  async switchView(view: 'pos' | 'orders' | 'time-tracker' | 'schedule'): Promise<void> {
     if (this.busy) return;
     this.view = view; this.error = '';
     if (view === 'orders' && !this.preview) await this.loadOrders();

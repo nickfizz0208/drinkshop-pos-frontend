@@ -1,0 +1,256 @@
+<!-- 排班管理：週檢視。店長可編輯、發布；員工只看已發布的週。 -->
+<div class="page-heading">
+  <div>
+    <p class="eyebrow">STAFF SCHEDULE</p>
+    <h1>排班管理</h1>
+    <p class="heading-description">一週一張班表，店長排好後發布，員工就看得到。</p>
+  </div>
+</div>
+
+@if (!loggedIn) {
+<section class="signin-prompt"><span class="leaf-mark" aria-hidden="true">✳</span>
+  <h2>登入後，查看本週班表。</h2>
+  <p>請使用右上角的「員工登入」。店長登入後可以排班與發布。</p>
+</section>
+} @else {
+
+@if (error) { <div class="alert error" role="alert">{{ error }}</div> }
+@if (notice) { <div class="alert success" role="status">✓ {{ notice }}<button class="text-button close" (click)="notice = ''"
+    aria-label="關閉提示">×</button></div> }
+@if (warnings.length) {
+<div class="alert warning" role="status">
+  <strong>⚠ 提醒（已存檔）</strong>
+  <ul>@for (w of warnings; track w) { <li>{{ w }}</li> }</ul>
+</div>
+}
+
+<!-- 週切換與狀態 -->
+<section class="week-bar">
+  <div class="week-nav">
+    <div class="mode-toggle" role="group" aria-label="顯示方式">
+      <button [class.selected]="mode === 'week'" [attr.aria-pressed]="mode === 'week'" (click)="setMode('week')">週</button>
+      <button [class.selected]="mode === 'day'" [attr.aria-pressed]="mode === 'day'" (click)="setMode('day')">日</button>
+    </div>
+    @if (mode === 'week') {
+    <button class="button secondary small" [disabled]="loading || busy" (click)="moveWeek(-1)" aria-label="上一週">‹ 上週</button>
+    <strong class="week-range">{{ rangeLabel() }}</strong>
+    <button class="button secondary small" [disabled]="loading || busy" (click)="moveWeek(1)" aria-label="下一週">下週 ›</button>
+    } @else {
+    <button class="button secondary small" [disabled]="loading || busy" (click)="moveDay(-1)" aria-label="前一天">‹ 前一天</button>
+    <strong class="week-range">{{ dayTitle(selectedDate) }}</strong>
+    <button class="button secondary small" [disabled]="loading || busy" (click)="moveDay(1)" aria-label="後一天">後一天 ›</button>
+    }
+    <button class="text-button" [disabled]="loading || busy" (click)="thisWeek()">回到今天</button>
+    @if (week && (week.published || canEdit)) {
+    <span class="my-summary"><b class="mine-dot"></b>{{ myDays ? '本週你上班 ' + myDays + ' 天' : '本週你沒有排班' }}</span>
+    }
+  </div>
+  @if (week && canEdit) {
+  <div class="week-actions">
+    <span class="status-pill" [class]="'status-pill ' + statusClass">{{ statusLabel }}</span>
+    <button class="button secondary small" [disabled]="busy" (click)="openTemplates()">班別設定</button>
+    <button class="button secondary small" [disabled]="busy || hasEntries"
+      [title]="hasEntries ? '本週已有排班，只有空白的週才能複製上週' : ''" (click)="copyPrevious()">複製上週</button>
+    <button class="button primary small" [disabled]="busy || !hasEntries" (click)="confirmPublish = true">
+      {{ week.published ? '重新發布' : '發布本週' }}</button>
+  </div>
+  }
+</section>
+
+@if (week?.modifiedAfterPublish && canEdit) {
+<p class="alert warning">本週發布後有修改，修改已經生效。記得通知員工，或按「重新發布」清除這個提醒。</p>
+}
+
+<!-- 週檢視 -->
+@if (loading && !week) {
+<p class="empty-state">正在讀取班表…</p>
+} @else if (week && !canEdit && !week.published) {
+<div class="empty-state">
+  <h3>本週班表尚未發布</h3>
+  <p>店長發布後就會顯示在這裡。</p>
+</div>
+} @else if (week && mode === 'day') {
+<!-- 日檢視：一位員工一列，橫向時間軸 -->
+<nav class="day-tabs" aria-label="選擇日期">
+  @for (day of days; track day.date) {
+  <button [class.selected]="day.date === selectedDate" [class.today]="day.isToday" [class.mine]="day.mine" [attr.aria-pressed]="day.date === selectedDate"
+    (click)="selectedDate = day.date">
+    <span>週{{ day.weekday }}</span><small>{{ day.label }}</small>
+    @if (day.entries.length) { <i>{{ day.entries.length }}</i> }
+    @if (day.mine) { <b class="mine-dot" title="你這天有上班"></b> }
+  </button>
+  }
+</nav>
+
+<section class="timeline" [class.loading]="loading" aria-label="當日排班時間軸">
+  <div class="timeline-head">
+    <span class="muted">{{ dayHeadcount }} 人上班</span>
+    @if (canEdit) { <button class="button secondary small" [disabled]="busy" (click)="openNew(selectedDate)">＋ 排班</button> }
+  </div>
+
+  @if (timelineRows.length) {
+  <div class="timeline-grid">
+    <div class="axis">
+      <span class="name-col"></span>
+      <div class="track">
+        @for (h of hours; track h) { <span class="hour" [style.left.%]="hourLeft(h)">{{ h }}</span> }
+      </div>
+    </div>
+    @for (row of timelineRows; track row.staffId) {
+    <div class="row" [class.mine]="row.mine">
+      <span class="name-col" [title]="row.name">{{ row.name }}@if (row.mine) { <small>（我）</small> }</span>
+      <div class="track">
+        @for (h of hours; track h) { <span class="gridline" [style.left.%]="hourLeft(h)"></span> }
+        @if (nowLeft !== null) { <span class="now-line" [style.left.%]="nowLeft"></span> }
+        @for (bar of row.bars; track bar.entry.scheduleId) {
+        <button class="bar" [class.mine]="row.mine" [class.overlap]="bar.overlap" [class.editable]="canEdit" [disabled]="!canEdit || busy"
+          [style.left.%]="bar.left" [style.width.%]="bar.width" (click)="openEdit(bar.entry)"
+          [title]="hm(bar.entry.startTime) + '–' + hm(bar.entry.endTime) + '（' + durationLabel(bar.entry) + '）' + (bar.entry.note ? '・' + bar.entry.note : '')">
+          <strong>{{ hm(bar.entry.startTime) }}–{{ hm(bar.entry.endTime) }}</strong>
+          <span>{{ bar.entry.templateName ?? '自訂' }}</span>
+        </button>
+        }
+      </div>
+    </div>
+    }
+  </div>
+  @if (nowLeft !== null) { <p class="legend"><span class="now-dot"></span>目前時間</p> }
+  } @else {
+  <div class="empty-state slim"><h3>這天沒有排班</h3></div>
+  }
+</section>
+} @else if (week) {
+<section class="week-grid" [class.loading]="loading" aria-label="本週排班">
+  @for (day of days; track day.date) {
+  <div class="day" [class.today]="day.isToday" [class.mine]="day.mine">
+    <button class="day-head" (click)="openDay(day.date)" [attr.aria-label]="'查看 ' + dayTitle(day.date) + ' 時間軸'">
+      <span class="weekday">週{{ day.weekday }}</span>
+      <span class="date">{{ day.label }}</span>
+      @if (day.mine) { <span class="mine-tag" title="你這天有上班">我上班</span> }
+      @if (day.isToday) { <span class="today-tag">今天</span> }
+    </button>
+    <div class="day-body">
+      @for (entry of day.entries; track entry.scheduleId) {
+      <button class="entry" [class.mine]="isMine(entry)" [class.editable]="canEdit" [disabled]="!canEdit || busy" (click)="openEdit(entry)"
+        [attr.aria-label]="entry.staffName + ' ' + hm(entry.startTime) + ' 到 ' + hm(entry.endTime)">
+        <strong>{{ entry.staffName }}</strong>
+        <span class="time">{{ hm(entry.startTime) }}–{{ hm(entry.endTime) }}</span>
+        <span class="tag">{{ entry.templateName ?? '自訂' }}</span>
+        @if (entry.note) { <small class="note">{{ entry.note }}</small> }
+      </button>
+      } @empty {
+      <p class="no-entry">—</p>
+      }
+      @if (canEdit) {
+      <button class="add-entry" [disabled]="busy" (click)="openNew(day.date)">＋ 排班</button>
+      }
+    </div>
+  </div>
+  }
+</section>
+}
+}
+
+<!-- 新增／修改排班 -->
+@if (entryForm; as f) {
+<app-modal [title]="f.scheduleId === null ? '新增排班' : '修改排班'" subtitle="SCHEDULE · 排班" [busy]="busy"
+  (dismissed)="entryForm = null">
+  <form class="modal-body" (ngSubmit)="saveEntry()">
+    @if (entryError) { <p class="alert error" role="alert">{{ entryError }}</p> }
+    <label>日期
+      <input type="date" name="workDate" [(ngModel)]="f.workDate" required [disabled]="busy">
+    </label>
+    <label>員工
+      <select name="staffId" [(ngModel)]="f.staffId" required [disabled]="busy">
+        <option [ngValue]="null" disabled>請選擇員工</option>
+        @for (s of staff; track s.staffId) { <option [ngValue]="s.staffId">{{ s.name }}</option> }
+      </select>
+    </label>
+    <label>班別
+      <select name="templateId" [(ngModel)]="f.templateId" (ngModelChange)="templateChanged(f)" [disabled]="busy">
+        @for (t of entryTemplates(f); track t.templateId) {
+        <option [ngValue]="t.templateId">{{ t.name }}（{{ hm(t.startTime) }}–{{ hm(t.endTime) }}）{{ t.active ? '' : '・已停用' }}</option>
+        }
+        <option [ngValue]="null">自訂時間</option>
+      </select>
+    </label>
+    <div class="time-row">
+      <label>上班<input type="time" name="startTime" [(ngModel)]="f.startTime" required [disabled]="busy"></label>
+      <label>下班<input type="time" name="endTime" [(ngModel)]="f.endTime" required [disabled]="busy"></label>
+    </div>
+    <label>備註（選填）
+      <input type="text" name="note" [(ngModel)]="f.note" maxlength="100" placeholder="例如：支援外送" [disabled]="busy">
+    </label>
+    <div class="modal-actions">
+      @if (f.scheduleId !== null) {
+      <button type="button" class="button danger-outline" [disabled]="busy" (click)="deleteEntry()">刪除</button>
+      }
+      <span class="spacer"></span>
+      <button type="button" class="button secondary" [disabled]="busy" (click)="entryForm = null">取消</button>
+      <button type="submit" class="button primary" [disabled]="busy">{{ busy ? '儲存中…' : '儲存' }}</button>
+    </div>
+  </form>
+</app-modal>
+}
+
+<!-- 發布確認 -->
+@if (confirmPublish && week) {
+<app-modal title="發布本週班表？" subtitle="PUBLISH · 發布" [busy]="busy" (dismissed)="confirmPublish = false">
+  <div class="modal-body">
+    <p>{{ rangeLabel() }} 共 {{ week.entries.length }} 個班。發布後所有員工都看得到；之後的修改會直接生效。</p>
+    @if (week.warnings.length) {
+    <div class="alert warning"><strong>本週有 {{ week.warnings.length }} 個時段重疊：</strong>
+      <ul>@for (w of week.warnings; track w) { <li>{{ w }}</li> }</ul>
+    </div>
+    }
+    <div class="modal-actions">
+      <span class="spacer"></span>
+      <button class="button secondary" [disabled]="busy" (click)="confirmPublish = false">取消</button>
+      <button class="button primary" [disabled]="busy" (click)="publish()">{{ busy ? '發布中…' : '確認發布' }}</button>
+    </div>
+  </div>
+</app-modal>
+}
+
+<!-- 班別設定 -->
+@if (templatesOpen) {
+<app-modal title="班別設定" subtitle="SHIFTS · 班別" [busy]="busy" (dismissed)="closeTemplates()">
+  <div class="modal-body">
+    <p class="muted small-copy">修改班別時間不會影響已經排好的班。不用的班別請停用，舊排班仍會保留。</p>
+    <ul class="template-list">
+      @for (t of templates; track t.templateId) {
+      <li [class.inactive]="!t.active">
+        <span><strong>{{ t.name }}</strong> {{ hm(t.startTime) }}–{{ hm(t.endTime) }}
+          @if (!t.active) { <em>已停用</em> }</span>
+        <button class="text-button" [disabled]="busy" (click)="editTemplate(t)">修改</button>
+      </li>
+      } @empty {
+      <li class="muted">還沒有班別，先新增一個吧。</li>
+      }
+    </ul>
+
+    @if (templateForm; as tf) {
+    <form class="template-form" (ngSubmit)="saveTemplate()">
+      <h3>{{ tf.templateId === null ? '新增班別' : '修改班別' }}</h3>
+      @if (templateError) { <p class="alert error" role="alert">{{ templateError }}</p> }
+      <label>名稱<input type="text" name="tname" [(ngModel)]="tf.name" maxlength="20" placeholder="例如：早班" required
+          [disabled]="busy"></label>
+      <div class="time-row">
+        <label>上班<input type="time" name="tstart" [(ngModel)]="tf.startTime" required [disabled]="busy"></label>
+        <label>下班<input type="time" name="tend" [(ngModel)]="tf.endTime" required [disabled]="busy"></label>
+      </div>
+      @if (tf.templateId !== null) {
+      <label class="check"><input type="checkbox" name="tactive" [(ngModel)]="tf.active" [disabled]="busy"> 啟用</label>
+      }
+      <div class="modal-actions">
+        <span class="spacer"></span>
+        <button type="button" class="button secondary" [disabled]="busy" (click)="templateForm = null">取消</button>
+        <button type="submit" class="button primary" [disabled]="busy">{{ busy ? '儲存中…' : '儲存' }}</button>
+      </div>
+    </form>
+    } @else {
+    <button class="button secondary" [disabled]="busy" (click)="newTemplate()">＋ 新增班別</button>
+    }
+  </div>
+</app-modal>
+}

@@ -27,6 +27,8 @@ export class PosApiService {
   }
   logout(): void { this.credentials = ''; this.staff.set(null); }
   private get headers(): HttpHeaders { return new HttpHeaders({ Authorization: this.credentials }); }
+  // 給其他功能的 API service（排班、打卡等）共用目前的登入憑證。
+  authHeaders(): HttpHeaders { return this.headers; }
   // HttpClient 回傳 Observable，轉成 Promise 才能用 await，並加上逾時處理。
   private wait<T>(request: Observable<T>, milliseconds = API_TIMEOUT_MS): Promise<T> {
     return firstValueFrom(request.pipe(timeout({ first: milliseconds })));
