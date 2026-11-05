@@ -1,1 +1,198 @@
-<p>time-tracker works!</p>
+<!-- 工時管理：左邊打卡、右邊當日紀錄。必須登入。 -->
+<div class="page-heading">
+  <div>
+    <p class="eyebrow">TIME CLOCK</p>
+    <h1>工時管理</h1>
+    <p class="heading-description">選名字打卡上下班。出勤紀錄只有本人和店長看得到。</p>
+  </div>
+  @if (loggedIn) {
+  <div class="heading-alerts" aria-live="polite">
+    @if (error) {
+    <span class="chip error" role="alert">{{ error }}<button (click)="error = ''" aria-label="關閉錯誤訊息">×</button></span>
+    }
+    @if (notice) { <span class="chip success" role="status">✓ {{ notice }}</span> }
+    @if (shiftMessage) { <span class="chip pending">● {{ shiftMessage }}</span> }
+  </div>
+  }
+</div>
+
+@if (!loggedIn) {
+<section class="signin-prompt"><span class="leaf-mark" aria-hidden="true">✳</span>
+  <h2>登入後，開始打卡。</h2>
+  <p>請使用右上角的「員工登入」。</p>
+</section>
+} @else {
+<div class="clock-layout">
+
+  <!-- 左：打卡 -->
+  <section class="panel punch" aria-labelledby="punch-title">
+    <header class="panel-head">
+      <h2 id="punch-title">打卡</h2>
+      <span class="muted">{{ dateLabel(businessDate) }}</span>
+    </header>
+
+    <label>選擇員工
+      <select name="staff" [(ngModel)]="selectedStaffId" [disabled]="busy || loading">
+        <option [ngValue]="null">請選擇員工</option>
+        @for (s of staff; track s.staffId) { <option [ngValue]="s.staffId">{{ s.name }}</option> }
+      </select>
+    </label>
+
+    @if (selectedStaffId !== null) {
+    <div class="status-card" [class.on]="!!selectedOnDuty">
+      @if (selectedOnDuty; as r) {
+      <span class="dot"></span>
+      <div><strong>在班中</strong>
+        <p>{{ time(r.clockInAt) }} 上班・已經 {{ durationLabel(r) }}</p>
+      </div>
+      } @else {
+      <span class="dot"></span>
+      <div><strong>不在班</strong>
+        <p>@if (selectedLastOut; as last) { 今天 {{ time(last.clockOutAt) }} 已打卡下班 } @else { 今天還沒有打卡 }</p>
+      </div>
+      }
+    </div>
+    }
+
+    <button class="button punch-button" [class.primary]="!selectedOnDuty" [class.out]="!!selectedOnDuty"
+      [disabled]="!canPunch" (click)="askPunch()">
+      @if (busy) { 處理中… }
+      @else if (selectedStaffId === null) { 請先選擇員工 }
+      @else if (selectedOnDuty) { 打卡下班 }
+      @else { 打卡上班 }
+    </button>
+    @if (shiftMessage) { <p class="hint">{{ shiftMessage }}</p> }
+  </section>
+
+  @if (canViewAll) {
+  <!-- 右（店長）：所有人的打卡紀錄 -->
+  <section class="panel records" aria-labelledby="records-title" [class.loading]="loading">
+    <header class="panel-head">
+      <div>
+        <h2 id="records-title">{{ viewingToday ? '今日打卡紀錄' : dateLabel(viewDate) + ' 打卡紀錄' }}</h2>
+        <p class="summary">
+          @if (viewingToday) { <span><b class="on-dot"></b>{{ onDutyCount }} 人在班</span> }
+          <span>共 {{ viewRecords.length }} 筆・總工時 {{ formatMinutes(totalMinutes) }}</span>
+        </p>
+      </div>
+      <div class="date-filter">
+        <input type="date" aria-label="查看日期" [(ngModel)]="viewDate" (change)="changeViewDate()" [disabled]="loading">
+        @if (!viewingToday) { <button class="text-button" (click)="backToToday()">回到今天</button> }
+        @else { <button class="text-button" [disabled]="loading" (click)="load()">重新整理</button> }
+      </div>
+    </header>
+
+    @if (sortedRecords.length) {
+    <ul class="record-list">
+      @for (r of sortedRecords; track r.shiftStaffId) {
+      <li [class.on]="r.onDuty" [class.mine]="r.staffId === pos.staff()?.staffId">
+        <span class="state" [attr.aria-label]="r.onDuty ? '在班' : '已下班'"></span>
+        <span class="name">{{ r.staffName }}@if (r.staffId === pos.staff()?.staffId) { <small>（我）</small> }</span>
+        <span class="times">{{ time(r.clockInAt) }} – {{ r.onDuty ? '在班中' : time(r.clockOutAt) }}</span>
+        <span class="duration">{{ durationLabel(r) }}</span>
+        @if (r.updatedBy) { <span class="edited" title="店長修改過">已修改</span> }
+        @if (isManager) { <button class="text-button" [disabled]="busy" (click)="openEdit(r)">修改</button> }
+      </li>
+      }
+    </ul>
+    } @else {
+    <div class="empty-state"><h3>{{ viewingToday ? '今天還沒有人打卡' : '這天沒有打卡紀錄' }}</h3></div>
+    }
+  </section>
+  } @else {
+  <!-- 右（一般員工）：目前在班＋我的紀錄 -->
+  <div class="side-stack">
+    <section class="panel" aria-labelledby="onduty-title" [class.loading]="loading">
+      <header class="panel-head">
+        <div>
+          <h2 id="onduty-title">目前在班</h2>
+          <p class="summary"><span><b class="on-dot"></b>{{ onDutyRecords.length }} 人</span></p>
+        </div>
+        <button class="text-button" [disabled]="loading" (click)="load()">重新整理</button>
+      </header>
+      @if (onDutyRecords.length) {
+      <ul class="onduty-list">
+        @for (r of onDutyRecords; track r.shiftStaffId) {
+        <li [class.mine]="r.staffId === myStaffId">
+          <span class="state"></span>
+          <span class="name">{{ r.staffName }}@if (r.staffId === myStaffId) { <small>（我）</small> }</span>
+          <span class="since">{{ time(r.clockInAt) }} 上班</span>
+        </li>
+        }
+      </ul>
+      } @else {
+      <div class="empty-state"><h3>目前沒有人在班</h3></div>
+      }
+    </section>
+
+    <section class="panel records" aria-labelledby="mine-title" [class.loading]="loading">
+      <header class="panel-head">
+        <div>
+          <h2 id="mine-title">我的紀錄</h2>
+          <p class="summary"><span>{{ myWorkDays }} 天・{{ myRecords.length }} 筆・總工時 {{ formatMinutes(myTotalMinutes) }}</span></p>
+        </div>
+        <div class="date-filter">
+          <input type="month" aria-label="查看月份" [(ngModel)]="myMonth" (change)="changeMyMonth()" [disabled]="loading">
+        </div>
+      </header>
+      @if (myRecords.length) {
+      <ul class="record-list mine-list">
+        @for (r of myRecords; track r.shiftStaffId) {
+        <li [class.on]="r.onDuty">
+          <span class="state"></span>
+          <span class="name">{{ shortDate(r.businessDate) }}</span>
+          <span class="times">{{ time(r.clockInAt) }} – {{ r.onDuty ? '在班中' : time(r.clockOutAt) }}</span>
+          <span class="duration">{{ durationLabel(r) }}</span>
+          @if (r.updatedBy) { <span class="edited" title="店長修改過">已修改</span> }
+        </li>
+        }
+      </ul>
+      } @else {
+      <div class="empty-state"><h3>這個月沒有打卡紀錄</h3></div>
+      }
+    </section>
+  </div>
+  }
+</div>
+}
+
+<!-- 打卡確認：大字顯示是誰、上班或下班 -->
+@if (confirmPunch; as c) {
+<app-modal [title]="c.out ? '確認打卡下班' : '確認打卡上班'" subtitle="TIME CLOCK · 打卡" [busy]="busy" (dismissed)="confirmPunch = null">
+  <div class="modal-body confirm">
+    <p class="confirm-label">請確認是本人</p>
+    <p class="confirm-name">{{ c.name }}</p>
+    <p class="confirm-action" [class.out]="c.out">{{ c.out ? '打卡下班' : '打卡上班' }}・{{ clockText(c.at) }}</p>
+    @if (c.staffId !== myStaffId) {
+    <p class="confirm-warn">⚠ 目前登入的是 {{ pos.staff()?.name }}，不是 {{ c.name }}</p>
+    }
+    <div class="modal-actions">
+      <button type="button" class="button secondary" [disabled]="busy" (click)="confirmPunch = null">不是我，取消</button>
+      <span class="spacer"></span>
+      <button type="button" class="button primary confirm-ok" [class.out]="c.out" [disabled]="busy" (click)="punch()">
+        {{ busy ? '處理中…' : '確認打卡' }}</button>
+    </div>
+  </div>
+</app-modal>
+}
+
+<!-- 店長修改打卡紀錄 -->
+@if (editForm; as f) {
+<app-modal title="修改打卡紀錄" subtitle="TIME CLOCK · 打卡" [busy]="busy" (dismissed)="editForm = null">
+  <form class="modal-body" (ngSubmit)="saveEdit()">
+    @if (editError) { <p class="alert error" role="alert">{{ editError }}</p> }
+    <p class="muted">{{ f.record.staffName }}・{{ dateLabel(f.record.businessDate) }}</p>
+    <label>上班時間<input type="datetime-local" name="in" [(ngModel)]="f.clockInAt" required [disabled]="busy"></label>
+    <label class="check"><input type="checkbox" name="onDuty" [(ngModel)]="f.onDuty" [disabled]="busy"> 還在班（沒有下班時間）</label>
+    @if (!f.onDuty) {
+    <label>下班時間<input type="datetime-local" name="out" [(ngModel)]="f.clockOutAt" [disabled]="busy"></label>
+    }
+    <div class="modal-actions">
+      <button type="button" class="button danger-outline" [disabled]="busy" (click)="removeRecord()">刪除</button>
+      <span class="spacer"></span>
+      <button type="button" class="button secondary" [disabled]="busy" (click)="editForm = null">取消</button>
+      <button type="submit" class="button primary" [disabled]="busy">{{ busy ? '儲存中…' : '儲存' }}</button>
+    </div>
+  </form>
+</app-modal>
+}

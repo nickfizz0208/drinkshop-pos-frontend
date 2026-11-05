@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { firstValueFrom, Observable, timeout } from 'rxjs';
-import { EntrySave, SaveResult, ScheduleWeek, ShiftTemplate, StaffOption, TemplateSave } from '../models/schedule';
+import { EntrySave, SaveResult, ScheduleWeek, ShiftTemplate, StaffOption, TemplateSave, TemplateUpdate } from '../models/schedule';
 import { API_TIMEOUT_MS, PosApiService } from './pos-api.service';
 
 /** 排班 API：登入憑證沿用 PosApiService，元件不直接寫網址。 */
@@ -24,7 +24,7 @@ export class ScheduleApiService {
   createTemplate(body: TemplateSave): Promise<ShiftTemplate> {
     return this.wait(this.http.post<ShiftTemplate>('/api/schedule/templates', body, this.options));
   }
-  updateTemplate(id: number, body: Required<TemplateSave>): Promise<ShiftTemplate> {
+  updateTemplate(id: number, body: TemplateUpdate): Promise<ShiftTemplate> {
     return this.wait(this.http.put<ShiftTemplate>(`/api/schedule/templates/${id}`, body, this.options));
   }
 

@@ -3,7 +3,8 @@
 export interface StaffOption { staffId: number; name: string; level: string; }
 
 export interface ShiftTemplate { templateId: number; name: string; startTime: string; endTime: string; active: boolean; }
-export interface TemplateSave { name: string; startTime: string; endTime: string; active?: boolean; }
+export interface TemplateSave { name: string; startTime: string; endTime: string; }
+export interface TemplateUpdate extends TemplateSave { active: boolean; }
 
 export interface ScheduleEntry {
   scheduleId: number; workDate: string; staffId: number; staffName: string | null;

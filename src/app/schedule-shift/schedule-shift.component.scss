@@ -38,10 +38,13 @@ h1 { font-size: 30px; letter-spacing: 1px; font-weight: 650; line-height: 1.4; m
 
 .day { background: white; border: 1px solid var(--border-color); border-radius: var(--radius-md); display: flex; flex-direction: column; min-height: 220px; overflow: hidden; }
 .day.today { border-color: var(--primary-accent); box-shadow: 0 0 0 1px var(--primary-accent); }
-.day-head { display: flex; align-items: baseline; gap: 6px; padding: 10px 12px; background: var(--bg-card-sub); border-bottom: 1px solid var(--border-color); }
+.day-head { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; padding: 8px 10px; background: var(--bg-card-sub); border-bottom: 1px solid var(--border-color); }
 .weekday { font-weight: 650; }
+.day-title { display: flex; align-items: baseline; gap: 6px; white-space: nowrap; }
+.day-tags { display: flex; flex-wrap: wrap; gap: 4px; min-height: 18px; }
+.day-tags > span { white-space: nowrap; line-height: 16px; }
 .date { color: var(--text-muted); font-size: 12px; font-variant-numeric: tabular-nums; }
-.today-tag { margin-left: auto; font-size: 10px; font-weight: 650; color: white; background: var(--primary-accent); border-radius: 999px; padding: 1px 8px; }
+.today-tag { font-size: 10px; font-weight: 650; color: white; background: var(--primary-accent); border-radius: 999px; padding: 1px 8px; }
 .day-body { display: flex; flex-direction: column; gap: 6px; padding: 8px; flex: 1; }
 
 .entry { display: grid; grid-template-columns: 1fr auto; gap: 2px 6px; text-align: left; width: 100%;
@@ -162,8 +165,6 @@ button.day-head:hover { background: #e7efe3; }
 .day.mine { background: var(--mine-tint); }
 .day.mine .day-head { background: var(--mine-bg); }
 .mine-tag { font-size: 10px; font-weight: 650; color: var(--mine); border: 1px solid var(--mine-border); background: white; border-radius: 999px; padding: 0 7px; }
-.day-head .mine-tag + .today-tag { margin-left: 4px; }
-.day-head .mine-tag { margin-left: auto; }
 .entry.mine { background: var(--mine-bg); border-color: var(--mine-border); border-left: 4px solid var(--mine); }
 .entry.mine strong { color: var(--mine-text); }
 .entry.mine.editable:hover:not(:disabled) { background: var(--mine-hover); border-color: var(--mine); }
@@ -179,3 +180,33 @@ button.day-head:hover { background: #e7efe3; }
 .bar.mine { background: var(--mine-bg); border-color: var(--mine-border); border-left-color: var(--mine); }
 .bar.mine.editable:hover:not(:disabled) { background: var(--mine-hover); }
 .bar.overlap { border-style: dashed; }
+
+// ---------- 標題右側的提示標籤（取代原本一整條的 alert） ----------
+.page-heading { align-items: flex-start; }
+.heading-alerts { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 6px; max-width: 55%; padding-top: 22px; }
+.chip { position: relative; display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; line-height: 1.4;
+  padding: 5px 11px; border: 1px solid; border-radius: 999px; white-space: nowrap; max-width: 100%; }
+.chip button { border: 0; background: none; padding: 0 0 0 2px; font-size: 15px; line-height: 1; color: inherit; }
+.chip.error { background: #fff2ee; color: #9b3e31; border-color: #eccfc6; white-space: normal; }
+.chip.success { background: #eef6ef; color: var(--success-color); border-color: #cfe3d3; animation: chip-in .2s ease-out; }
+.chip.pending { background: #fff8e9; color: var(--warning-color); border-color: #efdfbd; cursor: help; }
+.chip.warning { background: #fff8e9; color: var(--warning-color); border-color: #efdfbd; padding: 0; }
+.chip.warning summary { list-style: none; cursor: pointer; padding: 5px 11px; }
+.chip.warning summary::-webkit-details-marker { display: none; }
+.chip.warning[open] summary { border-radius: 999px; background: #fbedcc; }
+// 重疊清單：點開才出現，浮在版面上方，不推擠下方內容
+.chip-pop { position: absolute; right: 0; top: calc(100% + 6px); z-index: 10; width: min(340px, 80vw); white-space: normal;
+  background: white; color: var(--text-main); border: 1px solid #efdfbd; border-radius: var(--radius-md);
+  box-shadow: 0 12px 30px #253b3320; padding: 12px 14px; font-weight: 400; }
+.chip-pop p { margin: 0 0 6px; color: var(--warning-color); font-weight: 600; }
+.chip-pop ul { margin: 0 0 8px; padding-left: 18px; font-size: 12px; line-height: 1.7; }
+// 後端訊息裡的 \n 要換行（HTML 預設會把換行當成空白）
+.chip-pop li { white-space: pre-line; }
+.chip-pop li + li { margin-top: 4px; }
+@keyframes chip-in { from { opacity: 0; transform: translateY(-3px); } }
+
+@media (max-width: 760px) {
+  .page-heading { flex-direction: column; }
+  .heading-alerts { max-width: 100%; justify-content: flex-start; padding-top: 0; }
+  .chip-pop { left: 0; right: auto; }
+}

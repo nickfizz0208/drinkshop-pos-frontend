@@ -4,6 +4,7 @@ import { ModalComponent } from '../shared/modal.component';
 import { PosApiService, errorMessage } from '../services/pos-api.service';
 import { ScheduleApiService } from '../services/schedule-api.service';
 import { EntrySave, ScheduleEntry, ScheduleWeek, ShiftTemplate, StaffOption } from '../models/schedule';
+import { downloadScheduleExcel } from './schedule-excel';
 
 /** 排班表單的編輯狀態；scheduleId 為 null 代表新增。templateId 為 null 代表自訂時間。 */
 interface EntryForm {
@@ -49,7 +50,6 @@ export class ScheduleShiftComponent {
   busy = false;
   error = '';
   notice = '';
-  warnings: string[] = [];               // 剛存檔時的重疊提醒
 
   entryForm: EntryForm | null = null;
   entryError = '';
@@ -57,6 +57,15 @@ export class ScheduleShiftComponent {
   templateForm: TemplateForm | null = null;
   templateError = '';
   confirmPublish = false;
+
+  private noticeTimer: ReturnType<typeof setTimeout> | undefined;
+
+  /** 成功訊息顯示 4 秒後自動消失。 */
+  private flash(message: string): void {
+    clearTimeout(this.noticeTimer);
+    this.notice = message;
+    if (message) this.noticeTimer = setTimeout(() => this.notice = '', 4000);
+  }
 
   constructor() {
     // 登入／登出時重新載入（元件存在期間登入狀態可能改變）
@@ -69,7 +78,7 @@ export class ScheduleShiftComponent {
   get statusLabel(): string {
     if (!this.week) return '';
     if (!this.week.published) return '草稿・尚未發布';
-    return this.week.modifiedAfterPublish ? '已發布・發布後有修改' : '已發布';
+    return this.week.modifiedAfterPublish ? '已發布・有修改尚未發布' : '已發布';
   }
   get statusClass(): string {
     if (!this.week?.published) return 'draft';
@@ -81,6 +90,19 @@ export class ScheduleShiftComponent {
   get myDays(): number { return this.days.filter(d => d.mine).length; }
 
   get hasEntries(): boolean { return (this.week?.entries.length ?? 0) > 0; }
+  /** 本週所有時段重疊（店長才有）；有重疊不能發布。 */
+  get overlaps(): string[] { return this.week?.warnings ?? []; }
+
+  /** 不能發布的原因；空字串代表可以發布。 */
+  get publishBlockedReason(): string {
+    if (!this.week) return '讀取中';
+    if (this.overlaps.length) return `本週有 ${this.overlaps.length} 個時段重疊，請先修正再發布`;
+    if (this.week.published && !this.week.modifiedAfterPublish) return '員工看到的已經是最新版本';
+    if (!this.week.published && !this.hasEntries) return '本週還沒有排班';
+    return '';
+  }
+  get canPublish(): boolean { return this.publishBlockedReason === ''; }
+  get publishLabel(): string { return this.week?.published ? '發布修改' : '發布本週'; }
 
   // ---------- 載入 ----------
 
@@ -119,7 +141,7 @@ export class ScheduleShiftComponent {
   private reset(): void {
     this.week = null; this.days = []; this.staff = []; this.templates = [];
     this.entryForm = null; this.templatesOpen = false; this.templateForm = null; this.confirmPublish = false;
-    this.error = ''; this.notice = ''; this.warnings = [];
+    this.error = ''; this.flash('');
   }
 
   // ---------- 週切換 ----------
@@ -127,11 +149,11 @@ export class ScheduleShiftComponent {
   async moveWeek(offset: number): Promise<void> {
     if (!this.week || this.loading) return;
     this.anchor = addDays(this.week.weekStart, offset * 7);
-    this.warnings = []; this.notice = '';
+    this.flash('');
     await this.load();
   }
   async thisWeek(): Promise<void> {
-    this.anchor = today(); this.selectedDate = today(); this.warnings = []; this.notice = '';
+    this.anchor = today(); this.selectedDate = today(); this.flash('');
     await this.load();
   }
 
@@ -148,7 +170,7 @@ export class ScheduleShiftComponent {
     const target = addDays(this.selectedDate, offset);
     this.selectedDate = target;
     if (!this.days.some(d => d.date === target)) {
-      this.anchor = target; this.warnings = []; this.notice = '';
+      this.anchor = target; this.flash('');
       await this.load();
     }
   }
@@ -261,8 +283,8 @@ export class ScheduleShiftComponent {
     try {
       const result = f.scheduleId === null
         ? await this.api.createEntry(body) : await this.api.updateEntry(f.scheduleId, body);
-      this.warnings = result.warnings;
-      this.notice = f.scheduleId === null ? '已新增排班' : '已更新排班';
+      const done = f.scheduleId === null ? '已新增排班' : '已更新排班';
+      this.flash(result.warnings.length ? `${done}，但時段重疊（修正前不能發布）` : done);
       this.entryForm = null;
       await this.reloadWeek();
     } catch (e) { this.entryError = errorMessage(e); }
@@ -275,7 +297,7 @@ export class ScheduleShiftComponent {
     this.busy = true; this.entryError = '';
     try {
       await this.api.deleteEntry(f.scheduleId);
-      this.notice = '已刪除排班'; this.warnings = []; this.entryForm = null;
+      this.flash('已刪除排班'); this.entryForm = null;
       await this.reloadWeek();
     } catch (e) { this.entryError = errorMessage(e); }
     finally { this.busy = false; }
@@ -285,10 +307,10 @@ export class ScheduleShiftComponent {
 
   async copyPrevious(): Promise<void> {
     if (!this.week || this.busy) return;
-    this.busy = true; this.error = ''; this.notice = ''; this.warnings = [];
+    this.busy = true; this.error = ''; this.flash('');
     try {
       this.setWeek(await this.api.copyPrevious(this.week.weekStart));
-      this.notice = '已複製上週排班，確認後請按「發布本週」';
+      this.flash('已複製上週排班，確認後請按「發布本週」');
     } catch (e) { this.error = errorMessage(e); }
     finally { this.busy = false; }
   }
@@ -299,9 +321,24 @@ export class ScheduleShiftComponent {
     try {
       this.setWeek(await this.api.publish(this.week.weekStart));
       this.confirmPublish = false;
-      this.notice = '已發布，員工現在看得到本週班表';
+      this.flash('已發布，員工現在看到的是最新班表');
     } catch (e) { this.error = errorMessage(e); this.confirmPublish = false; }
     finally { this.busy = false; }
+  }
+
+  // ---------- 匯出 Excel ----------
+
+  exporting = false;
+
+  /** 店長匯出草稿（檔名會標示草稿）；員工匯出已發布版本。 */
+  async exportExcel(): Promise<void> {
+    if (!this.week || this.exporting) return;
+    this.exporting = true; this.error = '';
+    try {
+      await downloadScheduleExcel(this.week, this.staff);
+      this.flash('已下載 Excel 班表');
+    } catch (e) { this.error = '匯出失敗：' + errorMessage(e); }
+    finally { this.exporting = false; }
   }
 
   // ---------- 班別管理 ----------
@@ -323,10 +360,11 @@ export class ScheduleShiftComponent {
     if (!f.name.trim()) { this.templateError = '請填寫班別名稱'; return; }
     if (f.endTime <= f.startTime) { this.templateError = '下班時間必須晚於上班時間'; return; }
     this.busy = true; this.templateError = '';
-    const body = { name: f.name.trim(), startTime: f.startTime, endTime: f.endTime, active: f.active };
+    // 後端不接受多餘欄位：新增只送 name／startTime／endTime，修改才多送 active。
+    const body = { name: f.name.trim(), startTime: f.startTime, endTime: f.endTime };
     try {
       if (f.templateId === null) await this.api.createTemplate(body);
-      else await this.api.updateTemplate(f.templateId, body);
+      else await this.api.updateTemplate(f.templateId, { ...body, active: f.active });
       this.templates = await this.api.templates(true);
       this.templateForm = null;
     } catch (e) { this.templateError = errorMessage(e); }

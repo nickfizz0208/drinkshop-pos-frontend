@@ -3,8 +3,29 @@
   <div>
     <p class="eyebrow">STAFF SCHEDULE</p>
     <h1>排班管理</h1>
-    <p class="heading-description">一週一張班表，店長排好後發布，員工就看得到。</p>
+    <p class="heading-description">以週為單位更新，發布後顯示給員工。</p>
   </div>
+  <!-- 所有提示集中在這裡，用小標籤顯示，不推擠下方版面 -->
+  @if (loggedIn) {
+  <div class="heading-alerts" aria-live="polite">
+    @if (error) {
+    <span class="chip error" role="alert">{{ error }}<button (click)="error = ''" aria-label="關閉錯誤訊息">×</button></span>
+    }
+    @if (notice) { <span class="chip success" role="status">✓ {{ notice }}</span> }
+    @if (week?.modifiedAfterPublish && canEdit) {
+    <span class="chip pending" title="員工看到的還是上次發布的版本，確認後請按「發布修改」">● 有修改尚未發布</span>
+    }
+    @if (canEdit && overlaps.length) {
+    <details class="chip warning">
+      <summary>⚠ 本週 {{ overlaps.length }} 個時段重疊</summary>
+      <div class="chip-pop">
+        <p>修正後才能發布：</p>
+        <ul>@for (w of overlaps; track w) { <li>{{ w }}</li> }</ul>
+      </div>
+    </details>
+    }
+  </div>
+  }
 </div>
 
 @if (!loggedIn) {
@@ -13,16 +34,6 @@
   <p>請使用右上角的「員工登入」。店長登入後可以排班與發布。</p>
 </section>
 } @else {
-
-@if (error) { <div class="alert error" role="alert">{{ error }}</div> }
-@if (notice) { <div class="alert success" role="status">✓ {{ notice }}<button class="text-button close" (click)="notice = ''"
-    aria-label="關閉提示">×</button></div> }
-@if (warnings.length) {
-<div class="alert warning" role="status">
-  <strong>⚠ 提醒（已存檔）</strong>
-  <ul>@for (w of warnings; track w) { <li>{{ w }}</li> }</ul>
-</div>
-}
 
 <!-- 週切換與狀態 -->
 <section class="week-bar">
@@ -42,7 +53,12 @@
     }
     <button class="text-button" [disabled]="loading || busy" (click)="thisWeek()">回到今天</button>
     @if (week && (week.published || canEdit)) {
-    <span class="my-summary"><b class="mine-dot"></b>{{ myDays ? '本週你上班 ' + myDays + ' 天' : '本週你沒有排班' }}</span>
+    <button class="button secondary small" [disabled]="loading || exporting" (click)="exportExcel()"
+      [title]="canEdit && !week.published ? '尚未發布，匯出的是草稿' : '下載本週班表'">
+      {{ exporting ? '匯出中…' : '⤓ 匯出 Excel' }}</button>
+    }
+    @if (week && (week.published || canEdit)) {
+    <span class="my-summary"><b class="mine-dot"></b>{{ myDays ? '本週上班天數： ' + myDays + ' 天' : '本週你沒有排班' }}</span>
     }
   </div>
   @if (week && canEdit) {
@@ -51,15 +67,12 @@
     <button class="button secondary small" [disabled]="busy" (click)="openTemplates()">班別設定</button>
     <button class="button secondary small" [disabled]="busy || hasEntries"
       [title]="hasEntries ? '本週已有排班，只有空白的週才能複製上週' : ''" (click)="copyPrevious()">複製上週</button>
-    <button class="button primary small" [disabled]="busy || !hasEntries" (click)="confirmPublish = true">
-      {{ week.published ? '重新發布' : '發布本週' }}</button>
+    <button class="button primary small" [disabled]="busy || !canPublish"
+      [title]="publishBlockedReason" (click)="confirmPublish = true">
+      {{ publishLabel }}</button>
   </div>
   }
 </section>
-
-@if (week?.modifiedAfterPublish && canEdit) {
-<p class="alert warning">本週發布後有修改，修改已經生效。記得通知員工，或按「重新發布」清除這個提醒。</p>
-}
 
 <!-- 週檢視 -->
 @if (loading && !week) {
@@ -124,10 +137,12 @@
   @for (day of days; track day.date) {
   <div class="day" [class.today]="day.isToday" [class.mine]="day.mine">
     <button class="day-head" (click)="openDay(day.date)" [attr.aria-label]="'查看 ' + dayTitle(day.date) + ' 時間軸'">
-      <span class="weekday">週{{ day.weekday }}</span>
-      <span class="date">{{ day.label }}</span>
-      @if (day.mine) { <span class="mine-tag" title="你這天有上班">我上班</span> }
-      @if (day.isToday) { <span class="today-tag">今天</span> }
+      <span class="day-title"><span class="weekday">週{{ day.weekday }}</span><span class="date">{{ day.label }}</span></span>
+      <!-- 標籤放第二行；沒有標籤也保留高度，讓 7 欄標題一樣高 -->
+      <span class="day-tags">
+        @if (day.isToday) { <span class="today-tag">今天</span> }
+        @if (day.mine) { <span class="mine-tag" title="你這天有上班">上班日</span> }
+      </span>
     </button>
     <div class="day-body">
       @for (entry of day.entries; track entry.scheduleId) {
@@ -195,14 +210,9 @@
 
 <!-- 發布確認 -->
 @if (confirmPublish && week) {
-<app-modal title="發布本週班表？" subtitle="PUBLISH · 發布" [busy]="busy" (dismissed)="confirmPublish = false">
+<app-modal [title]="week.published ? '發布本週的修改？' : '發布本週班表？'" subtitle="PUBLISH · 發布" [busy]="busy" (dismissed)="confirmPublish = false">
   <div class="modal-body">
-    <p>{{ rangeLabel() }} 共 {{ week.entries.length }} 個班。發布後所有員工都看得到；之後的修改會直接生效。</p>
-    @if (week.warnings.length) {
-    <div class="alert warning"><strong>本週有 {{ week.warnings.length }} 個時段重疊：</strong>
-      <ul>@for (w of week.warnings; track w) { <li>{{ w }}</li> }</ul>
-    </div>
-    }
+    <p>{{ rangeLabel() }} 共 {{ week.entries.length }} 個班。發布後所有員工看到的就是這個版本；之後再修改，要再發布一次員工才看得到。</p>
     <div class="modal-actions">
       <span class="spacer"></span>
       <button class="button secondary" [disabled]="busy" (click)="confirmPublish = false">取消</button>
@@ -225,7 +235,7 @@
         <button class="text-button" [disabled]="busy" (click)="editTemplate(t)">修改</button>
       </li>
       } @empty {
-      <li class="muted">還沒有班別，先新增一個吧。</li>
+      <li class="muted">目前沒有班別，請先新增。</li>
       }
     </ul>
 

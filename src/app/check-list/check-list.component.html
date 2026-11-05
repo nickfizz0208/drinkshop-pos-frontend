@@ -1,1 +1,175 @@
-<p>check-list works!</p>
+<!-- 每日檢查表：今日待辦（在班的人打勾）＋項目管理（店長） -->
+<div class="page-heading">
+  <div>
+    <p class="eyebrow">DAILY CHECKLIST</p>
+    <h1>每日檢查</h1>
+    <p class="heading-description">做完就打勾，留下是誰、幾點完成。</p>
+  </div>
+  @if (loggedIn) {
+  <div class="heading-alerts" aria-live="polite">
+    @if (error) {
+    <span class="chip error" role="alert">{{ error }}<button (click)="error = ''" aria-label="關閉錯誤訊息">×</button></span>
+    }
+    @if (notice) { <span class="chip success" role="status">✓ {{ notice }}</span> }
+    @if (tab === 'today' && blockedReason) { <span class="chip pending">● {{ blockedReason }}</span> }
+  </div>
+  }
+</div>
+
+@if (!loggedIn) {
+<section class="signin-prompt"><span class="leaf-mark" aria-hidden="true">✳</span>
+  <h2>登入後，查看今天的待辦。</h2>
+  <p>請使用右上角的「員工登入」。</p>
+</section>
+} @else {
+
+<div class="toolbar">
+  @if (isManager) {
+  <div class="tabs" role="tablist" aria-label="檢查表分頁">
+    <button role="tab" [class.selected]="tab === 'today'" [attr.aria-selected]="tab === 'today'" (click)="setTab('today')">今日待辦</button>
+    <button role="tab" [class.selected]="tab === 'manage'" [attr.aria-selected]="tab === 'manage'" (click)="setTab('manage')">項目管理</button>
+  </div>
+  }
+  @if (tab === 'today' && board.length) {
+  <div class="overall">
+    <div class="bar" role="progressbar" [attr.aria-valuenow]="progressPercent" aria-valuemin="0" aria-valuemax="100">
+      <span [style.width.%]="progressPercent"></span>
+    </div>
+    <span>{{ pendingCount ? '還有 ' + pendingCount + ' 項' : '全部完成 🎉' }}</span>
+  </div>
+  }
+  <button class="text-button refresh" [disabled]="loading || busy" (click)="load()">重新整理</button>
+</div>
+
+<!-- ========== 今日待辦 ========== -->
+@if (tab === 'today') {
+  @if (loading && !board.length) {
+  <p class="empty-state">讀取中…</p>
+  } @else if (!board.length) {
+  <div class="empty-state">
+    <h3>還沒有檢查項目</h3>
+    <p>{{ isManager ? '到「項目管理」新增第一個項目。' : '請店長新增檢查項目。' }}</p>
+  </div>
+  } @else {
+  @for (freq of frequencies; track freq) {
+  @if (section(freq).length) {
+  <section class="group" [attr.aria-label]="frequencyLabels[freq]">
+    <h2>{{ freq === 'DAILY' ? '今天' : '本週' }}<small>{{ frequencyLabels[freq] }}項目</small></h2>
+    <ul class="task-list">
+      @for (row of section(freq); track row.itemId) {
+      <li class="task" [class.done]="row.completed">
+        <span class="check" aria-hidden="true">{{ row.completed ? '✓' : '' }}</span>
+        <div class="task-main">
+          <div class="task-title">
+            <strong>{{ row.name }}</strong>
+            @if (row.targetCount > 1 || row.doneCount > 1) {
+            <span class="count" [class.met]="row.completed">{{ row.doneCount }} / {{ row.targetCount }}</span>
+            }
+          </div>
+          @if (row.records.length) {
+          <ul class="records">
+            @for (r of row.records; track r.recordId) {
+            <li [class.mine]="r.staffId === me?.staffId">
+              {{ r.staffName }} {{ doneLabel(row, r) }}
+              @if (canUndo(r)) {
+              <button [disabled]="busy" (click)="undo(row, r)" [attr.aria-label]="'取消 ' + r.staffName + ' 的紀錄'" title="取消這筆">×</button>
+              }
+            </li>
+            }
+          </ul>
+          }
+        </div>
+        <button class="button small done-button" [class.primary]="!row.completed" [class.secondary]="row.completed"
+          [disabled]="!canCheck || busy" [title]="blockedReason" (click)="done(row)">
+          {{ row.completed ? '再記一次' : (isPosAccount ? '完成' : '我做好了') }}
+        </button>
+      </li>
+      }
+    </ul>
+  </section>
+  }
+  }
+  }
+}
+
+<!-- ========== 項目管理（店長） ========== -->
+@if (tab === 'manage' && isManager) {
+<section class="manage">
+  <div class="manage-head">
+    <p class="muted small-copy">停用的項目不會出現在今日待辦，舊的打勾紀錄會保留。修改次數或頻率從下一次打勾開始生效。</p>
+    <button class="button primary small" [disabled]="busy" (click)="newItem()">＋ 新增項目</button>
+  </div>
+  @if (items.length) {
+  <table class="item-table">
+    <thead><tr><th>項目</th><th>頻率</th><th>每期次數</th><th>狀態</th><th></th></tr></thead>
+    <tbody>
+      @for (i of items; track i.itemId) {
+      <tr [class.inactive]="!i.active">
+        <td class="name">{{ i.name }}</td>
+        <td>{{ frequencyLabels[i.frequency] }}</td>
+        <td>{{ i.targetCount }} 次</td>
+        <td><button class="status" [class.on]="i.active" [disabled]="busy" (click)="toggleActive(i)"
+            [attr.aria-label]="(i.active ? '停用 ' : '啟用 ') + i.name">{{ i.active ? '啟用中' : '已停用' }}</button></td>
+        <td class="actions"><button class="text-button" [disabled]="busy" (click)="editItem(i)">修改</button></td>
+      </tr>
+      }
+    </tbody>
+  </table>
+  } @else {
+  <div class="empty-state"><h3>還沒有檢查項目</h3><p>按「新增項目」開始建立，例如：刷吧檯、清茶桶。</p></div>
+  }
+</section>
+}
+}
+
+<!-- POS 帳號：選是誰做的 -->
+@if (pickForm; as f) {
+<app-modal title="是誰完成的？" subtitle="CHECKLIST · 檢查" [busy]="busy" (dismissed)="pickForm = null">
+  <div class="modal-body">
+    <p class="muted">「{{ f.row.name }}」・只能選目前在班的人</p>
+    <div class="people" role="radiogroup" aria-label="選擇員工">
+      @for (p of onDuty; track p.shiftStaffId) {
+      <button role="radio" [attr.aria-checked]="f.staffId === p.staffId" [class.selected]="f.staffId === p.staffId"
+        [disabled]="busy" (click)="f.staffId = p.staffId">{{ p.staffName }}</button>
+      }
+    </div>
+    <div class="modal-actions">
+      <span class="spacer"></span>
+      <button class="button secondary" [disabled]="busy" (click)="pickForm = null">取消</button>
+      <button class="button primary" [disabled]="busy || f.staffId === null" (click)="confirmPick()">
+        {{ busy ? '記錄中…' : '確認完成' }}</button>
+    </div>
+  </div>
+</app-modal>
+}
+
+<!-- 店長：新增／修改項目 -->
+@if (itemForm; as f) {
+<app-modal [title]="f.itemId === null ? '新增檢查項目' : '修改檢查項目'" subtitle="CHECKLIST · 項目" [busy]="busy" (dismissed)="itemForm = null">
+  <form class="modal-body" (ngSubmit)="saveItem()">
+    @if (itemError) { <p class="alert error" role="alert">{{ itemError }}</p> }
+    <label>項目名稱
+      <input type="text" name="name" [(ngModel)]="f.name" maxlength="50" placeholder="例如：刷吧檯" required [disabled]="busy">
+    </label>
+    <div class="row-2">
+      <label>頻率
+        <select name="frequency" [(ngModel)]="f.frequency" [disabled]="busy">
+          <option value="DAILY">每日</option>
+          <option value="WEEKLY">每週</option>
+        </select>
+      </label>
+      <label>每期次數
+        <input type="number" name="target" [(ngModel)]="f.targetCount" min="1" max="99" required [disabled]="busy">
+      </label>
+    </div>
+    @if (f.itemId !== null) {
+    <label class="check"><input type="checkbox" name="active" [(ngModel)]="f.active" [disabled]="busy"> 啟用（停用後不會出現在今日待辦）</label>
+    }
+    <div class="modal-actions">
+      <span class="spacer"></span>
+      <button type="button" class="button secondary" [disabled]="busy" (click)="itemForm = null">取消</button>
+      <button type="submit" class="button primary" [disabled]="busy">{{ busy ? '儲存中…' : '儲存' }}</button>
+    </div>
+  </form>
+</app-modal>
+}

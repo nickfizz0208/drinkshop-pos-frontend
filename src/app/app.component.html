@@ -15,6 +15,8 @@
         (click)="switchView('time-tracker')"><span aria-hidden="true">◷</span>工時管理</button>
       <button class="rail-link" [class.active]="view === 'schedule'" [disabled]="busy"
         (click)="switchView('schedule')"><span aria-hidden="true">◷</span>排班管理</button>
+      <button class="rail-link" [class.active]="view === 'checklist'" [disabled]="busy"
+        (click)="switchView('checklist')"><span aria-hidden="true">☑</span>每日檢查</button>
     </nav>
     <div class="rail-bottom">
       <div class="leaf-mark" aria-hidden="true">✳</div>
@@ -281,6 +283,9 @@
       }
       @else if(view === 'schedule') {
       <app-schedule-shift></app-schedule-shift>
+      }
+      @else if (view === 'checklist') {
+      <app-check-list></app-check-list>
       }
       <footer class="page-footer"><span>青日茶所 · 門市工作台</span><span>用心做好每一杯。</span></footer>
     </main>
