@@ -2,6 +2,12 @@
 
 export interface StaffOption { staffId: number; name: string; level: string; }
 
+/** 排班標籤（取代班別）：開班、支援、收班、休息…不帶時間，一段班可以貼多個。description 是說明，例如休息半小時。 */
+export interface ScheduleTag { tagId: number; name: string; description: string | null; active: boolean; }
+export interface TagSave { name: string; description: string | null; }
+export interface TagUpdate extends TagSave { active: boolean; }
+
+/** 舊的班別（已改用標籤，保留型別供舊資料相容）。 */
 export interface ShiftTemplate { templateId: number; name: string; startTime: string; endTime: string; active: boolean; }
 export interface TemplateSave { name: string; startTime: string; endTime: string; }
 export interface TemplateUpdate extends TemplateSave { active: boolean; }
@@ -10,11 +16,13 @@ export interface ScheduleEntry {
   scheduleId: number; workDate: string; staffId: number; staffName: string | null;
   templateId: number | null; templateName: string | null;
   startTime: string; endTime: string; note: string | null; updatedAt: string;
+  /** 標籤編號與名稱，順序相同。 */
+  tagIds: number[]; tagNames: string[];
 }
-/** 有 templateId 時，startTime／endTime 可省略（取班別時間）。 */
+/** 時間必填；tagIds 可以是空陣列。 */
 export interface EntrySave {
-  workDate: string; staffId: number; templateId: number | null;
-  startTime: string | null; endTime: string | null; note: string | null;
+  workDate: string; staffId: number;
+  startTime: string; endTime: string; note: string | null; tagIds: number[];
 }
 export interface SaveResult { entry: ScheduleEntry; warnings: string[]; }
 

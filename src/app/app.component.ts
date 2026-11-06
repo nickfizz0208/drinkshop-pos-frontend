@@ -10,7 +10,7 @@ import { CartLine, CreateOrder, ICE_LABELS, Ice, ItemStatus, Menu, Order, OrderI
 import { MemberSelectorComponent } from './member-selector/member-selector.component';
 import { Delivery, DeliverySelection, Member, Source, distanceText } from './models/pos';
 import { HereMapService } from './services/here-map.service';
-import { DailyShift, ShiftClosingSummary, ShiftStatus } from './models/time-clock';
+import { ShiftClosingSummary, ShiftStatus } from './models/time-clock';
 import { StaffOption } from './models/schedule';
 import { TimeTrackerComponent } from './time-tracker/time-tracker.component';
 import { ScheduleShiftComponent } from './schedule-shift/schedule-shift.component';
@@ -184,7 +184,6 @@ export class AppComponent implements OnDestroy {
   // ---- 開班／關班：做在上方工具列，只有 POS 帳號看得到。只鎖點餐收銀與訂單管理，其他功能不受影響 ----
   shiftStatus: ShiftStatus | null = null;   // null＝還沒查到（載入中或查詢失敗）
   businessDate = '';                        // 今天的營業日（後端決定）
-  shiftInfo: DailyShift | null = null;      // 開班人員、時間（開班後才有）
   shiftLoading = false;
   staffOptions: StaffOption[] = [];         // 開班、關班人員候選（在職員工，不含 POS 帳號）
   shiftModal: 'open' | 'close' | 'reopen' | null = null;
@@ -200,10 +199,7 @@ export class AppComponent implements OnDestroy {
   staffNameOf(id: number | null | undefined): string { return this.staffOptions.find(s => s.staffId === id)?.name ?? ''; }
   /** 工具列顯示的班次狀態。 */
   get shiftLabel(): string {
-    if (this.shiftStatus === 'OPEN') {
-      const who = this.staffNameOf(this.shiftInfo?.openedBy), at = this.shiftInfo?.openedAt?.slice(11, 16) ?? '';
-      return '營業中' + (who || at ? `・${who} ${at} 開班`.trimEnd() : '');
-    }
+    if (this.shiftStatus === 'OPEN') return '營業中';
     return this.shiftStatus === 'CLOSED' ? '已關班' : this.shiftStatus === 'NONE' ? '未開班' : this.shiftLoading ? '確認中…' : '狀態未知';
   }
 
@@ -212,8 +208,7 @@ export class AppComponent implements OnDestroy {
     try {
       const [today, staff] = await Promise.all([this.api.shiftToday(), this.api.staffOptions()]);
       this.shiftStatus = today.shiftStatus; this.businessDate = today.businessDate; this.staffOptions = staff;
-      this.shiftInfo = today.shiftStatus === 'NONE' ? null : await this.api.shift(today.businessDate);
-    } catch (error) { this.shiftStatus = null; this.shiftInfo = null; this.error = errorMessage(error); }
+    } catch (error) { this.shiftStatus = null; this.error = errorMessage(error); }
     finally { this.shiftLoading = false; }
   }
 
@@ -307,7 +302,7 @@ export class AppComponent implements OnDestroy {
     this.api.logout(); this.hereMap.reset(); this.member = null; this.delivery = null; this.preview = true; this.menu = PREVIEW_MENU; this.rules = PREVIEW_RULES;
     this.cart = []; this.pending = null; this.lastOrder = null; this.selectedOrder = null; this.orderList = [];
     this.orderLoad++; this.orderTab = 'active'; this.view = 'pos'; this.error = ''; this.notice = ''; this.orderNote = ''; this.source = 'TAKE_OUT';
-    this.shiftStatus = null; this.businessDate = ''; this.shiftInfo = null; this.staffOptions = []; this.shiftModal = null; this.closeSummary = null;
+    this.shiftStatus = null; this.businessDate = ''; this.staffOptions = []; this.shiftModal = null; this.closeSummary = null;
   }
   openLogin(): void { this.modalError = ''; this.password = ''; this.loginOpen = true; }
   async switchView(view: 'pos' | 'orders' | 'time-tracker' | 'schedule' | 'checklist'): Promise<void> {

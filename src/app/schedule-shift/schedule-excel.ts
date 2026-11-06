@@ -66,7 +66,9 @@ export async function downloadScheduleExcel(week: ScheduleWeek, staff: StaffOpti
       .sort((a, b) => a.startTime.localeCompare(b.startTime))
       .map(e => {
         if (e.note) notes.push(`${p.name} ${monthDay(d)}（${weekday(d)}）${short(e.startTime)}-${short(e.endTime)}：${e.note}`);
-        return `${short(e.startTime)}-${short(e.endTime)}${e.note ? '#' : ''}`;
+        // 第一行時間，有標籤時第二行列標籤，例如「開班・休息」
+        const tags = e.tagNames?.length ? `\n${e.tagNames.join('・')}` : '';
+        return `${short(e.startTime)}-${short(e.endTime)}${e.note ? '#' : ''}${tags}`;
       }).join('\n') || '休');
     const total = entries.reduce((sum, e) => sum + minutes(e.endTime) - minutes(e.startTime), 0) / 60;
     const row = ws.addRow([p.name, ...cells, total || '']);

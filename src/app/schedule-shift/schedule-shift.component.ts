@@ -3,15 +3,15 @@ import { FormsModule } from '@angular/forms';
 import { ModalComponent } from '../shared/modal.component';
 import { PosApiService, errorMessage } from '../services/pos-api.service';
 import { ScheduleApiService } from '../services/schedule-api.service';
-import { EntrySave, ScheduleEntry, ScheduleWeek, ShiftTemplate, StaffOption } from '../models/schedule';
+import { EntrySave, ScheduleEntry, ScheduleTag, ScheduleWeek, StaffOption } from '../models/schedule';
 import { downloadScheduleExcel } from './schedule-excel';
 
-/** 排班表單的編輯狀態；scheduleId 為 null 代表新增。templateId 為 null 代表自訂時間。 */
+/** 排班表單的編輯狀態；scheduleId 為 null 代表新增。時間手動填，標籤可以多選。 */
 interface EntryForm {
   scheduleId: number | null; workDate: string; staffId: number | null;
-  templateId: number | null; startTime: string; endTime: string; note: string;
+  startTime: string; endTime: string; note: string; tagIds: number[];
 }
-interface TemplateForm { templateId: number | null; name: string; startTime: string; endTime: string; active: boolean; }
+interface TagForm { tagId: number | null; name: string; description: string; active: boolean; }
 interface Day { date: string; label: string; weekday: string; isToday: boolean; entries: ScheduleEntry[]; mine: boolean; }
 /** 日檢視的一列：一位員工，可能有多段班。 */
 interface TimelineRow { staffId: number; name: string; bars: TimelineBar[]; mine: boolean; }
@@ -25,7 +25,7 @@ const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六'];
 
 /**
  * 排班管理（週檢視）。
- * 店長、總部：新增／修改／刪除排班、管理班別、複製上週、發布。
+ * 店長、總部：新增／修改／刪除排班、管理標籤、複製上週、發布。
  * 其他員工：只看已發布的週。必須登入才能使用。
  */
 @Component({
@@ -41,7 +41,7 @@ export class ScheduleShiftComponent {
   week: ScheduleWeek | null = null;
   days: Day[] = [];
   staff: StaffOption[] = [];
-  templates: ShiftTemplate[] = [];       // 含停用，排班表單只列啟用中的
+  tags: ScheduleTag[] = [];              // 含停用，排班表單只列啟用中的（已選的停用標籤仍顯示）
   anchor = today();                      // 目前查看的週內任一天
   mode: ViewMode = 'week';
   selectedDate = today();                // 日檢視顯示的日期（一定在目前這一週內）
@@ -53,9 +53,9 @@ export class ScheduleShiftComponent {
 
   entryForm: EntryForm | null = null;
   entryError = '';
-  templatesOpen = false;
-  templateForm: TemplateForm | null = null;
-  templateError = '';
+  tagsOpen = false;
+  tagForm: TagForm | null = null;
+  tagError = '';
   confirmPublish = false;
 
   private noticeTimer: ReturnType<typeof setTimeout> | undefined;
@@ -74,7 +74,7 @@ export class ScheduleShiftComponent {
 
   get loggedIn(): boolean { return this.pos.staff() !== null; }
   get canEdit(): boolean { return this.week?.canEdit ?? false; }
-  get activeTemplates(): ShiftTemplate[] { return this.templates.filter(t => t.active); }
+  get activeTags(): ScheduleTag[] { return this.tags.filter(t => t.active); }
   get statusLabel(): string {
     if (!this.week) return '';
     if (!this.week.published) return '草稿・尚未發布';
@@ -109,9 +109,9 @@ export class ScheduleShiftComponent {
   async load(): Promise<void> {
     this.loading = true; this.error = '';
     try {
-      const [week, staff, templates] = await Promise.all([
-        this.api.week(this.anchor), this.api.staff(), this.api.templates(true)]);
-      this.staff = staff; this.templates = templates;
+      const [week, staff, tags] = await Promise.all([
+        this.api.week(this.anchor), this.api.staff(), this.api.tags(true)]);
+      this.staff = staff; this.tags = tags;
       this.setWeek(week);
     } catch (e) { this.error = errorMessage(e); }
     finally { this.loading = false; }
@@ -139,8 +139,8 @@ export class ScheduleShiftComponent {
   }
 
   private reset(): void {
-    this.week = null; this.days = []; this.staff = []; this.templates = [];
-    this.entryForm = null; this.templatesOpen = false; this.templateForm = null; this.confirmPublish = false;
+    this.week = null; this.days = []; this.staff = []; this.tags = [];
+    this.entryForm = null; this.tagsOpen = false; this.tagForm = null; this.confirmPublish = false;
     this.error = ''; this.flash('');
   }
 
@@ -239,12 +239,8 @@ export class ScheduleShiftComponent {
   // ---------- 排班新增／修改／刪除 ----------
 
   openNew(date: string): void {
-    const first = this.activeTemplates[0];
     this.entryError = '';
-    this.entryForm = {
-      scheduleId: null, workDate: date, staffId: null, templateId: first?.templateId ?? null,
-      startTime: first ? hm(first.startTime) : '09:00', endTime: first ? hm(first.endTime) : '15:00', note: ''
-    };
+    this.entryForm = { scheduleId: null, workDate: date, staffId: null, startTime: '09:00', endTime: '15:00', note: '', tagIds: [] };
   }
 
   openEdit(entry: ScheduleEntry): void {
@@ -252,21 +248,25 @@ export class ScheduleShiftComponent {
     this.entryError = '';
     this.entryForm = {
       scheduleId: entry.scheduleId, workDate: entry.workDate, staffId: entry.staffId,
-      templateId: entry.templateId, startTime: hm(entry.startTime), endTime: hm(entry.endTime), note: entry.note ?? ''
+      startTime: hm(entry.startTime), endTime: hm(entry.endTime), note: entry.note ?? '', tagIds: [...entry.tagIds]
     };
   }
 
-  /** 選班別時帶入班別時間；之後仍可手動微調。 */
-  templateChanged(form: EntryForm): void {
-    const t = this.templates.find(x => x.templateId === form.templateId);
-    if (t) { form.startTime = hm(t.startTime); form.endTime = hm(t.endTime); }
+  /** 表單可選的標籤：啟用中的，加上這段班已經貼著但已停用的。 */
+  entryTags(form: EntryForm): ScheduleTag[] {
+    return this.tags.filter(t => t.active || form.tagIds.includes(t.tagId));
   }
-
-  /** 修改時，若原本的班別已停用，下拉選單仍要顯示它。 */
-  entryTemplates(form: EntryForm): ShiftTemplate[] {
-    const list = this.activeTemplates;
-    const current = this.templates.find(t => t.templateId === form.templateId && !t.active);
-    return current ? [...list, current] : list;
+  toggleTag(form: EntryForm, tagId: number): void {
+    form.tagIds = form.tagIds.includes(tagId) ? form.tagIds.filter(id => id !== tagId) : [...form.tagIds, tagId];
+  }
+  /** 表單下方提示：已選標籤中有說明的，例如「休息：這段班可以中間休息半小時」。 */
+  selectedTagHints(form: EntryForm): string[] {
+    return this.tags.filter(t => form.tagIds.includes(t.tagId) && t.description).map(t => `${t.name}：${t.description}`);
+  }
+  /** 班表上標籤的提示文字（滑鼠移上去看說明）。 */
+  tagTitle(tagId: number, name: string): string {
+    const d = this.tags.find(t => t.tagId === tagId)?.description;
+    return d ? `${name}：${d}` : name;
   }
 
   async saveEntry(): Promise<void> {
@@ -276,8 +276,8 @@ export class ScheduleShiftComponent {
     if (!f.startTime || !f.endTime) { this.entryError = '請填寫上班與下班時間'; return; }
     if (f.endTime <= f.startTime) { this.entryError = '下班時間必須晚於上班時間'; return; }
     const body: EntrySave = {
-      workDate: f.workDate, staffId: f.staffId, templateId: f.templateId,
-      startTime: f.startTime, endTime: f.endTime, note: f.note.trim() || null
+      workDate: f.workDate, staffId: f.staffId,
+      startTime: f.startTime, endTime: f.endTime, note: f.note.trim() || null, tagIds: f.tagIds
     };
     this.busy = true; this.entryError = '';
     try {
@@ -330,9 +330,9 @@ export class ScheduleShiftComponent {
 
   exporting = false;
 
-  /** 店長匯出草稿（檔名會標示草稿）；員工匯出已發布版本。 */
+  /** 只有店長、總部可以匯出；尚未發布時匯出的是草稿（檔名會標示草稿）。 */
   async exportExcel(): Promise<void> {
-    if (!this.week || this.exporting) return;
+    if (!this.week || !this.canEdit || this.exporting) return;
     this.exporting = true; this.error = '';
     try {
       await downloadScheduleExcel(this.week, this.staff);
@@ -341,33 +341,33 @@ export class ScheduleShiftComponent {
     finally { this.exporting = false; }
   }
 
-  // ---------- 班別管理 ----------
+  // ---------- 標籤管理 ----------
 
-  openTemplates(): void { this.templatesOpen = true; this.templateForm = null; this.templateError = ''; }
-  closeTemplates(): void { if (!this.busy) { this.templatesOpen = false; this.templateForm = null; } }
-  newTemplate(): void {
-    this.templateError = '';
-    this.templateForm = { templateId: null, name: '', startTime: '09:00', endTime: '15:00', active: true };
+  openTags(): void { this.tagsOpen = true; this.tagForm = null; this.tagError = ''; }
+  closeTags(): void { if (!this.busy) { this.tagsOpen = false; this.tagForm = null; } }
+  newTag(): void {
+    this.tagError = '';
+    this.tagForm = { tagId: null, name: '', description: '', active: true };
   }
-  editTemplate(t: ShiftTemplate): void {
-    this.templateError = '';
-    this.templateForm = { templateId: t.templateId, name: t.name, startTime: hm(t.startTime), endTime: hm(t.endTime), active: t.active };
+  editTag(t: ScheduleTag): void {
+    this.tagError = '';
+    this.tagForm = { tagId: t.tagId, name: t.name, description: t.description ?? '', active: t.active };
   }
 
-  async saveTemplate(): Promise<void> {
-    const f = this.templateForm;
+  async saveTag(): Promise<void> {
+    const f = this.tagForm;
     if (!f || this.busy) return;
-    if (!f.name.trim()) { this.templateError = '請填寫班別名稱'; return; }
-    if (f.endTime <= f.startTime) { this.templateError = '下班時間必須晚於上班時間'; return; }
-    this.busy = true; this.templateError = '';
-    // 後端不接受多餘欄位：新增只送 name／startTime／endTime，修改才多送 active。
-    const body = { name: f.name.trim(), startTime: f.startTime, endTime: f.endTime };
+    if (!f.name.trim()) { this.tagError = '請填寫標籤名稱'; return; }
+    this.busy = true; this.tagError = '';
+    // 後端不接受多餘欄位：新增只送 name／description，修改才多送 active。
+    const body = { name: f.name.trim(), description: f.description.trim() || null };
     try {
-      if (f.templateId === null) await this.api.createTemplate(body);
-      else await this.api.updateTemplate(f.templateId, { ...body, active: f.active });
-      this.templates = await this.api.templates(true);
-      this.templateForm = null;
-    } catch (e) { this.templateError = errorMessage(e); }
+      if (f.tagId === null) await this.api.createTag(body);
+      else await this.api.updateTag(f.tagId, { ...body, active: f.active });
+      this.tags = await this.api.tags(true);
+      this.tagForm = null;
+      await this.reloadWeek();   // 改名後班表上的標籤名稱跟著更新
+    } catch (e) { this.tagError = errorMessage(e); }
     finally { this.busy = false; }
   }
 

@@ -65,7 +65,7 @@ describe('POS 工作台', () => {
     page.openerId = 7; await page.openShift(); fixture.detectChanges();
     expect(api.openShift).toHaveBeenCalledWith({ businessDate: '2026-11-06', staffId: 7, pettyCash: 2000, rolesJson: '[]' });
     expect(page.shiftLocked).toBeFalse(); expect(page.shiftModal).toBeNull(); expect(page.notice).toContain('王小明');
-    expect(el.querySelector('.shift-pill')?.textContent).toContain('營業中・王小明 09:05 開班');
+    expect(el.querySelector('.shift-pill')?.textContent?.trim()).toBe('營業中');
     expect(el.querySelector('.product-card')).not.toBeNull();
   });
   it('關班要選關班人員與清點現金，關班後顯示日結並鎖住功能', async () => {
