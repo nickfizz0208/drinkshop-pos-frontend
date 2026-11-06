@@ -2,7 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { firstValueFrom, Observable, timeout } from 'rxjs';
 import { BoardRow, ChecklistItem, ChecklistRecord, ItemCreate, ItemUpdate, RecordCreate } from '../models/checklist';
-import { ClockRecord } from '../models/time-clock';
+import { ClockRecord, ClockToday } from '../models/time-clock';
 import { API_TIMEOUT_MS, PosApiService } from './pos-api.service';
 
 /** 檢查表 API：登入憑證沿用 PosApiService。 */
@@ -35,8 +35,12 @@ export class ChecklistApiService {
     return this.wait(this.http.put<ChecklistItem>(`/api/checklist/items/${id}`, body, this.options));
   }
 
-  /** 目前在班的人（POS 帳號打勾時選人、個人帳號判斷自己在不在班）。 */
-  onDuty(): Promise<ClockRecord[]> {
-    return this.wait(this.http.get<ClockRecord[]>('/api/shift-staff/on-duty', this.options));
+  /**
+   * 目前在班的人（POS 帳號打勾時選人、個人帳號判斷自己在不在班）。
+   * 用 /today 取：/on-duty 只限 POS 帳號，/today 所有登入帳號都能看到在班的人。
+   */
+  async onDuty(): Promise<ClockRecord[]> {
+    const today = await this.wait(this.http.get<ClockToday>('/api/shift-staff/today', this.options));
+    return today.records.filter(r => r.onDuty);
   }
 }

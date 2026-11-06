@@ -15,9 +15,9 @@ const MANAGER_LEVELS = ['MANAGER', 'HQ'];
 
 /**
  * 工時管理（打卡）。必須登入。
- * 左邊：選人 → 打卡上班／下班（只顯示一顆按鈕），送出前跳出確認視窗。
- * 右邊：店長、總部看所有人的紀錄（可切換日期、修改、刪除）；
- *       其他人只看「目前在班」和「我的紀錄」（工時與薪資相關，不公開別人的）。
+ * 門市 POS 帳號：左邊選人 → 打卡上班／下班，送出前跳出確認視窗；右邊只看「目前在班」。
+ * 個人帳號：不能打卡（要到 POS 機）。店長、總部看所有人的紀錄（可切換日期、修改、刪除）；
+ *           其他人只看「目前在班」和「我的紀錄」（工時與薪資相關，不公開別人的）。
  */
 @Component({
   selector: 'app-time-tracker',
@@ -69,6 +69,8 @@ export class TimeTrackerComponent implements OnDestroy {
   // ---------- 狀態 ----------
 
   get loggedIn(): boolean { return this.pos.staff() !== null; }
+  /** 門市 POS 機的共用帳號：只有它能打卡；它沒有自己的打卡紀錄。 */
+  get isPosAccount(): boolean { return this.pos.staff()?.level === 'POS'; }
   get isManager(): boolean { return this.canViewAll || MANAGER_LEVELS.includes(this.pos.staff()?.level ?? ''); }
   get myStaffId(): number | undefined { return this.pos.staff()?.staffId; }
   /** 目前在班的人（今天、還沒下班），依上班時間排序。 */
@@ -87,10 +89,11 @@ export class TimeTrackerComponent implements OnDestroy {
   get selectedLastOut(): ClockRecord | undefined {
     return [...this.todayRecords].reverse().find(r => r.staffId === this.selectedStaffId && !r.onDuty);
   }
-  get canPunch(): boolean { return this.shiftStatus === 'OPEN' && this.selectedStaffId !== null && !this.busy; }
+  get canPunch(): boolean { return this.isPosAccount && this.shiftStatus === 'OPEN' && this.selectedStaffId !== null && !this.busy; }
   get shiftMessage(): string {
+    if (!this.isPosAccount) return '';
     return this.shiftStatus === 'NONE' ? '今天還沒開班，開班後才能打卡'
-      : this.shiftStatus === 'CLOSED' ? '今天已經關班，不能再打卡上班' : '';
+      : this.shiftStatus === 'CLOSED' ? '今天已經關班，不能再打卡上班（需要時可在右上角重新開班）' : '';
   }
 
   /** 在班的排前面，各自依上班時間排序。 */
@@ -117,7 +120,9 @@ export class TimeTrackerComponent implements OnDestroy {
         const me = this.myStaffId;
         this.selectedStaffId = staff.some(s => s.staffId === me) ? me! : null;
       }
-      if (this.canViewAll) this.viewRecords = this.viewingToday ? today.records : await this.api.list(this.viewDate);
+      // POS 帳號沒有自己的紀錄，後端也不給看（只看目前在班）
+      if (this.isPosAccount) this.myRecords = [];
+      else if (this.canViewAll) this.viewRecords = this.viewingToday ? today.records : await this.api.list(this.viewDate);
       else this.myRecords = await this.api.mine(this.myMonth);
     } catch (e) { this.error = errorMessage(e); }
     finally { this.loading = false; }

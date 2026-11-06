@@ -3,7 +3,7 @@
   <div>
     <p class="eyebrow">TIME CLOCK</p>
     <h1>工時管理</h1>
-    <p class="heading-description">選名字打卡上下班。出勤紀錄只有本人和店長看得到。</p>
+    <p class="heading-description">在門市 POS 機選名字打卡上下班。出勤紀錄只有本人和店長看得到。</p>
   </div>
   @if (loggedIn) {
   <div class="heading-alerts" aria-live="polite">
@@ -24,7 +24,8 @@
 } @else {
 <div class="clock-layout">
 
-  <!-- 左：打卡 -->
+  @if (isPosAccount) {
+  <!-- 左：打卡（只限門市 POS 帳號） -->
   <section class="panel punch" aria-labelledby="punch-title">
     <header class="panel-head">
       <h2 id="punch-title">打卡</h2>
@@ -63,6 +64,16 @@
     </button>
     @if (shiftMessage) { <p class="hint">{{ shiftMessage }}</p> }
   </section>
+  } @else {
+  <!-- 左（個人帳號）：不能在這裡打卡 -->
+  <section class="panel punch" aria-labelledby="punch-title">
+    <header class="panel-head">
+      <h2 id="punch-title">打卡</h2>
+      <span class="muted">{{ dateLabel(businessDate) }}</span>
+    </header>
+    <p class="hint">請到門市 POS 機打卡上下班。</p>
+  </section>
+  }
 
   @if (canViewAll) {
   <!-- 右（店長）：所有人的打卡紀錄 -->
@@ -125,6 +136,7 @@
       }
     </section>
 
+    @if (!isPosAccount) {
     <section class="panel records" aria-labelledby="mine-title" [class.loading]="loading">
       <header class="panel-head">
         <div>
@@ -151,6 +163,7 @@
       <div class="empty-state"><h3>這個月沒有打卡紀錄</h3></div>
       }
     </section>
+    }
   </div>
   }
 </div>
@@ -163,7 +176,7 @@
     <p class="confirm-label">請確認是本人</p>
     <p class="confirm-name">{{ c.name }}</p>
     <p class="confirm-action" [class.out]="c.out">{{ c.out ? '打卡下班' : '打卡上班' }}・{{ clockText(c.at) }}</p>
-    @if (c.staffId !== myStaffId) {
+    @if (!isPosAccount && c.staffId !== myStaffId) {
     <p class="confirm-warn">⚠ 目前登入的是 {{ pos.staff()?.name }}，不是 {{ c.name }}</p>
     }
     <div class="modal-actions">

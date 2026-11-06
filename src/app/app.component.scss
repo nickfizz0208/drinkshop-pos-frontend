@@ -80,7 +80,7 @@
   display: flex;
   gap: 10px;
   align-items: center;
-  justify-content: center;
+  justify-content: start;
 }
 
 .rail-link>span {
@@ -962,6 +962,50 @@ h1 {
   font-size: 23px;
   margin: 20px 0 12px;
 }
+
+.shift-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 11px;
+  border-radius: 999px;
+  background: #f4efe4;
+  color: #855a25;
+  white-space: nowrap;
+}
+
+.shift-pill b {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.shift-pill.open {
+  background: #eaf3e7;
+  color: var(--primary-accent);
+}
+
+.shift-pill.closed {
+  background: #eef0ec;
+  color: var(--text-muted);
+}
+
+.close-summary {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 9px 20px;
+  margin: 0;
+}
+
+.close-summary dd {
+  margin: 0;
+  text-align: right;
+  font-weight: 650;
+}
+
+.close-summary .short { color: #9b3e31; }
+.close-summary .over { color: #855a25; }
 
 .signin-prompt p {
   font-size: 14px;

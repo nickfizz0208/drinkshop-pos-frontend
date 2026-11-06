@@ -1,6 +1,8 @@
 import { HttpClient, HttpErrorResponse, HttpHeaders } from '@angular/common/http';
 import { Injectable, inject, signal } from '@angular/core';
 import { firstValueFrom, Observable, timeout, TimeoutError } from 'rxjs';
+import { ClockToday, DailyShift, ShiftClosingSummary } from '../models/time-clock';
+import { StaffOption } from '../models/schedule';
 import { DeliveryRoute, MemberUpdate, PosConfig, CancelRequest, CreateOrder, ItemStatus, Member, Menu, Order, OrderSummary, Payment, Rule, Staff } from '../models/pos';
 
 // 一般請求最多等 15 秒，照片上傳另給 30 秒，避免畫面一直停在處理中。
@@ -73,6 +75,25 @@ export class PosApiService {
   }
   updateMember(phone: string, body: MemberUpdate): Promise<Member> {
     return this.wait(this.http.put<Member>(`/api/members/${encodeURIComponent(phone)}`, body, { headers: this.headers }));
+  }
+  // ---- 開班（POS 帳號登入後，開班前不能用其他功能） ----
+  /** 今天的營業日與開班狀態：NONE 還沒開班、OPEN 營業中、CLOSED 已關班。 */
+  shiftToday(): Promise<ClockToday> { return this.wait(this.http.get<ClockToday>('/api/shift-staff/today', { headers: this.headers })); }
+  /** 開班人員候選：在職員工（後端不會列出 POS 共用帳號）。 */
+  staffOptions(): Promise<StaffOption[]> { return this.wait(this.http.get<StaffOption[]>('/api/staff', { headers: this.headers })); }
+  /** 開班：staffId 是畫面選的開班人員，pettyCash 是零用金。重複開班後端回 409。 */
+  openShift(body: { businessDate: string; staffId: number; pettyCash: number; rolesJson: string }): Promise<unknown> {
+    return this.wait(this.http.post('/api/daily-shifts/open', body, { headers: this.headers }));
+  }
+  /** 重新開班：取消關班、接續營業（開班人員與零用金沿用原本的）。 */
+  reopenShift(businessDate: string): Promise<unknown> {
+    return this.wait(this.http.post('/api/daily-shifts/reopen', { businessDate }, { headers: this.headers }));
+  }
+  /** 某營業日的班次（開班人員、開班時間、關班人員）。 */
+  shift(date: string): Promise<DailyShift> { return this.wait(this.http.get<DailyShift>(`/api/daily-shifts/${date}`, { headers: this.headers })); }
+  /** 關班日結：staffId 是畫面選的關班人員，countedCash 是實際清點的現金。 */
+  closeShift(body: { businessDate: string; staffId: number; countedCash: number; diffReason: string | null }): Promise<ShiftClosingSummary> {
+    return this.wait(this.http.post<ShiftClosingSummary>('/api/daily-shifts/close', body, { headers: this.headers }));
   }
   config(): Promise<PosConfig> { return this.wait(this.http.get<PosConfig>('/api/config', { headers: this.headers })); }
   // 外送路線：geocode 與路線都由後端呼叫 HERE

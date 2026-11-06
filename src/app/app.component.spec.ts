@@ -15,10 +15,12 @@ describe('POS 工作台', () => {
   const staff = signal<Staff | null>(null);
   beforeEach(async () => {
     sessionStorage.clear(); staff.set(null);
-    api = jasmine.createSpyObj<PosApiService>('PosApiService', ['login', 'logout', 'menu', 'rules', 'orders', 'order', 'create', 'collect', 'status', 'statusAll', 'cancel', 'upload', 'photo'], { staff });
+    api = jasmine.createSpyObj<PosApiService>('PosApiService', ['login', 'logout', 'menu', 'rules', 'orders', 'order', 'create', 'collect', 'status', 'statusAll', 'cancel', 'upload', 'photo', 'shiftToday', 'staffOptions', 'openShift', 'shift', 'closeShift', 'reopenShift'], { staff });
     api.menu.and.resolveTo(PREVIEW_MENU); api.rules.and.resolveTo(PREVIEW_RULES); api.orders.and.resolveTo([]);
-    api.login.and.callFake(async () => { staff.set({ staffId: 3, username: 'test', name: '測試員工', level: 'STAFF' }); });
+    api.login.and.callFake(async () => { staff.set({ staffId: 3, username: 'test', name: '門市 POS', level: 'POS' }); });
     api.logout.and.callFake(() => staff.set(null));
+    api.shiftToday.and.resolveTo({ businessDate: '2026-11-06', shiftStatus: 'OPEN', records: [], canViewAll: false });
+    api.staffOptions.and.resolveTo([]); api.shift.and.resolveTo({ businessDate: '2026-11-06', status: 'OPEN', openedBy: null, openedAt: null, closedBy: null, closedAt: null, pettyCash: 2000 });
     await TestBed.configureTestingModule({ imports: [AppComponent], providers: [{ provide: PosApiService, useValue: api }] }).compileComponents();
     app = TestBed.createComponent(AppComponent).componentInstance;
   });
@@ -32,6 +34,75 @@ describe('POS 工作台', () => {
     const fixture = TestBed.createComponent(AppComponent); fixture.detectChanges();
     expect(fixture.nativeElement.textContent).toContain('介面預覽');
     expect(fixture.nativeElement.querySelectorAll('.product-card').length).toBe(5);
+  });
+  it('個人帳號登入後直接進工時管理，不能切到點餐、訂單', async () => {
+    api.login.and.callFake(async () => { staff.set({ staffId: 4, username: 'clerk', name: '一般員工', level: 'STAFF' }); });
+    await signIn();
+    expect(app.view).toBe('time-tracker'); expect(app.counterAllowed).toBeFalse();
+    await app.switchView('pos'); expect(app.view).toBe('time-tracker');
+    await app.switchView('orders'); expect(app.view).toBe('time-tracker');
+    expect(api.orders).not.toHaveBeenCalled();
+  });
+  it('POS 帳號未開班時鎖住功能，從上方工具列選開班人員開班後才能使用', async () => {
+    api.shiftToday.and.resolveTo({ businessDate: '2026-11-06', shiftStatus: 'NONE', records: [], canViewAll: false });
+    api.staffOptions.and.resolveTo([{ staffId: 7, name: '王小明', level: 'STAFF' }]);
+    api.openShift.and.callFake(async () => {
+      api.shiftToday.and.resolveTo({ businessDate: '2026-11-06', shiftStatus: 'OPEN', records: [], canViewAll: false });
+      api.shift.and.resolveTo({ businessDate: '2026-11-06', status: 'OPEN', openedBy: 7, openedAt: '2026-11-06T09:05:00', closedBy: null, closedAt: null, pettyCash: 2000 });
+      return {};
+    });
+    const fixture = TestBed.createComponent(AppComponent); const page = fixture.componentInstance;
+    page.username = 'test'; page.password = 'example'; await page.login(); fixture.detectChanges();
+    const el = fixture.nativeElement as HTMLElement;
+    expect(page.shiftLocked).toBeTrue();
+    expect(el.querySelector('.shift-pill')?.textContent).toContain('未開班');
+    expect(el.querySelector('.product-card')).toBeNull();
+    const openButton = Array.from(el.querySelectorAll('.top-right button')).find(b => b.textContent?.trim() === '開班') as HTMLButtonElement;
+    openButton.click(); fixture.detectChanges();
+    expect(page.shiftModal).toBe('open');
+    await page.openShift();
+    expect(api.openShift).not.toHaveBeenCalled(); expect(page.shiftError).toBe('請選擇開班人員');
+    page.openerId = 7; await page.openShift(); fixture.detectChanges();
+    expect(api.openShift).toHaveBeenCalledWith({ businessDate: '2026-11-06', staffId: 7, pettyCash: 2000, rolesJson: '[]' });
+    expect(page.shiftLocked).toBeFalse(); expect(page.shiftModal).toBeNull(); expect(page.notice).toContain('王小明');
+    expect(el.querySelector('.shift-pill')?.textContent).toContain('營業中・王小明 09:05 開班');
+    expect(el.querySelector('.product-card')).not.toBeNull();
+  });
+  it('關班要選關班人員與清點現金，關班後顯示日結並鎖住功能', async () => {
+    api.staffOptions.and.resolveTo([{ staffId: 7, name: '王小明', level: 'STAFF' }]);
+    api.closeShift.and.callFake(async () => {
+      api.shiftToday.and.resolveTo({ businessDate: '2026-11-06', shiftStatus: 'CLOSED', records: [], canViewAll: false });
+      return { businessDate: '2026-11-06', status: 'CLOSED', pettyCash: 2000, totalRevenue: 500, totalWastageCost: 0, expectedCash: 2500, countedCash: 2450, diffAmount: -50, totalCups: 9, diffReason: null };
+    });
+    await signIn();
+    expect(app.shiftLocked).toBeFalse();
+    app.openShiftModal('close');
+    app.closerId = 7; await app.closeShift();
+    expect(api.closeShift).not.toHaveBeenCalled(); expect(app.shiftError).toContain('清點的現金');
+    app.countedCash = 2450; await app.closeShift();
+    expect(api.closeShift).toHaveBeenCalledWith({ businessDate: '2026-11-06', staffId: 7, countedCash: 2450, diffReason: null });
+    expect(app.closeSummary?.diffAmount).toBe(-50); expect(app.shiftModal).toBe('close');
+    expect(app.shiftLocked).toBeTrue(); expect(app.shiftLabel).toBe('已關班');
+    app.closeShiftModal(); expect(app.shiftModal).toBeNull();
+  });
+  it('開關班只鎖點餐與訂單，工時、排班、檢查表照常使用', async () => {
+    api.shiftToday.and.resolveTo({ businessDate: '2026-11-06', shiftStatus: 'NONE', records: [], canViewAll: false });
+    await signIn();
+    expect(app.shiftLocked).toBeTrue();
+    for (const view of ['time-tracker', 'schedule', 'checklist'] as const) { await app.switchView(view); expect(app.shiftLocked).toBeFalse(); }
+    await app.switchView('orders'); expect(app.shiftLocked).toBeTrue(); expect(api.orders).not.toHaveBeenCalled();
+  });
+  it('關班後可以重新開班，接續營業', async () => {
+    api.shiftToday.and.resolveTo({ businessDate: '2026-11-06', shiftStatus: 'CLOSED', records: [], canViewAll: false });
+    api.reopenShift.and.callFake(async () => {
+      api.shiftToday.and.resolveTo({ businessDate: '2026-11-06', shiftStatus: 'OPEN', records: [], canViewAll: false });
+      return {};
+    });
+    await signIn();
+    expect(app.shiftLocked).toBeTrue(); expect(app.shiftLabel).toBe('已關班');
+    app.openShiftModal('reopen'); await app.reopenShift();
+    expect(api.reopenShift).toHaveBeenCalledWith('2026-11-06');
+    expect(app.shiftLocked).toBeFalse(); expect(app.shiftModal).toBeNull(); expect(app.notice).toContain('重新開班');
   });
   it('登入後載入門市菜單，清除登入密碼與預覽購物車', async () => {
     addTea(); await signIn();

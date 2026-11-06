@@ -4,19 +4,22 @@
   <!-- 主選單用 switchView 切換內容，不重新載入網頁，因此不會因點首頁而清除登入憑證。 -->
   <aside class="rail" aria-label="主選單">
     <button type="button" class="brand-symbol" aria-label="青日茶所首頁" [disabled]="busy"
-      (click)="switchView('pos')"><span>青</span><i></i></button>
+      (click)="switchView(counterAllowed ? 'pos' : 'time-tracker')"><span>青</span><i></i></button>
     <div class="rail-caption">門市工作台</div>
     <nav>
+      <!-- 點餐收銀、訂單管理只限門市 POS 帳號；未登入的預覽仍顯示 -->
+      @if (counterAllowed) {
       <button class="rail-link" [class.active]="view === 'pos'" [disabled]="busy" (click)="switchView('pos')"><span
-          aria-hidden="true">▦</span>點餐收銀</button>
+          aria-hidden="true">▦</span>點餐</button>
       <button class="rail-link" [class.active]="view === 'orders'" [disabled]="busy"
-        (click)="switchView('orders')"><span aria-hidden="true">≡</span>訂單管理</button>
+        (click)="switchView('orders')"><span aria-hidden="true">≡</span>訂單</button>
+      }
       <button class="rail-link" [class.active]="view === 'time-tracker'" [disabled]="busy"
-        (click)="switchView('time-tracker')"><span aria-hidden="true">◷</span>工時管理</button>
+        (click)="switchView('time-tracker')"><span aria-hidden="true">◷</span>打卡</button>
       <button class="rail-link" [class.active]="view === 'schedule'" [disabled]="busy"
-        (click)="switchView('schedule')"><span aria-hidden="true">◷</span>排班管理</button>
+        (click)="switchView('schedule')"><span aria-hidden="true">◷</span>班表</button>
       <button class="rail-link" [class.active]="view === 'checklist'" [disabled]="busy"
-        (click)="switchView('checklist')"><span aria-hidden="true">☑</span>每日檢查</button>
+        (click)="switchView('checklist')"><span aria-hidden="true">☑</span>檢核表</button>
     </nav>
     <div class="rail-bottom">
       <div class="leaf-mark" aria-hidden="true">✳</div>
@@ -29,6 +32,20 @@
       <div class="brand-word"><strong>青日茶所<span>QINGRI TEA</span></strong><span
           class="top-divider"></span><span>門市營運系統</span></div>
       <div class="top-right"><span class="date-label">{{ todayLabel }}</span>
+        <!-- 開班／關班：只有門市 POS 帳號 -->
+        @if (isPos) {
+        <span class="shift-pill" [class.open]="shiftStatus === 'OPEN'" [class.closed]="shiftStatus === 'CLOSED'">
+          <b aria-hidden="true"></b>{{ shiftLabel }}</span>
+        @if (shiftStatus === 'NONE') { <button class="button small primary" [disabled]="busy"
+          (click)="openShiftModal('open')">開班</button> }
+        @if (shiftStatus === 'OPEN') { <button class="button small secondary" [disabled]="busy"
+          (click)="openShiftModal('close')">關班</button> }
+        @if (shiftStatus === 'CLOSED') { <button class="button small secondary" [disabled]="busy"
+          (click)="openShiftModal('reopen')">重新開班</button> }
+        @if (shiftStatus === null && !shiftLoading) { <button class="text-button" [disabled]="busy"
+          (click)="loadShift()">重新確認</button> }
+        <span class="top-divider"></span>
+        }
         @if (api.staff(); as staff) {
         <span class="staff-avatar" aria-hidden="true">{{ staff.name.slice(0, 1) }}</span><span class="staff-name">{{
           staff.name }}<small>員工 {{ staff.staffId }}</small></span>
@@ -54,7 +71,22 @@
       }
 
       <!-- 點餐頁：左側選飲料，右側暫存購物車；按結帳後才呼叫後端建單。 -->
-      @if (view === 'pos') {
+      @if (shiftLocked) {
+      <!-- 開班前、關班後：POS 帳號的點餐收銀與訂單管理只顯示這裡（工時、排班、檢查表不受影響） -->
+      <section class="signin-prompt shift-gate" aria-labelledby="shift-gate-title">
+        <span class="leaf-mark" aria-hidden="true">✳</span>
+        @if (shiftStatus === 'NONE') {
+        <h2 id="shift-gate-title">今天還沒開班</h2>
+        <p>請按右上角的「開班」，開班後才能點餐與處理訂單。</p>
+        } @else if (shiftStatus === 'CLOSED') {
+        <h2 id="shift-gate-title">今天已經關班</h2>
+        <p>今日營業已結束。需要繼續營業，請按右上角的「重新開班」。</p>
+        } @else {
+        <h2 id="shift-gate-title">{{ shiftLoading ? '正在確認開班狀態…' : '無法確認開班狀態' }}</h2>
+        <p>請按右上角的「重新確認」。</p>
+        }
+      </section>
+      } @else if (view === 'pos') {
       <div class="pos-layout">
         <section class="menu-section" aria-labelledby="menu-title">
           <div class="page-heading">
@@ -293,6 +325,84 @@
 </div>
 
 <!-- 共用 app-modal 是外殼；下方各區塊提供自己的表單與確認動作。 -->
+<!-- 開班：選開班人員、填零用金 -->
+@if (shiftModal === 'open') {
+<app-modal title="開班" subtitle="OPEN SHIFT · 開班" [busy]="busy" (dismissed)="closeShiftModal()">
+  <form (ngSubmit)="openShift()">
+    <div class="modal-body">
+      <p class="form-intro">營業日 {{ businessDate }}。開班後才能點餐、處理訂單與打卡。</p>
+      @if (shiftError) { <p class="alert error" role="alert">{{ shiftError }}</p> }
+      <label class="field">開班人員
+        <select name="opener" [(ngModel)]="openerId" required [disabled]="busy">
+          <option [ngValue]="null">請選擇開班人員</option>
+          @for (s of staffOptions; track s.staffId) { <option [ngValue]="s.staffId">{{ s.name }}</option> }
+        </select></label>
+      <label class="field">零用金（開班備用現金）
+        <input name="pettyCash" type="number" min="0" step="1" inputmode="numeric" [(ngModel)]="pettyCash" required
+          [disabled]="busy"></label>
+    </div>
+    <div class="modal-footer"><button type="button" class="button secondary" [disabled]="busy"
+        (click)="closeShiftModal()">取消</button><button type="submit" class="button primary"
+        [disabled]="busy || openerId === null">{{ busy ? '開班中…' : '確認開班' }}</button></div>
+  </form>
+</app-modal>
+}
+<!-- 重新開班：取消關班、接續營業 -->
+@if (shiftModal === 'reopen') {
+<app-modal title="重新開班" subtitle="REOPEN SHIFT · 重新開班" [busy]="busy" (dismissed)="closeShiftModal()">
+  <div class="modal-body">
+    <p class="form-intro">取消營業日 {{ businessDate }} 的關班結果，接續今天的營業。</p>
+    @if (shiftError) { <p class="alert error" role="alert">{{ shiftError }}</p> }
+    <p class="muted">開班人員與零用金維持原本的。之後再關班時，會重新計算整天的營收與現金。</p>
+  </div>
+  <div class="modal-footer"><button type="button" class="button secondary" [disabled]="busy"
+      (click)="closeShiftModal()">取消</button><button type="button" class="button primary" [disabled]="busy"
+      (click)="reopenShift()">{{ busy ? '處理中…' : '確認重新開班' }}</button></div>
+</app-modal>
+}
+<!-- 關班：選關班人員、填清點現金；完成後顯示日結結果 -->
+@if (shiftModal === 'close') {
+<app-modal title="關班日結" subtitle="CLOSE SHIFT · 關班" [busy]="busy" (dismissed)="closeShiftModal()">
+  @if (closeSummary; as s) {
+  <div class="modal-body">
+    <p class="form-intro">營業日 {{ s.businessDate }} 已關班。</p>
+    <dl class="close-summary">
+      <dt>銷售杯數</dt><dd>{{ s.totalCups }} 杯</dd>
+      <dt>飲品營收</dt><dd>{{ money(s.totalRevenue) }}</dd>
+      <dt>報廢成本</dt><dd>{{ money(s.totalWastageCost) }}</dd>
+      <dt>開班零用金</dt><dd>{{ money(s.pettyCash) }}</dd>
+      <dt>應有現金</dt><dd>{{ money(s.expectedCash) }}</dd>
+      <dt>實際清點</dt><dd>{{ money(s.countedCash) }}</dd>
+      <dt>短溢</dt><dd [class.short]="s.diffAmount < 0" [class.over]="s.diffAmount > 0">
+        {{ s.diffAmount === 0 ? '無差異' : (s.diffAmount > 0 ? '溢收 ' : '短少 ') + money(s.diffAmount < 0 ? -s.diffAmount : s.diffAmount) }}</dd>
+      @if (s.diffReason) { <dt>差異原因</dt><dd>{{ s.diffReason }}</dd> }
+    </dl>
+  </div>
+  <div class="modal-footer"><span></span><button type="button" class="button primary" (click)="closeShiftModal()">完成</button></div>
+  } @else {
+  <form (ngSubmit)="closeShift()">
+    <div class="modal-body">
+      <p class="form-intro">營業日 {{ businessDate }}。關班後就不能點餐、處理訂單與上班打卡；需要時可以重新開班。</p>
+      @if (shiftError) { <p class="alert error" role="alert">{{ shiftError }}</p> }
+      <label class="field">關班人員
+        <select name="closer" [(ngModel)]="closerId" required [disabled]="busy">
+          <option [ngValue]="null">請選擇關班人員</option>
+          @for (s of staffOptions; track s.staffId) { <option [ngValue]="s.staffId">{{ s.name }}</option> }
+        </select></label>
+      <label class="field">實際清點現金
+        <input name="countedCash" type="number" min="0" step="1" inputmode="numeric" [(ngModel)]="countedCash" required
+          [disabled]="busy"></label>
+      <label class="field">差異原因 <small>現金短少時必填</small>
+        <input name="diffReason" maxlength="255" [(ngModel)]="diffReason" placeholder="例如：找錯零錢"
+          [disabled]="busy"></label>
+    </div>
+    <div class="modal-footer"><button type="button" class="button secondary" [disabled]="busy"
+        (click)="closeShiftModal()">取消</button><button type="submit" class="button primary"
+        [disabled]="busy || closerId === null || countedCash === null">{{ busy ? '關班中…' : '確認關班' }}</button></div>
+  </form>
+  }
+</app-modal>
+}
 <!-- 員工登入：不是會員登入。 -->
 @if (loginOpen) {
 <app-modal title="歡迎回來，準備好茶。" subtitle="STAFF SIGN IN · 員工登入" [busy]="busy"

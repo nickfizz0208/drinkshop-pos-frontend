@@ -10,6 +10,8 @@ import { CartLine, CreateOrder, ICE_LABELS, Ice, ItemStatus, Menu, Order, OrderI
 import { MemberSelectorComponent } from './member-selector/member-selector.component';
 import { Delivery, DeliverySelection, Member, Source, distanceText } from './models/pos';
 import { HereMapService } from './services/here-map.service';
+import { DailyShift, ShiftClosingSummary, ShiftStatus } from './models/time-clock';
+import { StaffOption } from './models/schedule';
 import { TimeTrackerComponent } from './time-tracker/time-tracker.component';
 import { ScheduleShiftComponent } from './schedule-shift/schedule-shift.component';
 import { CheckListComponent } from './check-list/check-list.component';
@@ -174,6 +176,107 @@ export class AppComponent implements OnDestroy {
   }
   get todayLabel(): string { return new Intl.DateTimeFormat('zh-TW', { timeZone: 'Asia/Taipei', month: 'long', day: 'numeric', weekday: 'long' }).format(new Date()); }
 
+  /** 門市 POS 機的共用帳號。點餐收銀、訂單管理只限這個帳號（後端也會擋）。 */
+  get isPos(): boolean { return this.api.staff()?.level === 'POS'; }
+  /** 點餐、訂單頁可不可以用：未登入的介面預覽可以看，登入後只有 POS 帳號可以。 */
+  get counterAllowed(): boolean { return this.preview || this.isPos; }
+
+  // ---- 開班／關班：做在上方工具列，只有 POS 帳號看得到。只鎖點餐收銀與訂單管理，其他功能不受影響 ----
+  shiftStatus: ShiftStatus | null = null;   // null＝還沒查到（載入中或查詢失敗）
+  businessDate = '';                        // 今天的營業日（後端決定）
+  shiftInfo: DailyShift | null = null;      // 開班人員、時間（開班後才有）
+  shiftLoading = false;
+  staffOptions: StaffOption[] = [];         // 開班、關班人員候選（在職員工，不含 POS 帳號）
+  shiftModal: 'open' | 'close' | 'reopen' | null = null;
+  shiftError = '';
+  openerId: number | null = null;
+  pettyCash: number | null = 2000;          // 零用金預設 2000，可修改
+  closerId: number | null = null;
+  countedCash: number | null = null;
+  diffReason = '';
+  closeSummary: ShiftClosingSummary | null = null;   // 關班後在彈窗顯示日結結果
+  /** POS 帳號在開班前（或已關班）鎖住點餐收銀與訂單管理；工時、排班、檢查表照常使用。 */
+  get shiftLocked(): boolean { return this.isPos && this.shiftStatus !== 'OPEN' && (this.view === 'pos' || this.view === 'orders'); }
+  staffNameOf(id: number | null | undefined): string { return this.staffOptions.find(s => s.staffId === id)?.name ?? ''; }
+  /** 工具列顯示的班次狀態。 */
+  get shiftLabel(): string {
+    if (this.shiftStatus === 'OPEN') {
+      const who = this.staffNameOf(this.shiftInfo?.openedBy), at = this.shiftInfo?.openedAt?.slice(11, 16) ?? '';
+      return '營業中' + (who || at ? `・${who} ${at} 開班`.trimEnd() : '');
+    }
+    return this.shiftStatus === 'CLOSED' ? '已關班' : this.shiftStatus === 'NONE' ? '未開班' : this.shiftLoading ? '確認中…' : '狀態未知';
+  }
+
+  async loadShift(): Promise<void> {
+    this.shiftLoading = true;
+    try {
+      const [today, staff] = await Promise.all([this.api.shiftToday(), this.api.staffOptions()]);
+      this.shiftStatus = today.shiftStatus; this.businessDate = today.businessDate; this.staffOptions = staff;
+      this.shiftInfo = today.shiftStatus === 'NONE' ? null : await this.api.shift(today.businessDate);
+    } catch (error) { this.shiftStatus = null; this.shiftInfo = null; this.error = errorMessage(error); }
+    finally { this.shiftLoading = false; }
+  }
+
+  openShiftModal(kind: 'open' | 'close' | 'reopen'): void {
+    if (this.busy) return;
+    this.shiftError = ''; this.closeSummary = null; this.shiftModal = kind;
+    if (kind === 'open') { this.openerId = null; this.pettyCash = 2000; }
+    else if (kind === 'close') { this.closerId = null; this.countedCash = null; this.diffReason = ''; }
+  }
+  closeShiftModal(): void { if (!this.busy) { this.shiftModal = null; this.closeSummary = null; } }
+
+  async openShift(): Promise<void> {
+    if (this.busy) return;
+    if (this.openerId === null) { this.shiftError = '請選擇開班人員'; return; }
+    if (this.pettyCash === null || this.pettyCash < 0) { this.shiftError = '請填寫零用金（0 以上）'; return; }
+    const opener = this.staffNameOf(this.openerId);
+    this.busy = true; this.shiftError = '';
+    try {
+      await this.api.openShift({ businessDate: this.businessDate, staffId: this.openerId, pettyCash: this.pettyCash, rolesJson: '[]' });
+      this.shiftModal = null;
+      await this.loadShift();
+      this.notice = `已開班，開班人員：${opener}`;
+    } catch (error) {
+      this.shiftError = errorMessage(error);
+      await this.loadShift();   // 例如別台機器剛開班（409），重新確認狀態
+      if (this.shiftStatus !== 'NONE') this.shiftModal = null;
+    } finally { this.busy = false; }
+  }
+
+  /** 重新開班：取消今天的關班，接續營業。 */
+  async reopenShift(): Promise<void> {
+    if (this.busy) return;
+    this.busy = true; this.shiftError = '';
+    try {
+      await this.api.reopenShift(this.businessDate);
+      this.shiftModal = null;
+      await this.loadShift();
+      this.notice = '已重新開班，接續今天的營業。';
+      if (this.view === 'orders') await this.loadOrders();
+    } catch (error) {
+      this.shiftError = errorMessage(error);
+      await this.loadShift();
+      if (this.shiftStatus !== 'CLOSED') this.shiftModal = null;
+    } finally { this.busy = false; }
+  }
+
+  async closeShift(): Promise<void> {
+    if (this.busy) return;
+    if (this.closerId === null) { this.shiftError = '請選擇關班人員'; return; }
+    if (this.countedCash === null || this.countedCash < 0) { this.shiftError = '請填寫實際清點的現金（0 以上）'; return; }
+    this.busy = true; this.shiftError = '';
+    try {
+      this.closeSummary = await this.api.closeShift({ businessDate: this.businessDate, staffId: this.closerId,
+        countedCash: this.countedCash, diffReason: this.diffReason.trim() || null });
+      await this.loadShift();
+      this.notice = `已關班，關班人員：${this.staffNameOf(this.closerId)}`;
+    } catch (error) {
+      this.shiftError = errorMessage(error);
+      await this.loadShift();
+      if (this.shiftStatus !== 'OPEN') this.shiftModal = null;
+    } finally { this.busy = false; }
+  }
+
   // 先驗證員工，再同時取菜單與規則；其中任一步失敗，就清除登入狀態。
   async login(): Promise<void> {
     if (this.busy || !this.username.trim() || !this.password) return;
@@ -185,8 +288,16 @@ export class AppComponent implements OnDestroy {
       this.cart = []; this.pending = null; this.lastOrder = null;
       this.restorePending();
       this.loginOpen = false; this.password = ''; this.error = '';
-      this.notice = this.pending ? '找到前次待確認訂單，請繼續確認送單結果。' : '登入成功，已載入門市菜單。';
-      if (this.view === 'orders') await this.loadOrders();
+      if (this.isPos) {
+        await this.loadShift();
+        if (this.shiftLocked) this.notice = this.shiftStatus === 'NONE' ? '登入成功。點餐與訂單需要先開班。' : '';
+        else this.notice = this.pending ? '找到前次待確認訂單，請繼續確認送單結果。' : '登入成功，已載入門市菜單。';
+        if (this.view === 'orders' && !this.shiftLocked) await this.loadOrders();
+      } else {
+        // 個人帳號不能點餐、看訂單，直接進工時管理
+        if (this.view === 'pos' || this.view === 'orders') this.view = 'time-tracker';
+        this.notice = '登入成功。點餐收銀與訂單管理請使用門市 POS 帳號。';
+      }
     } catch (error) { this.api.logout(); this.modalError = errorMessage(error); }
     finally { this.busy = false; }
   }
@@ -196,12 +307,14 @@ export class AppComponent implements OnDestroy {
     this.api.logout(); this.hereMap.reset(); this.member = null; this.delivery = null; this.preview = true; this.menu = PREVIEW_MENU; this.rules = PREVIEW_RULES;
     this.cart = []; this.pending = null; this.lastOrder = null; this.selectedOrder = null; this.orderList = [];
     this.orderLoad++; this.orderTab = 'active'; this.view = 'pos'; this.error = ''; this.notice = ''; this.orderNote = ''; this.source = 'TAKE_OUT';
+    this.shiftStatus = null; this.businessDate = ''; this.shiftInfo = null; this.staffOptions = []; this.shiftModal = null; this.closeSummary = null;
   }
   openLogin(): void { this.modalError = ''; this.password = ''; this.loginOpen = true; }
   async switchView(view: 'pos' | 'orders' | 'time-tracker' | 'schedule' | 'checklist'): Promise<void> {
     if (this.busy) return;
+    if ((view === 'pos' || view === 'orders') && !this.counterAllowed) return;
     this.view = view; this.error = '';
-    if (view === 'orders' && !this.preview) await this.loadOrders();
+    if (view === 'orders' && !this.preview && !this.shiftLocked) await this.loadOrders();
   }
   openProduct(product: Product, line?: CartLine): void {
     if (this.pending || this.busy) return;

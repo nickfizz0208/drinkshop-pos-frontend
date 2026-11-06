@@ -12,9 +12,11 @@ describe('會員外送送單與登出回歸測試', () => {
   const staff = signal<Staff | null>(null);
   beforeEach(async () => {
     sessionStorage.clear(); staff.set(null);
-    api = jasmine.createSpyObj<PosApiService>('PosApiService', ['login', 'logout', 'menu', 'rules', 'create', 'orders'], { staff });
-    api.login.and.callFake(async () => { staff.set({ staffId: 1, username: 'review', name: 'review', level: 'STAFF' }); });
+    api = jasmine.createSpyObj<PosApiService>('PosApiService', ['login', 'logout', 'menu', 'rules', 'create', 'orders', 'shiftToday', 'staffOptions', 'openShift', 'shift', 'closeShift', 'reopenShift'], { staff });
+    api.login.and.callFake(async () => { staff.set({ staffId: 1, username: 'review', name: 'review', level: 'POS' }); });
     api.logout.and.callFake(() => staff.set(null));
+    api.shiftToday.and.resolveTo({ businessDate: '2026-11-06', shiftStatus: 'OPEN', records: [], canViewAll: false });
+    api.staffOptions.and.resolveTo([]); api.shift.and.resolveTo({ businessDate: '2026-11-06', status: 'OPEN', openedBy: null, openedAt: null, closedBy: null, closedAt: null, pettyCash: 2000 });
     api.menu.and.resolveTo(PREVIEW_MENU); api.rules.and.resolveTo(PREVIEW_RULES); api.orders.and.resolveTo([]);
     api.create.and.resolveTo({ order_id: 99, business_date: '2026-11-04', items: [] } as unknown as Order);
     await TestBed.configureTestingModule({ imports: [AppComponent], providers: [{ provide: PosApiService, useValue: api }] }).compileComponents();
