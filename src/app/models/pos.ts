@@ -52,7 +52,7 @@ export function money(value: number): string {
 }
 // 依台北日期產生 YYYY-MM-DD，避免電腦時區或 UTC 造成營業日差一天。
 export function taipeiDate(): string {
-  const parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts();
+  const parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date());
   const part = (type: string) => parts.find(p => p.type === type)?.value;
   return `${part('year')}-${part('month')}-${part('day')}`;
 }

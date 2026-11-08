@@ -1,9 +1,10 @@
 import { HttpClient, HttpErrorResponse, HttpHeaders } from '@angular/common/http';
 import { Injectable, inject, signal } from '@angular/core';
 import { firstValueFrom, Observable, timeout, TimeoutError } from 'rxjs';
-import { ClockToday, DailyShift, ShiftClosingSummary } from '../models/time-clock';
+import { ClockToday, ShiftClosingSummary } from '../models/time-clock';
 import { StaffOption } from '../models/schedule';
 import { DeliveryRoute, MemberUpdate, PosConfig, CancelRequest, CreateOrder, ItemStatus, Member, Menu, Order, OrderSummary, Payment, Rule, Staff } from '../models/pos';
+import { DailyShift, Inventory, RawWastageRequest, WastageSummary } from '../models/store-ops';
 
 // 登入結果存放在 sessionStorage 的名稱：只存 token 與員工顯示資料，不存密碼。
 export const AUTH_STORAGE_KEY = 'qingri.auth';
@@ -54,6 +55,12 @@ export class PosApiService {
   }
   menu(): Promise<Menu> { return this.wait(this.http.get<Menu>('/api/menu', { headers: this.headers })); }
   rules(): Promise<Rule[]> { return this.wait(this.http.get<Rule[]>('/api/rules', { headers: this.headers })); }
+  shift(date: string): Promise<DailyShift> { return this.wait(this.http.get<DailyShift>(`/api/daily-shifts/${date}`, { headers: this.headers })); }
+  inventories(): Promise<Inventory[]> { return this.wait(this.http.get<Inventory[]>('/api/inventories', { headers: this.headers })); }
+  wastages(date: string): Promise<WastageSummary> { return this.wait(this.http.get<WastageSummary>('/api/wastages/daily-summary', { headers: this.headers, params: { date } })); }
+  rawWastage(request: RawWastageRequest): Promise<Inventory> {
+    return this.wait(this.http.post<Inventory>('/api/wastages/raw-material', request, { headers: this.headers }));
+  }
   orders(date: string): Promise<OrderSummary[]> { return this.wait(this.http.get<OrderSummary[]>('/api/orders', { headers: this.headers, params: { date } })); }
   order(id: number): Promise<Order> { return this.wait(this.http.get<Order>(`/api/orders/${id}`, { headers: this.headers })); }
   create(request: CreateOrder): Promise<Order> { return this.wait(this.http.post<Order>('/api/orders', request, { headers: this.headers })); }
@@ -106,8 +113,6 @@ export class PosApiService {
   reopenShift(businessDate: string): Promise<unknown> {
     return this.wait(this.http.post('/api/daily-shifts/reopen', { businessDate }, { headers: this.headers }));
   }
-  /** 某營業日的班次（開班人員、開班時間、關班人員）。 */
-  shift(date: string): Promise<DailyShift> { return this.wait(this.http.get<DailyShift>(`/api/daily-shifts/${date}`, { headers: this.headers })); }
   /** 關班日結：staffId 是畫面選的關班人員，countedCash 是實際清點的現金。 */
   closeShift(body: { businessDate: string; staffId: number; countedCash: number; diffReason: string | null }): Promise<ShiftClosingSummary> {
     return this.wait(this.http.post<ShiftClosingSummary>('/api/daily-shifts/close', body, { headers: this.headers }));

@@ -1,0 +1,20 @@
+@use '../../shared/workspace';
+:host { display: block; min-width: 0; }
+.date-tools, .panel-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.date-tools input { width: 160px; }
+.ops-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; align-items: start; }
+.panel { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 14px; padding: 24px; margin-bottom: 24px; min-width: 0; }
+h2 { font-size: 21px; margin: 0 0 16px; } h3 { font-size: 16px; margin: 24px 0 12px; }
+p { font-size: 14px; overflow-wrap: anywhere; } .hint, .muted { font-size: 13px; color: var(--text-muted); }
+.badge { padding: 4px 12px; border-radius: 8px; background: var(--bg-card-sub); color: var(--primary-accent); }
+.totals { margin: 24px 0; } .totals > div { display: flex; justify-content: space-between; gap: 12px; padding: 9px 0; }
+dt { color: var(--text-muted); } dd { margin: 0; font-weight: 650; font-variant-numeric: tabular-nums; }
+.grand { border-top: 1px solid var(--border-color); margin-top: 10px; padding-top: 18px !important; } .grand dd { font-size: 25px; }
+.confirmation { margin-bottom: 18px; } .action { width: 100%; }
+.table-scroll { overflow: auto; } table { width: 100%; border-collapse: collapse; font-size: 13px; text-align: left; }
+th, td { padding: 12px 10px; border-bottom: 1px solid var(--border-color); vertical-align: top; } th { background: var(--bg-card-sub); font-weight: 600; white-space: nowrap; }
+td { overflow-wrap: anywhere; } .review-panel { border-color: var(--warning-color); } .review-panel li { overflow-wrap: anywhere; }
+.signin { text-align: center; padding-block: 70px; } .signin p { max-width: 40em; margin: 0 auto 24px; }
+.loading { padding: 24px; }
+@media (max-width: 1000px) { .ops-grid { grid-template-columns: minmax(0, 1fr); gap: 0; } .page-heading { flex-direction: column; align-items: stretch; } }
+@media (max-width: 500px) { .panel { padding: 18px; } .date-tools { gap: 8px; } .date-tools input { width: 145px; } .panel-heading .button { width: 100%; } .modal-footer { flex-wrap: wrap; } }

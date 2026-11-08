@@ -48,6 +48,18 @@ describe('POS API 與員工驗證', () => {
   it('查詢訂單帶營業日參數', async () => {
     const result = api.orders('2026-10-28'); const request = http.expectOne('/api/orders?date=2026-10-28'); expect(request.request.params.get('date')).toBe('2026-10-28'); request.flush([]); expect(await result).toEqual([]);
   });
+  it('營運 API 對應 camelCase 契約，日期正確且不傳可偽造的操作員', async () => {
+    const shift = api.shift('2026-11-05'); http.expectOne('/api/daily-shifts/2026-11-05').flush({}); await shift;
+    // 開班／關班由 POS 帳號操作，staffId 是畫面選的開班／關班人員（後端會驗證是在職員工本人）
+    const open = api.openShift({ businessDate: '2026-11-05', staffId: 7, pettyCash: 1000, rolesJson: '[]' }); const opening = http.expectOne('/api/daily-shifts/open');
+    expect(opening.request.body).toEqual({ businessDate: '2026-11-05', staffId: 7, pettyCash: 1000, rolesJson: '[]' }); opening.flush({}); await open;
+    const close = api.closeShift({ businessDate: '2026-11-05', staffId: 7, countedCash: 1200, diffReason: '核對' }); const closing = http.expectOne('/api/daily-shifts/close');
+    expect(closing.request.body).toEqual({ businessDate: '2026-11-05', staffId: 7, countedCash: 1200, diffReason: '核對' }); closing.flush({}); await close;
+    const waste = api.wastages('2026-11-05'); http.expectOne('/api/wastages/daily-summary?date=2026-11-05').flush({}); await waste;
+    const raw = api.rawWastage({ inventoryId: 1, wastageQty: 2, reason: '打翻' }); const posting = http.expectOne('/api/wastages/raw-material');
+    expect(posting.request.body).toEqual({ inventoryId: 1, wastageQty: 2, reason: '打翻' }); posting.flush({}); await raw;
+    const inventory = api.inventories(); http.expectOne('/api/inventories').flush([]); expect(await inventory).toEqual([]);
+  });
   it('送單無回應時會在十五秒取消等待並回報逾時', fakeAsync(() => {
     let failure: unknown;
     api.create({ requestId: crypto.randomUUID(), source: 'TAKE_OUT', payment: 'CASH', receivedCash: 100, note: '', items: [] })
