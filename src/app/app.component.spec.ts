@@ -307,4 +307,18 @@ describe('POS 工作台', () => {
     prepareCancel(); app.cancelReason = '字'.repeat(255); app.cancelReasonChoice = '配料不足';
     await app.confirmCancel(); expect(api.cancel).not.toHaveBeenCalled(); expect(app.modalError).toContain('255');
   });
+  it('登入中 token 失效（被登出）時回到預覽並要求重新登入', async () => {
+    const fixture = TestBed.createComponent(AppComponent); const page = fixture.componentInstance;
+    page.username = 'test'; page.password = 'example'; await page.login(); fixture.detectChanges();
+    expect(page.preview).toBeFalse();
+    staff.set(null); fixture.detectChanges();   // 模擬 auth.interceptor 收到 401 後登出
+    expect(page.preview).toBeTrue(); expect(page.loginOpen).toBeTrue(); expect(page.modalError).toContain('重新登入');
+  });
+  it('重新整理後還有登入資料就直接恢復，不用重新輸入密碼', async () => {
+    staff.set({ staffId: 3, username: 'test', name: '門市 POS', level: 'POS' });
+    const fixture = TestBed.createComponent(AppComponent); const page = fixture.componentInstance;
+    await fixture.whenStable();
+    expect(api.login).not.toHaveBeenCalled(); expect(api.menu).toHaveBeenCalled();
+    expect(page.preview).toBeFalse(); expect(page.loginOpen).toBeFalse();
+  });
 });

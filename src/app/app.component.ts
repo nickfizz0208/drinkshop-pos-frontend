@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnDestroy, inject } from '@angular/core';
+import { Component, OnDestroy, effect, inject, untracked } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ModalComponent } from './shared/modal.component';
@@ -272,32 +272,66 @@ export class AppComponent implements OnDestroy {
     } finally { this.busy = false; }
   }
 
+  constructor() {
+    // 重新整理頁面後，token 還有效就直接恢復登入，不用重新輸入密碼。
+    if (this.api.staff()) void this.resumeSession();
+    // token 過期或帳號被停用時，任何 API 回 401 都會清掉登入（auth.interceptor），這裡把畫面一起還原並請員工重新登入。
+    // 只處理「原本登入中 → 變成登出」的情況；員工自己按登出時畫面已先還原成預覽，不會重複處理。
+    let wasLoggedIn = this.api.staff() !== null;
+    effect(() => {
+      const loggedIn = this.api.staff() !== null;
+      if (wasLoggedIn && !loggedIn) untracked(() => { if (!this.preview) this.sessionExpired(); });
+      wasLoggedIn = loggedIn;
+    });
+  }
+
   // 先驗證員工，再同時取菜單與規則；其中任一步失敗，就清除登入狀態。
   async login(): Promise<void> {
     if (this.busy || !this.username.trim() || !this.password) return;
     this.busy = true; this.modalError = '';
     try {
       await this.api.login(this.username.trim(), this.password);
-      const [menu, rules] = await Promise.all([this.api.menu(), this.api.rules()]);
-      this.menu = menu; this.rules = rules; this.preview = false; this.category = '全部飲品';
-      this.cart = []; this.pending = null; this.lastOrder = null;
-      this.restorePending();
-      this.loginOpen = false; this.password = ''; this.error = '';
-      if (this.isPos) {
-        await this.loadShift();
-        if (this.shiftLocked) this.notice = this.shiftStatus === 'NONE' ? '登入成功。點餐與訂單需要先開班。' : '';
-        else this.notice = this.pending ? '找到前次待確認訂單，請繼續確認送單結果。' : '登入成功，已載入門市菜單。';
-        if (this.view === 'orders' && !this.shiftLocked) await this.loadOrders();
-      } else {
-        // 個人帳號不能點餐、看訂單，直接進工時管理
-        if (this.view === 'pos' || this.view === 'orders') this.view = 'time-tracker';
-        this.notice = '登入成功。點餐收銀與訂單管理請使用門市 POS 帳號。';
-      }
-    } catch (error) { this.api.logout(); this.modalError = errorMessage(error); }
+      await this.enterSession();
+    } catch (error) {
+      // 菜單已載入一半才失敗時，畫面也要一起還原，不能停在「已登入」的樣子
+      if (this.preview) this.api.logout(); else this.resetSession();
+      this.modalError = errorMessage(error);
+    }
     finally { this.busy = false; }
+  }
+  private async resumeSession(): Promise<void> {
+    this.busy = true;
+    try { await this.enterSession(); }
+    catch (error) { this.resetSession(); this.error = errorMessage(error); }
+    finally { this.busy = false; }
+  }
+  private sessionExpired(): void {
+    this.resetSession();
+    this.openLogin(); this.modalError = '登入已逾時或帳號已停用，請重新登入。';
+  }
+  // 登入成功（或重新整理後恢復登入）：載入菜單與規則，依帳號種類進入對應畫面。
+  private async enterSession(): Promise<void> {
+    const [menu, rules] = await Promise.all([this.api.menu(), this.api.rules()]);
+    this.menu = menu; this.rules = rules; this.preview = false; this.category = '全部飲品';
+    this.cart = []; this.pending = null; this.lastOrder = null;
+    this.restorePending();
+    this.loginOpen = false; this.password = ''; this.error = '';
+    if (this.isPos) {
+      await this.loadShift();
+      if (this.shiftLocked) this.notice = this.shiftStatus === 'NONE' ? '登入成功。點餐與訂單需要先開班。' : '';
+      else this.notice = this.pending ? '找到前次待確認訂單，請繼續確認送單結果。' : '登入成功，已載入門市菜單。';
+      if (this.view === 'orders' && !this.shiftLocked) await this.loadOrders();
+    } else {
+      // 個人帳號不能點餐、看訂單，直接進工時管理
+      if (this.view === 'pos' || this.view === 'orders') this.view = 'time-tracker';
+      this.notice = '登入成功。點餐收銀與訂單管理請使用門市 POS 帳號。';
+    }
   }
   logout(): void {
     if (this.busy) return;
+    this.resetSession();
+  }
+  private resetSession(): void {
     this.memberPickerOpen = false;
     this.api.logout(); this.hereMap.reset(); this.member = null; this.delivery = null; this.preview = true; this.menu = PREVIEW_MENU; this.rules = PREVIEW_RULES;
     this.cart = []; this.pending = null; this.lastOrder = null; this.selectedOrder = null; this.orderList = [];

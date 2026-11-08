@@ -5,6 +5,10 @@ import { ClockToday, DailyShift, ShiftClosingSummary } from '../models/time-cloc
 import { StaffOption } from '../models/schedule';
 import { DeliveryRoute, MemberUpdate, PosConfig, CancelRequest, CreateOrder, ItemStatus, Member, Menu, Order, OrderSummary, Payment, Rule, Staff } from '../models/pos';
 
+// 登入結果存放在 sessionStorage 的名稱：只存 token 與員工顯示資料，不存密碼。
+export const AUTH_STORAGE_KEY = 'qingri.auth';
+interface LoginResult { token: string; expiresAt: string; staff: Staff; }
+
 // 一般請求最多等 15 秒，照片上傳另給 30 秒，避免畫面一直停在處理中。
 export const API_TIMEOUT_MS = 15000;
 
@@ -18,16 +22,29 @@ export class PosApiService {
   private credentials = '';
   readonly staff = signal<Staff | null>(null);
 
+  constructor() { this.restore(); }
+
   async login(username: string, password: string): Promise<void> {
-    // Basic 憑證僅放記憶體，不存 localStorage；重整頁面會清除，切換元件內畫面則不會。
-    // Base64 是編碼，不是加密；登入是否成功以後端 /auth/me 回應為準。
-    const bytes = new TextEncoder().encode(`${username}:${password}`);
-    const credentials = 'Basic ' + btoa(Array.from(bytes, b => String.fromCharCode(b)).join(''));
-    const staff = await this.wait(this.http.get<Staff>('/api/auth/me', { headers: new HttpHeaders({ Authorization: credentials }) }));
-    this.credentials = credentials;
-    this.staff.set(staff);
+    // 用帳密向後端換 token，之後的請求只帶 token；密碼用完即丟，不留在前端。
+    const result = await this.wait(this.http.post<LoginResult>('/api/auth/login', { username, password }));
+    this.credentials = 'Bearer ' + result.token;
+    this.staff.set(result.staff);
+    // 存 sessionStorage：重新整理頁面不用重登，關掉分頁就清除。瀏覽器不能存時照常使用，只是重整後要重登。
+    try { sessionStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(result)); } catch { /* 忽略 */ }
   }
-  logout(): void { this.credentials = ''; this.staff.set(null); }
+  logout(): void {
+    this.credentials = ''; this.staff.set(null);
+    try { sessionStorage.removeItem(AUTH_STORAGE_KEY); } catch { /* 忽略 */ }
+  }
+  // 重新整理後從 sessionStorage 取回還沒過期的 token；過期或格式不對就當作沒登入。
+  private restore(): void {
+    try {
+      const saved = JSON.parse(sessionStorage.getItem(AUTH_STORAGE_KEY) ?? 'null') as LoginResult | null;
+      if (saved?.token && saved.staff && Date.parse(saved.expiresAt) > Date.now()) {
+        this.credentials = 'Bearer ' + saved.token; this.staff.set(saved.staff);
+      } else sessionStorage.removeItem(AUTH_STORAGE_KEY);
+    } catch { /* 讀不到就當作沒登入 */ }
+  }
   private get headers(): HttpHeaders { return new HttpHeaders({ Authorization: this.credentials }); }
   // 給其他功能的 API service（排班、打卡等）共用目前的登入憑證。
   authHeaders(): HttpHeaders { return this.headers; }
@@ -114,7 +131,7 @@ export function errorMessage(error: unknown): string {
   if (error instanceof HttpErrorResponse) {
     if (error.status === 0) return '門市連線暫時中斷，請稍後重試。';
     if (typeof error.error?.message === 'string') return error.error.message;
-    if (error.status === 401) return '帳號或密碼不正確，或帳號已被停用。';
+    if (error.status === 401) return '帳號或密碼錯誤，或登入已逾時，請重新登入。';
   }
   return error instanceof Error ? error.message : '操作未完成，請稍後再試。';
 }
