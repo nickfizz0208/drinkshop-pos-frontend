@@ -21,6 +21,11 @@
         (click)="switchView('schedule')"><app-icon name="calendar" />班表</button>
       <button class="rail-link" [class.active]="ui.view === 'checklist'" [disabled]="ui.busy"
         (click)="switchView('checklist')"><app-icon name="list-checks" />檢核表</button>
+      <!-- 盤點只限個人帳號（記在員工本人名下）；POS 共用帳號看不到 -->
+      @if (!isPos) {
+      <button class="rail-link" [class.active]="ui.view === 'inventory-count'" [disabled]="ui.busy"
+        (click)="switchView('inventory-count')"><app-icon name="package" />盤點</button>
+      }
     </nav>
     <div class="rail-bottom">
       <app-icon class="leaf-mark" name="leaf" />
@@ -87,6 +92,7 @@
         @case ('time-tracker') { <app-time-tracker /> }
         @case ('schedule') { <app-schedule-shift /> }
         @case ('checklist') { <app-check-list /> }
+        @case ('inventory-count') { <app-inventory-count /> }
       }
       }
       <footer class="page-footer"><span>青日茶所 / 門市工作台</span><span>用心做好每一杯。</span></footer>

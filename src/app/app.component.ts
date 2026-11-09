@@ -2,7 +2,7 @@ import { IconComponent } from './shared/icon.component';
 import { Component, effect, inject, untracked } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ModalComponent } from './shared/modal.component';
-import { COUNTER_VIEWS, UiStateService, WorkspaceView } from './shared/ui-state.service';
+import { COUNTER_VIEWS, PERSONAL_VIEWS, UiStateService, WorkspaceView } from './shared/ui-state.service';
 import { PosApiService, errorMessage } from './services/pos-api.service';
 import { money } from './models/pos';
 import { ShiftClosingSummary, ShiftStatus } from './models/time-clock';
@@ -16,6 +16,7 @@ import { StoreOpsStateService } from './features/store-ops/store-ops-state.servi
 import { TimeTrackerComponent } from './time-tracker/time-tracker.component';
 import { ScheduleShiftComponent } from './schedule-shift/schedule-shift.component';
 import { CheckListComponent } from './check-list/check-list.component';
+import { InventoryCountComponent } from './features/inventory-count/inventory-count.component';
 
 /**
  * 工作台外框：登入、登出、切頁，以及上方工具列的開班／關班。
@@ -24,7 +25,7 @@ import { CheckListComponent } from './check-list/check-list.component';
 @Component({
   selector: 'app-root',
   imports: [IconComponent, FormsModule, ModalComponent, PosComponent, OrdersComponent, StoreOpsComponent,
-    TimeTrackerComponent, ScheduleShiftComponent, CheckListComponent],
+    TimeTrackerComponent, ScheduleShiftComponent, CheckListComponent, InventoryCountComponent],
   templateUrl: './app.component.html',
   styleUrl: './app.component.scss'
 })
@@ -189,6 +190,8 @@ export class AppComponent {
     this.pos.restorePending();
     this.ui.loginOpen = false; this.ui.password = ''; this.ui.error = '';
     if (this.isPos) {
+      // POS 共用帳號不能盤點（要記在員工本人名下）
+      if (PERSONAL_VIEWS.includes(this.ui.view)) this.ui.view = 'pos';
       await this.loadShift();
       if (this.shiftLocked) this.ui.notice = this.shiftStatus === 'NONE' ? '登入成功。點餐與訂單需要先開班。' : '';
       else this.ui.notice = this.pos.pending ? '找到前次待確認訂單，請繼續確認送單結果。' : '登入成功，已載入門市菜單。';
@@ -212,6 +215,7 @@ export class AppComponent {
   }
   async switchView(view: WorkspaceView): Promise<void> {
     if (COUNTER_VIEWS.includes(view) && !this.counterAllowed) return;
+    if (PERSONAL_VIEWS.includes(view) && this.isPos) return;
     if (!this.ui.navigate(view)) return;
     if (view === 'orders' && !this.ui.preview && !this.shiftLocked) await this.orders.loadOrders();
   }
