@@ -82,17 +82,6 @@ export class OrdersStateService {
   }
   get actualRefund(): number { return this.wantsRefund && this.cancelTarget && this.isPaid(this.cancelTarget.order) ? this.refundInput ?? 0 : 0; }
   get refundNeedsConfirmation(): boolean { return this.actualRefund > 0; }
-  // 原料成本與退款分開算；null 表示歷史成本未建檔，不可顯示成 $0。
-  // material_cost 已包含這筆明細的全部杯數，所以這裡不能再乘 qty。
-  costText(items: OrderItem[]): string {
-    if (!items.length) return money(0);
-    return items.some(i => i.material_cost == null) ? '成本未建檔，無法完整估算' : money(items.reduce((sum, i) => sum + cents(i.material_cost!), 0) / 100);
-  }
-  get cancelCost(): string {
-    const items = this.cancelTarget ? this.cancelTarget.item ? [this.cancelTarget.item] : this.cancelTarget.order.items : [];
-    return this.costText(items.filter(i => i.status === 'MAKING' || i.status === 'DONE'));
-  }
-  wasteCost(order: Order): string { return this.costText(order.items.filter(i => i.status === 'WASTED')); }
   get combinedCancelReason(): string {
     const selected = this.cancelReasonChoice === '其他' ? '' : this.cancelReasonChoice;
     const note = this.cancelReason.trim();
@@ -164,7 +153,7 @@ export class OrdersStateService {
     this.cancelTarget = { order: this.selectedOrder, item }; this.cancelReason = ''; this.cancelReasonChoice = ''; this.refundConfirmed = false; this.wantsRefund = true; this.refundInput = this.refundAmount; this.ui.modalError = '';
   }
   // 人工退款完成後才勾選確認；API 只記錄退款，不會真的操作信用卡／LINE Pay。
-  // 回補或轉損耗由後端依製作狀態判定，前端不自行改庫存。
+  // 取消或轉損耗由後端依製作狀態判定；點餐不扣帳面庫存，取消也不回補。
   async confirmCancel(): Promise<void> {
     if (!this.cancelTarget || !this.combinedCancelReason || (this.refundNeedsConfirmation && !this.refundConfirmed) || this.ui.busy) return;
     if (!Number.isFinite(this.actualRefund) || this.actualRefund < 0 || this.actualRefund > this.refundAmount || Math.abs(this.actualRefund * 100 - Math.round(this.actualRefund * 100)) > 0.00001 || (this.wantsRefund && this.refundAmount > 0 && this.actualRefund === 0)) { this.ui.modalError = '請輸入大於零且不超過退款上限的金額（最多兩位小數），或選擇不退款。'; return; }
@@ -182,7 +171,7 @@ export class OrdersStateService {
     if (this.ui.busy) return;
     this.collecting = order; this.payment = 'CASH'; this.received = null; this.ui.modalError = '';
   }
-  // 補收款更新原訂單，不重新建單，也不再次扣料。
+  // 補收款更新原訂單，不重新建單。
   async confirmCollect(): Promise<void> {
     if (!this.collecting || this.ui.busy) return;
     this.ui.busy = true; this.ui.modalError = '';

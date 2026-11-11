@@ -145,7 +145,7 @@
     <dl class="close-summary">
       <dt>銷售杯數</dt><dd>{{ s.totalCups }} 杯</dd>
       <dt>飲品營收</dt><dd>{{ money(s.totalRevenue) }}</dd>
-      <dt>損耗成本</dt><dd>{{ s.totalWastageCost === null ? '成本未建檔，無法完整估算' : money(s.totalWastageCost) }}</dd>
+      <dt>原料報廢成本</dt><dd>{{ s.totalWastageCost === null ? '成本未建檔，無法完整估算' : money(s.totalWastageCost) }}</dd>
       <dt>開班零用金</dt><dd>{{ money(s.pettyCash) }}</dd>
       <dt>應有現金</dt><dd>{{ money(s.expectedCash) }}</dd>
       <dt>實際清點</dt><dd>{{ money(s.countedCash) }}</dd>

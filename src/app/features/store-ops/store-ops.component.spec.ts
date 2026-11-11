@@ -61,11 +61,12 @@ describe('日結與報廢操作（隔離 API，不連共用庫）', () => {
     waste.rawWastageEnabled = true; state.date = '2001-01-01'; await state.load(); expect(state.canRaw).toBeFalse();
     state.date = taipeiDate(); shift.status = 'CLOSED'; await state.load(); expect(state.canRaw).toBeFalse(); expect(api.rawWastage).not.toHaveBeenCalled();
   });
-  it('原料數量不合法或超庫存時不開確認窗', async () => {
+  it('原料數量不合法時不開確認窗；超過帳面也可以登記（帳面以盤點為準）', async () => {
     await state.load(); state.rawId = 1; state.rawReason = '打翻';
-    for (const qty of [0, -1, 2.001, 21, NaN]) { state.rawQty = qty; state.prepareRaw(); expect(state.rawConfirm).toBeNull(); }
+    for (const qty of [0, -1, 2.001, NaN]) { state.rawQty = qty; state.prepareRaw(); expect(state.rawConfirm).toBeNull(); }
+    state.rawQty = 21; state.prepareRaw(); expect(state.rawConfirm?.request.wastageQty).toBe(21);   // 帳面只有 20
   });
-  it('填表只預覽，明確確認才扣料；成功後重新讀取失敗仍明示操作成功', async () => {
+  it('填表只預覽，明確確認才登記；成功後重新讀取失敗仍明示操作成功', async () => {
     await state.load(); fillRaw(); expect(api.rawWastage).not.toHaveBeenCalled();
     api.rawWastage.and.callFake(async request => {
       const saved = JSON.parse(sessionStorage.getItem('qingri.raw-review.5')!);

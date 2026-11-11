@@ -1,132 +1,292 @@
 <div class="page-heading">
-  <div><h1>原料盤點</h1><p class="heading-description">清點原料實際數量，和帳面比對差異。盤點只做記錄，不會修改帳面庫存。</p></div>
+  <div>
+    <h1>原料盤點</h1>
+    <p class="heading-description">清點原料實際數量，和帳面比對差異。送出後帳面庫存會改成實點數量。</p>
+  </div>
   @if (!ui.preview) {
+  <div class="heading-actions">
+    @if (state.isManager) { <button class="button secondary" (click)="state.openManage()"
+      [disabled]="ui.busy">管理盤點類型</button> }
     <button class="button secondary" (click)="state.load()" [disabled]="ui.busy || state.loading">重新整理</button>
+  </div>
   }
 </div>
 
 @if (ui.preview) {
-  <section class="panel signin"><h2>登入後開始盤點</h2><p>盤點請用自己的個人帳號登入，紀錄會記在你的名下。</p><button class="button primary" (click)="ui.openLogin()">員工登入</button></section>
+<section class="panel signin">
+  <h2>登入後開始盤點</h2>
+  <p>盤點請用自己的個人帳號登入，紀錄會記在你的名下。</p><button class="button primary" (click)="ui.openLogin()">員工登入</button>
+</section>
 } @else {
-  @if (state.error) { <p class="alert error" role="alert">{{ state.error }}</p> }
-  @if (state.enabled === false) {
-    <p class="alert warning" role="status">盤點紀錄尚未啟用：需要資料庫負責人先完成 016 升級。目前可以查看帳面數量，但不能送出盤點。</p>
-  }
-  @if (state.pending) {
-    <p class="alert warning" role="status">上次送出的結果不確定。內容不要修改，再按一次「送出盤點」確認，不會重複記錄。</p>
-  }
-  @if (state.loading) { <p class="loading" role="status">正在讀取原料與盤點紀錄…</p> }
+@if (state.error) { <p class="alert error" role="alert">{{ state.error }}</p> }
+@if (state.enabled === false) {
+<p class="alert warning" role="status">盤點紀錄尚未啟用：需要資料庫負責人先完成 016 升級。目前可以查看帳面數量，但不能送出盤點。</p>
+}
+@if (state.pending) {
+<p class="alert warning" role="status">上次送出的結果不確定。內容不要修改，再按一次「送出盤點」確認，不會重複記錄。</p>
+}
+@if (state.loading) { <p class="loading" role="status">正在讀取原料與盤點紀錄…</p> }
 
-  @if (state.loaded) {
-    <section class="panel" aria-labelledby="count-title">
-      <div class="panel-heading">
-        <h2 id="count-title">本次盤點</h2>
-        <label class="search"><span class="sr-only">搜尋原料</span><input type="search" [(ngModel)]="state.search" placeholder="搜尋原料名稱" [disabled]="ui.busy"></label>
-      </div>
-      <p class="hint">有包裝單位的原料可以填「幾包＋零散」，系統會換算成基本單位。沒填的原料不會記錄。帳面數量會隨點餐扣料變動，差異以送出當下的帳面為準。</p>
-      <div class="table-scroll count-scroll">
-        <table class="count-table">
-          <thead><tr><th>原料</th><th class="num">帳面</th><th>實點</th><th class="num">實點合計</th><th class="num">差異</th><th><span class="sr-only">操作</span></th></tr></thead>
-          <tbody>
-            @for (item of state.visibleItems; track item.inventoryId) {
-              <tr [class.counted]="state.counted(item) !== null">
-                <td class="name"><strong>{{ item.name }}</strong>
-                  @if (low(item)) { <span class="tag low">低於安全庫存</span> }
-                  @if (state.hasPack(item)) { <small class="muted">1 {{ item.packUnit }} = {{ qty(item.perPack!) }} {{ item.baseUnit }}</small> }
-                </td>
-                <td class="num book" data-label="帳面">{{ qty(item.bookQty) }} {{ item.baseUnit }}</td>
-                <td class="input">
-                  <div class="qty-inputs">
-                    @if (state.hasPack(item)) {
-                      <label><input type="number" min="0" step="1" inputmode="numeric" [name]="'packs-' + item.inventoryId"
-                        [(ngModel)]="state.entry(item.inventoryId).packs" [disabled]="ui.busy" [attr.aria-label]="item.name + ' 包數'"><span>{{ item.packUnit }}</span></label>
-                      <span class="plus" aria-hidden="true">＋</span>
-                    }
-                    <label><input type="number" min="0" step="0.01" inputmode="decimal" [name]="'loose-' + item.inventoryId"
-                      [(ngModel)]="state.entry(item.inventoryId).loose" [disabled]="ui.busy" [attr.aria-label]="item.name + (state.hasPack(item) ? ' 零散數量' : ' 數量')"><span>{{ item.baseUnit }}</span></label>
-                  </div>
-                  @if (state.invalid(item); as message) { <small class="field-error" role="alert">{{ message }}</small> }
-                </td>
-                <td class="num total" data-label="實點合計">@if (state.counted(item); as c) { {{ qty(c) }} {{ item.baseUnit }} } @else if (state.counted(item) === 0) { 0 {{ item.baseUnit }} } @else { <span class="muted">未盤</span> }</td>
-                <td class="num diff" data-label="差異">
-                  @if (state.diff(item); as d) { <span [class.short]="d < 0" [class.over]="d > 0">{{ signed(d) }}</span> }
-                  @else if (state.diff(item) === 0) { <span class="even">無差異</span> }
-                </td>
-                <td class="actions">
-                  <button type="button" class="text-button" (click)="state.fillBook(item)" [disabled]="ui.busy">同帳面</button>
-                  @if (state.counted(item) !== null) { <button type="button" class="text-button" (click)="state.clearEntry(item)" [disabled]="ui.busy">清除</button> }
-                </td>
-              </tr>
-            } @empty {
-              <tr><td colspan="6" class="muted">{{ state.items.length ? '找不到符合的原料。' : '目前沒有原料資料。' }}</td></tr>
-            }
-          </tbody>
-        </table>
-      </div>
-      <label class="field note">備註（選填）<input name="note" maxlength="255" [(ngModel)]="state.note" placeholder="例如：月底盤點、冰箱 A" [disabled]="ui.busy"></label>
-      <div class="submit-bar">
-        <span>已填 {{ state.countedCount }} / {{ state.items.length }} 項</span>
-        <button class="button primary" (click)="state.openConfirm()" [disabled]="!state.canSubmit">送出盤點</button>
-      </div>
-    </section>
+@if (state.loaded) {
+<section class="panel" aria-labelledby="count-title">
+  <div class="panel-heading">
+    <h2 id="count-title">本次盤點</h2>
+    <label class="search"><span class="sr-only">搜尋原料</span><input type="search" [(ngModel)]="state.search"
+        placeholder="搜尋原料名稱" [disabled]="ui.busy"></label>
+  </div>
+  <!-- 盤點類型：決定要盤哪些原料、只填箱數還是箱數＋零散；換類型會清空已填的數量 -->
+  @if (state.types.length) {
+  <div class="type-picker" role="radiogroup" aria-label="盤點類型">
+    @for (t of state.types; track t.typeId) {
+    <button type="button" role="radio" class="type-chip" [class.selected]="t.typeId === state.typeId"
+      [attr.aria-checked]="t.typeId === state.typeId" [disabled]="ui.busy" (click)="state.selectType(t.typeId)">
+      <strong>{{ t.name }}</strong><small>{{ modeLabel(t.inputMode) }} · {{ t.allItems ? '所有原料' : t.itemIds.length + '
+        項原料' }}</small>
+    </button>
+    }
+  </div>
+  <p class="hint">
+    @if (state.packOnly) { {{ state.type?.name }}：以較大單位紀錄，不記錄零頭。 }
+    @else { 以最基本單位記錄。 }
+    數量只填整數，開封、用到一半的不算。未填的原料不會更新帳面庫存，也不會記錄在盤點紀錄裡。
+  </p>
+  } @else {
+  <p class="alert warning" role="status">目前沒有可用的盤點類型。@if (state.isManager) { 請按「管理盤點類型」新增。 } @else { 請店長新增盤點類型。 }</p>
+  }
+  <div class="table-scroll count-scroll">
+    <table class="count-table">
+      <colgroup>
+        <col style="width: 15%;">
+        <col style="width: 10%;">
+        <col style="width: 10%;">
+        <col style="width: 30%;">
+        <col style="width: 10%;">
+        <col style="width: 10%;">
+        <col style="width: 10%;">
+        <col style="width: 5%;">
+      </colgroup>
+      <thead>
+        <tr>
+          <th>原料</th>
+          <th>說明</th>
+          <th class="num">帳面</th>
+          <th>實點</th>
+          <th class="num">安全庫存</th>
+          <th class="num">實點合計</th>
+          <th class="num">差異</th>
+          <th><span class="sr-only">操作</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (item of state.visibleItems; track item.inventoryId) {
+        <tr [class.counted]="state.counted(item) !== null">
+          <!-- 1 -->
+          <td class="name"><strong>{{ item.name }}</strong></td>
+          <!-- 2 -->
+          <td class="describe">
+            @if (state.hasPack(item)) { <small class="muted">1 {{ item.packUnit }} = {{ qty(item.perPack!) }} {{
+              item.baseUnit }}</small> }
+          </td>
+          <!-- 3 -->
+          <td class="num book" data-label="帳面">{{ q(item.bookQty, item) }}</td>
+          <!-- 4 -->
+          <td class="input" data-label="實點">
+            <div class="qty-inputs">
+              @if (state.hasPack(item)) {
+              <label><input type="number" min="0" step="1" inputmode="numeric" [name]="'packs-' + item.inventoryId"
+                  [(ngModel)]="state.entry(item.inventoryId).packs" [disabled]="ui.busy"
+                  [attr.aria-label]="item.name + ' 包數'"><span>{{ item.packUnit }}</span></label>
+              @if (!state.packOnly) { <span class="plus" aria-hidden="true">＋</span> }
+              }
+              @if (!state.packOnlyFor(item)) {
+              <!-- 盤點一律整數：上下箭頭一次加減 1 -->
+              <label><input type="number" min="0" step="1" inputmode="numeric" [name]="'loose-' + item.inventoryId"
+                  [(ngModel)]="state.entry(item.inventoryId).loose" [disabled]="ui.busy"
+                  [attr.aria-label]="item.name + (state.hasPack(item) ? ' 零散數量' : ' 數量')"><span>{{ item.baseUnit
+                  }}</span></label>
+              }
+            </div>
+            @if (state.invalid(item); as message) { <small class="field-error" role="alert">{{ message }}</small> }
+          </td>
+          <td class="safety" data-label="安全庫存">
+            @if (low(item)) { <span class="low">{{ q(item.safetyStock, item) }}</span> }
+            @else{ {{q(item.safetyStock, item) }} }
+          </td>
+          <!-- 5 -->
+          <td class="num total" data-label="實點合計">@if (state.counted(item) !== null) { {{ q(state.counted(item)!, item)
+            }} } @else { <span class="muted">未盤</span> }</td>
+          <!-- 6 -->
+          <td class="num diff" data-label="差異">
+            @if (state.diff(item); as diff) { <span [class.short]="diff < 0" [class.over]="diff > 0">{{
+              d(state.counted(item)!, item.bookQty, item) }}</span> }
+            @else if (state.diff(item) === 0) { <span class="even">無差異</span> }
+          </td>
+          <!-- 7 -->
+          <td class="actions">
+            <button type="button" class="text-button" (click)="state.clearEntry(item)" [disabled]="ui.busy">清除</button>
+          </td>
+        </tr>
+        } @empty {
+        <tr>
+          <td colspan="6" class="muted">{{ state.typeItems.length ? '找不到符合的原料。' : (state.type ? '這個盤點類型沒有原料。' :
+            '請先選擇盤點類型。') }}</td>
+        </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+  <label class="field note">備註（選填）<input name="note" maxlength="255" [(ngModel)]="state.note" placeholder="例如：月底盤點、冰箱 A"
+      [disabled]="ui.busy"></label>
+  <div class="submit-bar">
+    <span>{{ state.type?.name }}：已填 {{ state.countedCount }} / {{ state.typeItems.length }} 項</span>
+    <button class="button primary" (click)="state.openConfirm()" [disabled]="!state.canSubmit">送出盤點</button>
+  </div>
+</section>
 
-    <section class="panel" aria-labelledby="history-title">
-      <div class="panel-heading">
-        <h2 id="history-title">盤點紀錄</h2>
-        <div class="date-tools">
-          <label>從<input type="date" [(ngModel)]="state.historyFrom" [disabled]="state.historyLoading"></label>
-          <label>到<input type="date" [(ngModel)]="state.historyTo" [disabled]="state.historyLoading"></label>
-          <button class="button secondary" (click)="state.loadHistory()" [disabled]="state.historyLoading">查詢</button>
-        </div>
-      </div>
-      <p class="hint">一次最多查 31 天。差異金額用盤點當時的單位成本計算。</p>
-      @if (state.historyError) { <p class="alert error" role="alert">{{ state.historyError }}</p> }
-      @for (g of state.groups; track g.requestId) {
-        <article class="count-group">
-          <button type="button" class="group-head" (click)="state.expanded = state.expanded === g.requestId ? null : g.requestId"
-            [attr.aria-expanded]="state.expanded === g.requestId">
-            <span><strong>{{ time(g.countedAt) }}</strong> · {{ g.countedByName || '員工' }} · {{ g.rows.length }} 項</span>
-            <span class="group-sum">
-              @if (g.shortCount) { <span class="short">盤虧 {{ g.shortCount }}</span> }
-              @if (g.overCount) { <span class="over">盤盈 {{ g.overCount }}</span> }
-              @if (!g.shortCount && !g.overCount) { <span class="even">全部相符</span> }
-              <span>{{ g.diffCost === null ? '部分原料未建成本' : signedMoney(g.diffCost) }}</span>
-            </span>
-          </button>
-          @if (state.expanded === g.requestId) {
-            @if (g.note) { <p class="muted">備註：{{ g.note }}</p> }
-            <div class="table-scroll"><table>
-              <thead><tr><th>原料</th><th class="num">帳面</th><th class="num">實點</th><th class="num">差異</th><th class="num">差異金額</th></tr></thead>
-              <tbody>@for (r of g.rows; track r.countId) {
-                <tr><td>{{ r.inventoryName }}</td><td class="num">{{ qty(r.bookQty) }} {{ r.baseUnit }}</td><td class="num">{{ qty(r.countedQty) }} {{ r.baseUnit }}</td>
-                  <td class="num"><span [class.short]="r.diffQty < 0" [class.over]="r.diffQty > 0">{{ r.diffQty === 0 ? '—' : signed(r.diffQty) }}</span></td>
-                  <td class="num">{{ r.diffCost === null ? '未建成本' : signedMoney(r.diffCost) }}</td></tr>
-              }</tbody>
-            </table></div>
+<section class="panel" aria-labelledby="history-title">
+  <div class="panel-heading">
+    <h2 id="history-title">盤點紀錄</h2>
+    <div class="date-tools">
+      <label>從<input type="date" [(ngModel)]="state.historyFrom" [disabled]="state.historyLoading"></label>
+      <label>到<input type="date" [(ngModel)]="state.historyTo" [disabled]="state.historyLoading"></label>
+      <button class="button secondary" (click)="state.loadHistory()" [disabled]="state.historyLoading">查詢</button>
+    </div>
+  </div>
+  <p class="hint">一次最多查 31 天。差異金額用盤點當時的單位成本計算。</p>
+  @if (state.historyError) { <p class="alert error" role="alert">{{ state.historyError }}</p> }
+  @for (g of state.groups; track g.requestId) {
+  <article class="count-group">
+    <button type="button" class="group-head"
+      (click)="state.expanded = state.expanded === g.requestId ? null : g.requestId"
+      [attr.aria-expanded]="state.expanded === g.requestId">
+      <span><span class="tag type">{{ g.typeName }}</span> <strong>{{ time(g.countedAt) }}</strong> · {{ g.countedByName
+        || '員工' }} · {{ g.rows.length }} 項</span>
+      <span class="group-sum">
+        @if (g.shortCount) { <span class="short">盤虧 {{ g.shortCount }}</span> }
+        @if (g.overCount) { <span class="over">盤盈 {{ g.overCount }}</span> }
+        @if (!g.shortCount && !g.overCount) { <span class="even">全部相符</span> }
+        <span>{{ g.diffCost === null ? '部分原料未建成本' : signedMoney(g.diffCost) }}</span>
+      </span>
+    </button>
+    @if (state.expanded === g.requestId) {
+    @if (g.note) { <p class="muted">備註：{{ g.note }}</p> }
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>原料</th>
+            <th class="num">帳面</th>
+            <th class="num">實點</th>
+            <th class="num">差異</th>
+            <th class="num">差異金額</th>
+          </tr>
+        </thead>
+        <tbody>@for (r of g.rows; track r.inventoryId) {
+          <tr>
+            <td>{{ r.inventoryName }}</td>
+            <td class="num">{{ q(r.bookQty, state.packInfo(r.inventoryId, r.baseUnit)) }}</td>
+            <td class="num">{{ q(r.countedQty, state.packInfo(r.inventoryId, r.baseUnit)) }}</td>
+            <td class="num"><span [class.short]="r.diffQty < 0" [class.over]="r.diffQty > 0">{{ r.diffQty === 0 ? '—' :
+                d(r.countedQty, r.bookQty, state.packInfo(r.inventoryId, r.baseUnit)) }}</span></td>
+            <td class="num">{{ r.diffCost === null ? '未建成本' : signedMoney(r.diffCost) }}</td>
+          </tr>
           }
-        </article>
-      } @empty {
-        @if (!state.historyLoading) { <p class="muted">這段期間沒有盤點紀錄。</p> }
-      }
-    </section>
+        </tbody>
+      </table>
+    </div>
+    }
+  </article>
+  } @empty {
+  @if (!state.historyLoading) { <p class="muted">這段期間沒有盤點紀錄。</p> }
   }
+</section>
+}
 }
 
 @if (state.confirmOpen) {
-  <app-modal title="確認盤點內容" subtitle="送出後會記錄在你的名下" [busy]="ui.busy" (dismissed)="state.closeConfirm()">
-    <div class="modal-body">
-      @if (state.confirmError) { <p class="alert error" role="alert">{{ state.confirmError }}</p> }
-      <p>共 {{ state.countedCount }} 項原料。@if (state.items.length > state.countedCount) { 其餘 {{ state.items.length - state.countedCount }} 項沒填，不會記錄。 }</p>
-      <ul class="confirm-list">
-        @for (line of state.lines; track line.item.inventoryId) {
-          <li><span>{{ line.item.name }}</span><span>{{ qty(line.counted) }} {{ line.item.baseUnit }}</span>
-            <span [class.short]="line.diff < 0" [class.over]="line.diff > 0">{{ line.diff === 0 ? '無差異' : signed(line.diff) }}</span></li>
+<app-modal title="確認盤點內容" subtitle="送出後會記錄在你的名下" [busy]="ui.busy" (dismissed)="state.closeConfirm()">
+  <div class="modal-body">
+    @if (state.confirmError) { <p class="alert error" role="alert">{{ state.confirmError }}</p> }
+    <p>「{{ state.type?.name }}」共 {{ state.countedCount }} 項原料。@if (state.typeItems.length > state.countedCount) { 其餘 {{
+      state.typeItems.length - state.countedCount }} 項沒填，不會記錄。 }</p>
+    <ul class="confirm-list">
+      @for (line of state.lines; track line.item.inventoryId) {
+      <li><span>{{ line.item.name }}</span><span>{{ q(line.counted, line.item) }}</span>
+        <span [class.short]="line.diff < 0" [class.over]="line.diff > 0">{{ line.diff === 0 ? '無差異' : d(line.counted,
+          line.item.bookQty, line.item) }}</span>
+      </li>
+      }
+    </ul>
+    @if (state.note.trim()) { <p class="muted">備註：{{ state.note.trim() }}</p> }
+    @if (state.packOnly) { <p class="hint">只填箱數：零頭不計，帳面會改成「箱數 × 每箱數量」。</p> }
+    <p class="hint">送出後，這些原料的帳面庫存會改成實點數量；盤點前的帳面與差異會留在紀錄裡。</p>
+  </div>
+  <div class="modal-footer"><button class="button secondary" (click)="state.closeConfirm()"
+      [disabled]="ui.busy">返回修改</button>
+    <button class="button primary" (click)="state.submit()" [disabled]="ui.busy">{{ ui.busy ? '送出中…' : '確認送出'
+      }}</button>
+  </div>
+</app-modal>
+}
+
+<!-- 盤點類型管理：只有店長、總部看得到（後端也只允許店長、總部新增／修改） -->
+@if (state.manageOpen) {
+<app-modal title="盤點類型" subtitle="設定要盤哪些原料與輸入方式" [busy]="ui.busy" (dismissed)="state.closeManage()">
+  <div class="modal-body">
+    @if (state.typeError) { <p class="alert error" role="alert">{{ state.typeError }}</p> }
+    @if (state.typeForm; as f) {
+    <form class="type-form" (ngSubmit)="state.saveType()">
+      <label class="field">類型名稱<input name="typeName" maxlength="20" [(ngModel)]="f.name" required
+          placeholder="例如：小盤、冰箱、週盤" [disabled]="ui.busy"></label>
+      <fieldset class="choices" [disabled]="ui.busy">
+        <legend>輸入方式</legend>
+        <label><input type="radio" name="inputMode" value="PACK_ONLY"
+            [(ngModel)]="f.inputMode"><span><strong>只填箱數</strong><small>有包裝單位的原料記成「箱數 ×
+              每箱數量」，零頭不計</small></span></label>
+        <label><input type="radio" name="inputMode" value="PACK_AND_LOOSE"
+            [(ngModel)]="f.inputMode"><span><strong>箱數＋零散</strong><small>逐一清點，可填零頭</small></span></label>
+      </fieldset>
+      <fieldset class="choices" [disabled]="ui.busy">
+        <legend>要盤的原料</legend>
+        <label><input type="checkbox" name="allItems"
+            [(ngModel)]="f.allItems"><span><strong>所有原料</strong><small>之後新增的原料也會自動包含</small></span></label>
+        @if (!f.allItems) {
+        <div class="item-checks">
+          @for (item of state.items; track item.inventoryId) {
+          <label><input type="checkbox" [name]="'type-item-' + item.inventoryId"
+              [checked]="f.itemIds.has(item.inventoryId)" (change)="state.toggleTypeItem(item.inventoryId)">
+            <span>{{ item.name }}@if (item.packUnit) { <small>（{{ item.packUnit }}）</small> }</span></label>
+          }
+        </div>
+        <small class="muted">已選 {{ f.itemIds.size }} 項</small>
         }
-      </ul>
-      @if (state.note.trim()) { <p class="muted">備註：{{ state.note.trim() }}</p> }
-      <p class="hint">盤點只做記錄，不會修改帳面庫存。</p>
-    </div>
-    <div class="modal-footer"><button class="button secondary" (click)="state.closeConfirm()" [disabled]="ui.busy">返回修改</button>
-      <button class="button primary" (click)="state.submit()" [disabled]="ui.busy">{{ ui.busy ? '送出中…' : '確認送出' }}</button></div>
-  </app-modal>
+      </fieldset>
+      @if (f.typeId !== null) {
+      <label class="confirmation"><input type="checkbox" name="active" [(ngModel)]="f.active"
+          [disabled]="ui.busy"><span>啟用（取消勾選即停用；停用後不能再用來盤點，舊紀錄不受影響）</span></label>
+      }
+      <div class="form-actions"><button type="button" class="button secondary" (click)="state.typeForm = null"
+          [disabled]="ui.busy">返回清單</button>
+        <button type="submit" class="button primary" [disabled]="ui.busy">{{ ui.busy ? '儲存中…' : '儲存' }}</button>
+      </div>
+    </form>
+    } @else {
+    <ul class="type-list">
+      @for (t of state.allTypes; track t.typeId) {
+      <li [class.inactive]="!t.active">
+        <span><strong>{{ t.name }}</strong> @if (!t.active) { <span class="tag">已停用</span> }
+          <small>{{ modeLabel(t.inputMode) }} · {{ t.allItems ? '所有原料' : t.itemIds.length + ' 項原料' }}</small></span>
+        <button type="button" class="text-button" (click)="state.editType(t)" [disabled]="ui.busy">編輯</button>
+      </li>
+      } @empty { <li class="muted">還沒有盤點類型。</li> }
+    </ul>
+    }
+  </div>
+  @if (!state.typeForm) {
+  <div class="modal-footer"><button class="button secondary" (click)="state.closeManage()"
+      [disabled]="ui.busy">關閉</button>
+    <button class="button primary" (click)="state.editType()" [disabled]="ui.busy">新增類型</button>
+  </div>
+  }
+</app-modal>
 }

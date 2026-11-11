@@ -114,7 +114,7 @@
             <div class="grand-total"><span>合計金額</span><strong>{{ state.money(state.totalCents / 100) }}</strong></div><button
               class="button primary checkout-button" [disabled]="!state.cart.length || ui.busy" (click)="state.openCheckout()"><span>{{
                 state.pending ? '繼續確認送單' : ui.preview ? '登入後結帳' : '前往結帳' }}</span><app-icon name="arrow-right" /></button>
-            <p class="cart-hint">{{ ui.preview ? '預覽不會建立訂單或扣除庫存' : '結帳時確認金額與可用庫存' }}</p>
+            <p class="cart-hint">{{ ui.preview ? '預覽不會建立訂單' : '結帳時確認金額' }}</p>
           </div>
         </aside>
       </div>
@@ -203,7 +203,7 @@
         max="99999999.99" step="0.01" placeholder="請輸入收到的金額" [disabled]="ui.busy || !!state.pending"></label>
     <div class="change-line"><span>預計找零</span><strong>{{ state.money(state.changeCents / 100) }}</strong></div> }<p
       class="muted small-copy">請先確認已收到款項，再完成結帳。其他付款方式由店員確認收款結果。</p> } @else { <p class="alert warning">
-      本次只接單並扣料，尚未收款。之後請至訂單管理收款；取消時不需退款。</p> }
+      本次只接單，尚未收款。之後請至訂單管理收款；取消時不需退款。</p> }
   </div>
   <div class="modal-footer"><button class="button secondary" [disabled]="ui.busy"
       (click)="state.checkoutOpen = false">返回點餐</button><button class="button primary" [disabled]="ui.busy"

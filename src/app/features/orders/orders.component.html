@@ -66,14 +66,13 @@
               (item.status === 'WASTED') { <button class="button small secondary" [disabled]="ui.busy"
                 (click)="state.openPhoto(item)">{{ item.photo_url ? '查看照片' : '損耗照片' }}</button> }</div>@if (item.reason) { <p
               class="reason-note">原因：{{ item.reason }}</p>
-            <p class="detail-meta">退款 {{ state.money(item.refund_amount ?? 0) }} @if (item.status === 'WASTED') { / 原料損耗 {{
-              state.costText([item]) }} }</p> }
+            <p class="detail-meta">退款 {{ state.money(item.refund_amount ?? 0) }}</p> }
           </article> }
           <div class="order-totals"><span>保留品項合計</span><strong>{{ state.money(order.total) }}</strong></div>
           <div class="payment-record">
             <p>{{ state.paymentText(order) }}</p>
             <p>已收款（扣除找零） {{ state.money(state.paidAmount(order)) }} / 已退款 {{ state.money(order.refunded_amount ?? 0) }}</p>
-            <p>淨收款 {{ state.money(state.netReceived(order)) }} / 原料損耗估算 {{ state.wasteCost(order) }}</p>@if (order.received_cash !== null)
+            <p>淨收款 {{ state.money(state.netReceived(order)) }}</p>@if (order.received_cash !== null)
             { <p>原實收現金 {{ state.money(order.received_cash) }} / 原找零 {{ state.money(order.received_cash - state.paidAmount(order)) }}</p>
             }<small>原料估算含杯材與加料；不含人事、租金等費用，並非店內淨損益。舊訂單若無成本快照則顯示未建檔。</small>@if (!state.isPaid(order) && order.status !==
             'CANCELLED') { <p>尚未收款，請收款後再完成取餐。</p><button class="button primary" [disabled]="ui.busy"
@@ -87,13 +86,13 @@
         </section>
       </div> }
 
-<!-- 取消／棄單：原因、實際退款、原料損耗各自記錄；是否回補依後端製作狀態決定。 -->
+<!-- 取消／棄單：記錄原因與實際退款；點餐不扣帳面庫存，取消也不回補；飲品不計原料成本。 -->
 @if (state.cancelTarget; as target) {
 <app-modal title="取消／棄單確認" subtitle="ORDER CANCELLATION" [busy]="ui.busy" (dismissed)="state.cancelTarget = null">
   <div class="modal-body">@if (ui.modalError) { <p class="alert error" role="alert">{{ ui.modalError }}</p> }<p
       class="form-intro">{{ target.item ? target.item.product_name + '，共 ' + target.item.qty + ' 杯' : '訂單 #' +
       target.order.order_id + ' 的所有未取消品項' }}</p>
-    <div class="alert warning">{{ state.hasMadeItems ? '含已開始製作的飲品，轉損耗後不回補原料，並記錄目前操作員工。' : '尚未製作的飲品取消後，會回補已扣原料。' }}
+    <div class="alert warning">{{ state.hasMadeItems ? '含已開始製作的飲品，會轉為損耗並記錄目前操作員工。' : '尚未製作的飲品取消後，不算報廢。' }}
       同一筆明細的杯數會一起取消。</div><label class="field">常用原因<select [(ngModel)]="state.cancelReasonChoice" [disabled]="ui.busy">
         <option value="">請選擇，或直接在下方手填</option>@for (reason of state.cancelReasonOptions; track reason) { <option
           [value]="reason">{{ reason }}</option> }
@@ -115,8 +114,7 @@
           [(ngModel)]="state.refundConfirmed" [disabled]="ui.busy"><span>已完成 {{ state.money(state.actualRefund) }}
           的人工退款，確認後記錄。</span></label> } @else { <p>本次退款 {{ state.money(0) }}，保留原收款紀錄。</p> } } @else { <p>
         <strong>尚未收款，本次不需退款。</strong></p>
-      <p>{{ state.hasMadeItems ? '未收款棄單：飲品已製作，將記錄原料損耗。' : '取消後回補原料，本次原料損耗為 $0。' }}</p> }<p>本次原料損耗估算：<strong>{{ state.cancelCost
-          }}</strong></p><small>售價、退款與原料成本分開記錄；未收取的售價不會再加進原料損耗。</small>
+      <p>{{ state.hasMadeItems ? '未收款棄單：飲品已製作，會記成報廢。' : '尚未製作，不算報廢。' }}</p> }<small>售價與退款分開記錄；飲品報廢只算杯數，不計原料成本。</small>
     </div>
   </div>
   <div class="modal-footer"><button class="button secondary" [disabled]="ui.busy"

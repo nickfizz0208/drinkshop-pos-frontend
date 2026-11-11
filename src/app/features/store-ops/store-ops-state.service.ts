@@ -82,8 +82,8 @@ export class StoreOpsStateService {
   prepareRaw(): void {
     if (this.ui.busy || !this.canRaw) return;
     const material = this.selectedMaterial;
-    if (!material || !validNumber(this.rawQty, 9999999999.99) || !this.rawQty || this.rawQty > material.bookQty || !this.rawReason.trim() || this.rawReason.trim().length > 255) {
-      this.error = '請選原料、填寫大於零且不超過庫存的數量（最多兩位小數），以及 255 字內原因。'; return;
+    if (!material || !validNumber(this.rawQty, 9999999999.99) || !this.rawQty || !this.rawReason.trim() || this.rawReason.trim().length > 255) {
+      this.error = '請選原料、填寫大於零的數量（最多兩位小數），以及 255 字內原因。'; return;
     }
     this.error = '';
     this.rawConfirm = { staffId: this.api.staff()!.staffId, date: this.date, sentAt: new Date().toISOString(), materialName: material.name, unit: material.baseUnit,
@@ -101,7 +101,7 @@ export class StoreOpsStateService {
     this.ui.busy = true; this.error = '';
     try {
       await this.api.rawWastage(review.request); this.clearReview();
-      this.rawQty = null; this.rawReason = ''; this.ui.notice = '已登記原料報廢並扣除庫存。';
+      this.rawQty = null; this.rawReason = ''; this.ui.notice = '已登記原料報廢。帳面庫存不變，以盤點為準。';
     } catch (error) {
       if (error instanceof HttpErrorResponse && [400, 401, 403, 404, 409, 422].includes(error.status)) this.clearReview();
       this.error = errorMessage(error) + (this.rawReview ? ' 結果待核對，已鎖住再次登記；請先查閱紀錄。' : ' 本次未完成，請重新整理狀態。');

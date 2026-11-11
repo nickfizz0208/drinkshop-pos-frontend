@@ -13,6 +13,8 @@ export interface ClosingSummary {
 }
 export interface Inventory {
   inventoryId: number; name: string; baseUnit: string; bookQty: number; unitCost: number | null;
+  /** 有值時可用「大單位＋小單位」顯示（displayByPack = true，例如芒果 5 籃 3 顆）。 */
+  packUnit?: string | null; perPack?: number | null; displayByPack?: boolean;
 }
 export interface RawWastageRequest { inventoryId: number; wastageQty: number; reason: string; }
 export interface RawWastage extends Omit<RawWastageRequest, 'wastageQty'> {

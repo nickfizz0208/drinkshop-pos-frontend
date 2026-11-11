@@ -28,7 +28,7 @@ export interface CreateItem { productId: number; size: Size; temperature: Temper
 export interface CreateOrder { requestId: string; source: Source; payment: Payment | null; unpaid?: boolean; receivedCash?: number; note: string; items: CreateItem[]; memberPhone?: string; addressNote?: string; /** 路線距離（公尺） */ distance?: number; }
 // total 是保留品項金額；淨收款為 paid_amount 減 refunded_amount。
 export interface OrderSummary { order_id: number; order_no: string; business_date: string; source: Source; payment: Payment | null; payment_status?: 'UNPAID' | 'PAID'; paid_amount?: number; refunded_amount?: number; total: number; status: string; created_at: string; }
-// 一筆明細可有 qty 杯；unit_price 是含加料單杯售價，material_cost 是整筆明細原料成本。
+// 一筆明細可有 qty 杯；unit_price 是含加料單杯售價。material_cost 只有舊訂單有值（021 起飲品不計原料成本）。
 export interface OrderItem {
   item_id: number; product_name: string; size: Size; temperature: Temperature; sugar: Sugar; ice: Ice; qty: number; unit_price: number;
   material_cost?: number | null; refund_amount?: number; status: ItemStatus; note: string | null; reason: string | null; approved_by: number | null; photo_url: string | null;

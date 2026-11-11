@@ -2,6 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { AppComponent } from './app.component';
+import { OrdersComponent } from './features/orders/orders.component';
 import { PosStateService } from './features/pos/pos-state.service';
 import { OrdersStateService } from './features/orders/orders-state.service';
 import { UiStateService } from './shared/ui-state.service';
@@ -293,11 +294,10 @@ describe('POS 工作台', () => {
     orders.refundInput = 10.25; orders.refundConfirmed = false; await orders.confirmCancel(); expect(api.cancel).not.toHaveBeenCalled();
     orders.refundConfirmed = true; await orders.confirmCancel(); expect(api.cancel.calls.mostRecent().args[2].refundAmount).toBe(10.25);
   });
-  it('損耗只加總已製作的成本，未知成本不顯示零元', () => {
-    prepareCancel(); const line = orders.selectedOrder!.items[0];
-    orders.selectedOrder = { ...orders.selectedOrder!, items: [{ ...line, status: 'WASTED', material_cost: 6.8 }, { ...line, item_id: 2, status: 'CANCELLED', material_cost: 99 }] };
-    expect(orders.wasteCost(orders.selectedOrder)).toBe('$6.8');
-    expect(orders.costText([{ ...line, material_cost: null }])).toContain('未建檔');
+  it('取消視窗不再顯示原料損耗估算（飲品不計原料成本）', async () => {
+    prepareCancel(); const view = TestBed.createComponent(OrdersComponent); view.detectChanges(); await view.whenStable(); view.detectChanges();
+    expect(view.nativeElement.textContent).toContain('不計原料成本');
+    expect(view.nativeElement.textContent).not.toContain('原料損耗估算');
   });
   it('稍後收款會使用原訂單編號並更新詳情', async () => {
     const unpaid: Order = { ...ORDER, payment_status: 'UNPAID', payment: null, paid_amount: 0 };
