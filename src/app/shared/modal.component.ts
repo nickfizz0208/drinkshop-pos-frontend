@@ -6,7 +6,8 @@ import { AfterViewInit, OnDestroy, Component, ElementRef, EventEmitter, Input, O
   selector: 'app-modal',
   standalone: true,
   template: `
-    <dialog #dialog (cancel)="cancel($event)" (click)="backdrop($event)" [attr.aria-label]="title">
+    <dialog #dialog (cancel)="cancel($event)" (click)="backdrop($event)" [attr.aria-label]="title"
+      [class.customizer-dialog]="variant === 'customizer'">
       <div class="modal-head"><div><p class="modal-context">{{ subtitle }}</p><h2>{{ title }}</h2></div>
         <button type="button" class="icon-button" aria-label="關閉視窗" [disabled]="busy" (click)="dismissed.emit()">×</button>
       </div>
@@ -19,17 +20,33 @@ import { AfterViewInit, OnDestroy, Component, ElementRef, EventEmitter, Input, O
     .modal-head { position: sticky; top: 0; z-index: 2; background: white; display: flex; justify-content: space-between; align-items: center; padding: 25px 28px 20px; border-bottom: 1px solid var(--border-color); }
     .modal-context { margin: 0 0 5px; font-size: 11px; letter-spacing: 0; color: var(--text-muted); }
     h2 { margin: 0; font-size: 23px; }
+    .customizer-dialog[open] {
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr) auto;
+      width: min(760px, calc(100% - 32px));
+      overflow: hidden;
+    }
+    .customizer-dialog .modal-head {
+      position: static;
+      gap: 12px;
+      padding: 12px clamp(14px, 3vw, 24px);
+    }
   `]
 })
 export class ModalComponent implements AfterViewInit, OnDestroy {
   @Input({ required: true }) title = '';
   @Input() subtitle = 'QINGRI · 門市工作台';
   @Input() busy = false;
+  @Input() variant: 'default' | 'customizer' = 'default';
   @Output() dismissed = new EventEmitter<void>();
   @ViewChild('dialog', { static: true }) dialog!: ElementRef<HTMLDialogElement>;
   private previousOverflow = '';
+  private previousFocus: HTMLElement | null = null;
   // 等 HTML dialog 建好後才開啟，並暫停背景捲動；銷毀時恢復原設定。
   ngAfterViewInit(): void {
+    if (this.variant === 'customizer' && document.activeElement instanceof HTMLElement) {
+      this.previousFocus = document.activeElement;
+    }
     this.previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     this.dialog.nativeElement.showModal();
@@ -37,6 +54,7 @@ export class ModalComponent implements AfterViewInit, OnDestroy {
   ngOnDestroy(): void {
     this.dialog.nativeElement.close();
     document.body.style.overflow = this.previousOverflow;
+    if (this.previousFocus?.isConnected) this.previousFocus.focus({ preventScroll: true });
   }
   // 阻止 Esc 的原生直接關窗；送單／上傳中 busy=true 時也不能點背景關閉。
   cancel(event: Event): void { event.preventDefault(); if (!this.busy) this.dismissed.emit(); }

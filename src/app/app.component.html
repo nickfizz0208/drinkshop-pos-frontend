@@ -32,10 +32,6 @@
         (click)="switchView('recipes')"><app-icon name="receipt-text" />配方</button>
       }
     </nav>
-    <div class="rail-bottom">
-      <app-icon class="leaf-mark" name="leaf" />
-      <p>好茶，慢慢來。<br><span>每一杯，都用心。</span></p>
-    </div>
   </aside>
 
   <div class="main-shell">
@@ -67,8 +63,7 @@
 
     <main id="main-content">
       @if (ui.preview) {
-      <div class="preview-bar"><strong>介面預覽</strong><span>使用範例菜單試選飲品；登入後即可建立門市訂單。</span><button class="text-button"
-          (click)="ui.openLogin()">登入工作台</button></div>
+      <div class="preview-bar"><strong>介面預覽</strong><span>使用範例菜單試點，登入後即可建立門市訂單。</span></div>
       }
       @if (ui.error) { <div class="alert error" role="alert">{{ ui.error }}<button class="text-button" (click)="ui.error = ''"
           aria-label="關閉錯誤訊息">×</button></div> }
@@ -101,7 +96,6 @@
         @case ('recipes') { @if (canViewRecipes) { <app-recipes /> } }
       }
       }
-      <footer class="page-footer"><span>青日茶所 / 門市工作台</span><span>用心做好每一杯。</span></footer>
     </main>
   </div>
 </div>

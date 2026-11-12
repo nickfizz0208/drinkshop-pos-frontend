@@ -8,24 +8,39 @@
               <h1 id="menu-title">今天，來杯好茶。</h1>
               <p class="heading-description">選一杯喜歡的，調成剛剛好的味道。</p>
             </div>
+            <button class="button secondary cart-jump" type="button" (click)="cartPanel.focus()">
+              <app-icon name="shopping-bag" /> 本次點餐 <span>{{ state.cups }}</span>
+            </button>
           </div>
           <div class="menu-toolbar">
-            <div class="category-tabs" role="group" aria-label="飲品分類">@for (item of state.categories; track item) { <button
-                [class.selected]="state.category === item" [attr.aria-pressed]="state.category === item"
-                (click)="state.category = item">{{ item }} @if (item === '全部飲品') { <span>{{ state.menu.products.length }}</span>
-                }</button> }</div>
-            <label class="search-box"><app-icon name="search" /><input type="search" [(ngModel)]="state.search"
-                placeholder="搜尋飲品名稱" aria-label="搜尋飲品名稱"></label>
+            <div class="search-box">
+              <app-icon name="search" aria-hidden="true" />
+              <input #searchInput type="search" [(ngModel)]="state.search"
+                placeholder="搜尋飲品名稱" aria-label="搜尋飲品名稱">
+              @if (state.search) {
+                <button class="search-clear" type="button" aria-label="清除搜尋"
+                  (click)="state.search = ''; searchInput.focus()">×</button>
+              }
+            </div>
+            <div class="category-tabs" role="group" aria-label="飲品分類">
+              @for (item of state.categories; track item) {
+              <button type="button" [class.selected]="state.category === item" [attr.aria-pressed]="state.category === item"
+                (click)="state.category = item">
+                @if (state.category === item) { <app-icon name="check" /> }
+                {{ item }}
+              </button>
+              }
+            </div>
           </div>
-          <div class="menu-caption"><span>{{ state.category }} <b>{{ state.products.length }}</b> 款</span><span>依杯型與加料計價</span>
+          <div class="menu-caption"><span role="status">{{ state.category }} <b>{{ state.products.length }}</b> 款</span><span>依杯型與加料計價</span>
           </div>
           <div class="product-grid">
             @for (drink of state.products; track drink.product_id) {
             <button class="product-card" [disabled]="!!state.pending || ui.busy" (click)="state.openProduct(drink)"
-              [attr.aria-label]="'客製 ' + drink.name">
+              (pointermove)="moveSpotlight($event)" [attr.aria-label]="'客製 ' + drink.name">
               <div aria-hidden="true" class="product-art" [class.milk]="drink.category === '奶茶'" [class.fruit]="drink.category === '冰沙'"
                 [class.green]="drink.name.includes('綠茶')">
-                <span class="art-category">{{ drink.category }}</span><span class="art-circle"></span>
+                <span class="art-circle"></span>
                 <div class="tea-cup" [class.pearls]="drink.name.includes('珍珠')"><span class="straw"></span>
                   <div class="cup-lid"></div>
                   <div class="cup-body"><span class="cup-logo">青日</span></div><span
@@ -44,27 +59,27 @@
             </button>
             } @empty { <div class="empty-search"><app-icon name="search" />
               <h2>沒有找到這款飲品</h2>
-              <p>試試其他名稱，或切換飲品分類。</p><button class="text-button" (click)="state.search = ''; state.category = '全部飲品'">顯示全部飲品</button>
+              <p>試試其他名稱，或切換飲品分類。</p><button class="text-button" type="button"
+                (click)="state.search = ''; state.category = '全部飲品'; searchInput.focus()">顯示全部飲品</button>
             </div> }
           </div>
-          <div class="menu-footnote"><app-icon class="mini-leaf" name="leaf" /><span>每一杯的冰甜與加料，都可以在選購時調整。</span><span class="foot-brand">Qingri Tea</span></div>
         </section>
 
           <!-- cart 一列可有多杯；pending 存在時鎖住編輯，避免送單重試變成不同內容。 -->
-        <aside class="cart-panel" aria-labelledby="cart-title">
+        <aside #cartPanel class="cart-panel" aria-labelledby="cart-title" tabindex="-1">
           <div class="cart-header">
             <div>
-              <h2 id="cart-title">本次點餐 <span>{{ state.cups }}</span></h2>
+              <h2 id="cart-title"><app-icon name="shopping-bag" /> 本次點餐 <span>{{ state.cups }}</span></h2>
             </div><span class="cart-label">{{ ui.preview ? '預覽' : '新訂單' }}</span>
           </div>
           <div class="source-tabs" role="group" aria-label="訂單來源">
-            <button [class.selected]="state.source === 'DINE_IN'" [disabled]="!!state.pending"
+            <button type="button" [class.selected]="state.source === 'DINE_IN'" [attr.aria-pressed]="state.source === 'DINE_IN'" [disabled]="!!state.pending"
               (click)="state.selectSource('DINE_IN')">內用</button>
-            <button [class.selected]="state.source === 'TAKE_OUT'" [disabled]="!!state.pending"
+            <button type="button" [class.selected]="state.source === 'TAKE_OUT'" [attr.aria-pressed]="state.source === 'TAKE_OUT'" [disabled]="!!state.pending"
               (click)="state.selectSource('TAKE_OUT')">外帶</button>
-            <button [class.selected]="state.source === 'PHONE_DELIVERY'" [disabled]="!!state.pending"
+            <button type="button" [class.selected]="state.source === 'PHONE_DELIVERY'" [attr.aria-pressed]="state.source === 'PHONE_DELIVERY'" [disabled]="!!state.pending"
               (click)="state.selectSource('PHONE_DELIVERY')">電話外送</button>
-            <button [class.selected]="state.source === 'UBER_EATS'" [disabled]="!!state.pending"
+            <button type="button" [class.selected]="state.source === 'UBER_EATS'" [attr.aria-pressed]="state.source === 'UBER_EATS'" [disabled]="!!state.pending"
               (click)="state.selectSource('UBER_EATS')">Uber Eats</button>
           </div>
           @if (state.source === 'PHONE_DELIVERY' && state.member) {
@@ -103,8 +118,8 @@
             </article>
             } @empty { <div class="empty-cart">
               <app-icon class="empty-cup" name="shopping-bag" />
-              <h3>好茶，從這裡開始。</h3>
-              <p>點選左側飲品，<br>加入今天的第一杯。</p>
+              <h3>目前還沒有品項</h3>
+              <p>從菜單選擇飲品，客製後加入點餐。</p>
             </div> }
           </div>
           <div class="cart-footer"><label class="note-input"><span>訂單備註 <small>選填</small></span><textarea rows="2"
@@ -128,9 +143,10 @@
 
 <!-- 飲品客製：選項受規則控制，加入購物車前仍可調整。 -->
 @if (state.product; as current) {
-<app-modal [title]="current.name" subtitle="MAKE IT YOURS / 飲品客製" (dismissed)="state.product = null">
-  <div class="modal-body customizer">@if (ui.modalError) { <p class="alert error" role="alert">{{ ui.modalError }}</p> }@if
+<app-modal variant="customizer" [title]="current.name" subtitle="飲品客製" (dismissed)="state.product = null">
+  <div class="modal-body customizer">@if
     (state.adjustment) { <p class="alert warning" role="status">{{ state.adjustment }}</p> }
+    <div class="customizer-basics">
     <fieldset>
       <legend>杯型</legend>
       <div class="choice-row">@for (value of state.sizeOptions; track value) { <button
@@ -147,6 +163,8 @@
           state.temperatures[value] }}</button> }</div>@if (state.locked['temperature']) { <p class="field-hint">{{
         state.locked['temperature'] }}</p> }
     </fieldset>
+    </div>
+    <div class="customizer-preferences">
     <fieldset>
       <legend>甜度</legend>
       <div class="choice-row">@for (value of state.sugarOptions; track value) { <button
@@ -161,6 +179,7 @@
           [attr.aria-pressed]="state.selection.ice === value" (click)="state.choose('ice', value)">{{ state.ices[value] }}</button> }
       </div>@if (state.locked['ice']) { <p class="field-hint">{{ state.locked['ice'] }}</p> }
     </fieldset>
+    </div>
     <fieldset>
       <legend>額外加料 <small>可複選</small></legend>
       <div class="topping-choices">@for (topping of state.menu.toppings; track topping.topping_id) { <div><button
@@ -172,14 +191,31 @@
           (state.toppingReason(topping.topping_id)) { <p class="field-hint">{{ state.toppingReason(topping.topping_id) }}</p> }
         </div> }</div>
     </fieldset>
-    <div class="quantity-note"><label class="field">杯數<input type="number" [(ngModel)]="state.selection.qty" min="1" max="100"
-          step="1" aria-label="杯數"></label><label class="field">單品備註<input [(ngModel)]="state.selection.note" maxlength="255"
-          placeholder="例如：分開封膜"></label></div>
+    <label class="field customizer-note">單品備註 <input [(ngModel)]="state.selection.note" maxlength="255"
+      placeholder="例如：分開封膜"></label>
   </div>
-  <div class="modal-footer">
-    <div class="modal-price"><small>含加料，每杯 {{ state.money(state.selectedUnitCents / 100) }}</small><strong>{{
-        state.money(state.selectedUnitCents * (state.selection.qty || 0) / 100) }}</strong></div><button class="button primary"
-      (click)="state.addToCart()">{{ state.editingKey ? '儲存修改' : '加入本次點餐' }} ＋</button>
+  <div class="modal-footer customizer-footer">
+    @if (ui.modalError) { <p id="customizer-error" class="alert error" role="alert">{{ ui.modalError }}</p> }
+    <div class="customizer-quantity">
+      <label for="customizer-qty">杯數</label>
+      <div class="customizer-stepper">
+        <button type="button" aria-label="減少客製杯數" [disabled]="state.selection.qty === 1"
+          (click)="stepCustomizerQuantity(-1)">−</button>
+        <input id="customizer-qty" type="number" inputmode="numeric" min="1" max="100" step="1"
+          [ngModel]="customizerQuantity" (ngModelChange)="setCustomizerQuantity($event)"
+          [attr.aria-invalid]="!state.validCustomizerQuantity"
+          [attr.aria-describedby]="!state.validCustomizerQuantity && ui.modalError ? 'customizer-error' : null">
+        <button type="button" aria-label="增加客製杯數" [disabled]="state.selection.qty === 100"
+          (click)="stepCustomizerQuantity(1)">＋</button>
+      </div>
+    </div>
+    <div class="modal-price">
+      <small>每杯 {{ state.money(state.selectedUnitCents / 100) }}</small>
+      <strong>{{ state.validCustomizerQuantity
+        ? state.money(state.selectedUnitCents * state.selection.qty / 100) : '—' }}</strong>
+    </div>
+    <button class="button primary customizer-submit" type="button"
+      (click)="state.addToCart()">{{ state.editingKey ? '儲存修改' : '加入本次點餐' }}</button>
   </div>
 </app-modal>
 }
