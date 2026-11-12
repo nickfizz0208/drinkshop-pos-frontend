@@ -59,7 +59,12 @@
               state.ices[item.ice] }}</p>@for (topping of item.toppings; track topping.order_topping_id) { <span
               class="topping-pill">＋{{ topping.topping_name }}</span> }@if (item.note) { <p>備註：{{ item.note }}</p> }<div
               class="detail-actions"><span class="status-tag" [attr.data-status]="item.status">{{ state.statuses[item.status]
-                }}</span>@if (state.nextStatus(item)) { <button class="button small secondary"
+                }}</span>
+              @if (item.product_id && (item.status === 'PENDING' || item.status === 'MAKING')) {
+                <button type="button" class="button small secondary" [disabled]="ui.busy"
+                  (click)="openRecipe(item)">看配方</button>
+              }
+              @if (state.nextStatus(item)) { <button class="button small secondary"
                 [disabled]="ui.busy || (item.status === 'DONE' && !state.isPaid(order))" (click)="state.advance(item)">{{ item.status
                 === 'DONE' ? '此項取餐' : state.nextLabel(item) }}</button> }@if (state.canCancel(item)) { <button
                 class="text-button danger-text" [disabled]="ui.busy" (click)="state.openCancel(item)">{{ item.status === 'PENDING' ? '取消' : '報廢／棄單' }}</button> }@if
@@ -87,6 +92,29 @@
       </div> }
 
 <!-- 取消／棄單：記錄原因與實際退款；點餐不扣帳面庫存，取消也不回補；飲品不計原料成本。 -->
+@if (recipeItem; as item) {
+  <app-modal [title]="item.product_name" subtitle="標準配方" (dismissed)="closeRecipe()">
+    <div class="modal-body">
+      <p class="form-intro">
+        訂單：{{ state.sizes[item.size] }} / {{ state.temperatures[item.temperature] }} /
+        {{ state.sugars[item.sugar] }} / {{ state.ices[item.ice] }} / {{ item.qty }} 杯
+        @for (topping of item.toppings; track topping.order_topping_id) {
+          <span class="topping-pill">＋{{ topping.topping_name }}</span>
+        }
+        @if (item.note) { <br>備註：{{ item.note }} }
+      </p>
+      @if (recipe; as detail) {
+        <app-recipe-content [recipe]="detail" />
+      } @else if (recipeError) {
+        <p class="alert error" role="alert">{{ recipeError }}</p>
+        <button type="button" class="button secondary" (click)="openRecipe(item)">重試</button>
+      } @else {
+        <p role="status">正在載入配方…</p>
+      }
+    </div>
+  </app-modal>
+}
+
 @if (state.cancelTarget; as target) {
 <app-modal title="取消／棄單確認" subtitle="ORDER CANCELLATION" [busy]="ui.busy" (dismissed)="state.cancelTarget = null">
   <div class="modal-body">@if (ui.modalError) { <p class="alert error" role="alert">{{ ui.modalError }}</p> }<p

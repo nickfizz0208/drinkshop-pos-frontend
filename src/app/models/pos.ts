@@ -30,6 +30,7 @@ export interface CreateOrder { requestId: string; source: Source; payment: Payme
 export interface OrderSummary { order_id: number; order_no: string; business_date: string; source: Source; payment: Payment | null; payment_status?: 'UNPAID' | 'PAID'; paid_amount?: number; refunded_amount?: number; total: number; status: string; created_at: string; }
 // 一筆明細可有 qty 杯；unit_price 是含加料單杯售價。material_cost 只有舊訂單有值（021 起飲品不計原料成本）。
 export interface OrderItem {
+  product_id?: number;
   item_id: number; product_name: string; size: Size; temperature: Temperature; sugar: Sugar; ice: Ice; qty: number; unit_price: number;
   material_cost?: number | null; refund_amount?: number; status: ItemStatus; note: string | null; reason: string | null; approved_by: number | null; photo_url: string | null;
   toppings: { order_topping_id: number; topping_id: number; topping_name: string; price_at_order: number }[];

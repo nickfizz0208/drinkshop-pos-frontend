@@ -17,6 +17,7 @@ import { TimeTrackerComponent } from './time-tracker/time-tracker.component';
 import { ScheduleShiftComponent } from './schedule-shift/schedule-shift.component';
 import { CheckListComponent } from './check-list/check-list.component';
 import { InventoryCountComponent } from './features/inventory-count/inventory-count.component';
+import { RecipesComponent } from './features/recipes/recipes.component';
 
 /**
  * 工作台外框：登入、登出、切頁，以及上方工具列的開班／關班。
@@ -25,7 +26,7 @@ import { InventoryCountComponent } from './features/inventory-count/inventory-co
 @Component({
   selector: 'app-root',
   imports: [IconComponent, FormsModule, ModalComponent, PosComponent, OrdersComponent, StoreOpsComponent,
-    TimeTrackerComponent, ScheduleShiftComponent, CheckListComponent, InventoryCountComponent],
+    TimeTrackerComponent, ScheduleShiftComponent, CheckListComponent, InventoryCountComponent, RecipesComponent],
   templateUrl: './app.component.html',
   styleUrl: './app.component.scss'
 })
@@ -41,6 +42,7 @@ export class AppComponent {
 
   /** 門市 POS 機的共用帳號。點餐收銀、訂單管理、日結與報廢只限這個帳號（後端也會擋）。 */
   get isPos(): boolean { return this.api.staff()?.level === 'POS'; }
+  get canViewRecipes(): boolean { return !this.ui.preview && !!this.api.staff(); }
   /** 點餐、訂單、日結頁可不可以用：未登入的介面預覽可以看；登入後只有 POS 帳號可以，個人帳號不行。 */
   get counterAllowed(): boolean { const staff = this.api.staff(); return this.ui.preview || !staff || staff.level === 'POS'; }
 
@@ -217,6 +219,7 @@ export class AppComponent {
     this.shiftStatus = null; this.businessDate = ''; this.staffOptions = []; this.shiftModal = null; this.closeSummary = null;
   }
   async switchView(view: WorkspaceView): Promise<void> {
+    if (view === 'recipes' && !this.canViewRecipes) return;
     if (COUNTER_VIEWS.includes(view) && !this.counterAllowed) return;
     if (PERSONAL_VIEWS.includes(view) && this.isPos) return;
     if (!this.ui.navigate(view)) return;

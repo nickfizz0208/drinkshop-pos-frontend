@@ -22,7 +22,7 @@ describe('POS 工作台', () => {
   const staff = signal<Staff | null>(null);
   beforeEach(async () => {
     sessionStorage.clear(); staff.set(null);
-    api = jasmine.createSpyObj<PosApiService>('PosApiService', ['login', 'logout', 'refreshStaff', 'menu', 'rules', 'orders', 'order', 'create', 'collect', 'status', 'statusAll', 'cancel', 'upload', 'photo', 'shiftToday', 'staffOptions', 'openShift', 'shift', 'closeShift', 'reopenShift'], { staff });
+    api = jasmine.createSpyObj<PosApiService>('PosApiService', ['login', 'logout', 'refreshStaff', 'menu', 'rules', 'orders', 'order', 'create', 'collect', 'status', 'statusAll', 'cancel', 'upload', 'photo', 'shiftToday', 'staffOptions', 'openShift', 'shift', 'closeShift', 'reopenShift', 'recipe'], { staff });
     api.refreshStaff.and.resolveTo();
     api.menu.and.resolveTo(PREVIEW_MENU); api.rules.and.resolveTo(PREVIEW_RULES); api.orders.and.resolveTo([]);
     api.login.and.callFake(async () => { staff.set({ staffId: 3, username: 'test', name: '門市 POS', level: 'POS' }); });
@@ -211,6 +211,37 @@ describe('POS 工作台', () => {
     orders.openCancel(orders.selectedOrder.items[0]); orders.refundConfirmed = true;
     api.cancel.and.resolveTo({ ...ORDER, status: 'CANCELLED' });
   }
+  it('POS 從訂單品項讀取配方，保留客製條件與原訂單', async () => {
+    const fixture = TestBed.createComponent(AppComponent);
+    app = fixture.componentInstance;
+    await signIn();
+    await app.switchView('orders');
+    prepareCancel();
+    orders.cancelTarget = null;
+    const order = orders.selectedOrder!;
+    order.items[0].product_id = 1;
+    order.items[0].note = '加冰請確認';
+    api.recipe.and.resolveTo({
+      productId: 1, name: '紅茶', category: '茶類', recipeStatus: 'OK',
+      materials: [{ kind: 'INVENTORY', id: 1, name: '紅茶包', madeFrom: [], portions: 1 }],
+      steps: '先泡茶。', watermark: '', version: 'test'
+    });
+    fixture.detectChanges();
+    const button = [...fixture.nativeElement.querySelectorAll('.detail-actions button')]
+      .find((element: HTMLButtonElement) => element.textContent?.includes('看配方')) as HTMLButtonElement;
+    button.click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(api.recipe).toHaveBeenCalledOnceWith(1);
+    const dialog = fixture.nativeElement.querySelector('dialog');
+    expect(dialog.textContent).toContain('半糖');
+    expect(dialog.textContent).toContain('加冰請確認');
+    expect(dialog.textContent).toContain('1 份');
+    dialog.querySelector('button[aria-label="關閉視窗"]').click();
+    fixture.detectChanges();
+    expect(orders.selectedOrder).toBe(order);
+    expect(order.items[0].status).toBe('PENDING');
+  });
   it('已製作品項不需店長帳號或 PIN，保留原因與退款確認', async () => {
     prepareCancel(); orders.selectedOrder!.items[0].status = 'MAKING';
     orders.openCancel(orders.selectedOrder!.items[0]); orders.cancelReasonChoice = '顧客未取餐'; orders.wantsRefund = false;

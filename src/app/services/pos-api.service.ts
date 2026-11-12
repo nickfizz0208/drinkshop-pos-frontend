@@ -3,6 +3,7 @@ import { Injectable, inject, signal } from '@angular/core';
 import { firstValueFrom, Observable, timeout, TimeoutError } from 'rxjs';
 import { ClockToday, ShiftClosingSummary } from '../models/time-clock';
 import { StaffOption } from '../models/schedule';
+import { RecipeDetail, RecipeSummary, RecipeUpdate } from '../models/recipe';
 import { DeliveryRoute, MemberUpdate, PosConfig, CancelRequest, CreateOrder, ItemStatus, Member, Menu, Order, OrderSummary, Payment, Rule, Staff } from '../models/pos';
 import { DailyShift, Inventory, RawWastageRequest, WastageSummary } from '../models/store-ops';
 
@@ -60,6 +61,15 @@ export class PosApiService {
   }
   menu(): Promise<Menu> { return this.wait(this.http.get<Menu>('/api/menu', { headers: this.headers })); }
   rules(): Promise<Rule[]> { return this.wait(this.http.get<Rule[]>('/api/rules', { headers: this.headers })); }
+  recipes(): Promise<RecipeSummary[]> {
+    return this.wait(this.http.get<RecipeSummary[]>('/api/recipes', { headers: this.headers }));
+  }
+  recipe(productId: number): Promise<RecipeDetail> {
+    return this.wait(this.http.get<RecipeDetail>(`/api/recipes/${productId}`, { headers: this.headers }));
+  }
+  updateRecipe(productId: number, update: RecipeUpdate): Promise<RecipeDetail> {
+    return this.wait(this.http.put<RecipeDetail>(`/api/recipes/${productId}`, update, { headers: this.headers }));
+  }
   shift(date: string): Promise<DailyShift> { return this.wait(this.http.get<DailyShift>(`/api/daily-shifts/${date}`, { headers: this.headers })); }
   inventories(): Promise<Inventory[]> { return this.wait(this.http.get<Inventory[]>('/api/inventories', { headers: this.headers })); }
   wastages(date: string): Promise<WastageSummary> { return this.wait(this.http.get<WastageSummary>('/api/wastages/daily-summary', { headers: this.headers, params: { date } })); }

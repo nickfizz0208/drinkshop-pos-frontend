@@ -1,0 +1,91 @@
+<header class="page-heading">
+  <h1>飲品配方</h1>
+</header>
+
+@if (loading) {
+  <p class="recipe-state" role="status">正在載入配方…</p>
+} @else if (listError) {
+  <div class="recipe-state">
+    <p role="alert">{{ listError }}</p>
+    <button type="button" class="button secondary" (click)="load()">重新載入</button>
+  </div>
+} @else {
+  <div class="recipe-filters">
+    <div class="field">
+      <label for="recipe-search">搜尋飲品</label>
+      <input id="recipe-search" type="search" [(ngModel)]="keyword" placeholder="例如：珍珠奶茶">
+    </div>
+    <div class="field">
+      <label for="recipe-category">分類</label>
+      <select id="recipe-category" [(ngModel)]="category">
+        <option value="">全部分類</option>
+        @for (name of categories; track name) {
+          <option [value]="name">{{ name }}</option>
+        }
+      </select>
+    </div>
+  </div>
+
+  <ul class="recipe-list" aria-label="飲品配方">
+    @for (recipe of visibleRecipes; track recipe.productId) {
+      <li>
+        <button type="button" class="recipe-row" (click)="open(recipe)">
+          <span><strong>{{ recipe.name }}</strong><small>{{ recipe.category }}</small></span>
+          @if (recipe.recipeStatus === 'MISSING') {
+            <span class="missing-label">材料未建檔</span>
+          }
+          <app-icon name="arrow-right" />
+        </button>
+      </li>
+    } @empty {
+      <li class="recipe-state">{{ recipes.length ? '找不到符合條件的飲品。' : '目前沒有可查看的飲品。' }}</li>
+    }
+  </ul>
+}
+
+@if (selected; as recipe) {
+  <app-modal [title]="recipe.name" [subtitle]="recipe.category" [busy]="saving" (dismissed)="close()">
+    <div class="modal-body recipe-detail">
+      @if (detail; as data) {
+        @if (draft; as form) {
+          <form class="recipe-edit" (ngSubmit)="save(data)">
+            @if (form.materials.length) {
+              <fieldset [disabled]="saving">
+                <legend>材料份數</legend>
+                @for (material of form.materials; track material.kind + material.id) {
+                  <label class="portion-field">
+                    <span>{{ material.name }}</span>
+                    <input type="number" inputmode="decimal" min="0.01" max="999999.99" step="0.01"
+                      [name]="material.kind + material.id" [(ngModel)]="material.portions" placeholder="未設定">
+                    <span aria-hidden="true">份</span>
+                  </label>
+                }
+              </fieldset>
+            }
+            <label class="field">製作步驟
+              <textarea name="recipeSteps" rows="6" maxlength="4000" [(ngModel)]="form.steps" [disabled]="saving"></textarea>
+            </label>
+            @if (saveError) { <p class="alert error" role="alert">{{ saveError }}</p> }
+            <div class="recipe-actions">
+              <button type="button" class="button secondary" [disabled]="saving" (click)="cancelEdit()">取消</button>
+              <button type="submit" class="button primary" [disabled]="saving">{{ saving ? '儲存中…' : '儲存配方' }}</button>
+            </div>
+          </form>
+        } @else {
+        <app-recipe-content [recipe]="data" />
+        @if (saved) { <p role="status">已儲存配方。</p> }
+        @if (canEdit) {
+          <div class="recipe-actions">
+            <button type="button" class="button primary" (click)="edit(data)">編輯配方</button>
+          </div>
+        }
+        }
+      } @else if (detailError) {
+        <p role="alert">{{ detailError }}</p>
+        <button type="button" class="button secondary" (click)="open(recipe)">重試</button>
+      } @else {
+        <p role="status">正在載入配方明細…</p>
+      }
+    </div>
+  </app-modal>
+}

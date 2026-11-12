@@ -3,12 +3,13 @@ import { FormsModule } from '@angular/forms';
 import { ModalComponent } from '../shared/modal.component';
 import { PosApiService, errorMessage } from '../services/pos-api.service';
 import { ScheduleApiService } from '../services/schedule-api.service';
-import { EntrySave, ScheduleEntry, ScheduleTag, ScheduleWeek, StaffOption } from '../models/schedule';
+import { EntrySave, ScheduleEntry, ScheduleTag, ScheduleWeek, ShiftTemplate, StaffOption } from '../models/schedule';
 import { downloadScheduleExcel } from './schedule-excel';
 
-/** 排班表單的編輯狀態；scheduleId 為 null 代表新增。時間手動填，標籤可以多選。 */
+/** 排班表單的編輯狀態；scheduleId 為 null 代表新增。 */
 interface EntryForm {
   scheduleId: number | null; workDate: string; staffId: number | null;
+  templateId: number | null; templateName: string | null;
   startTime: string; endTime: string; note: string; tagIds: number[];
 }
 interface TagForm { tagId: number | null; name: string; description: string; active: boolean; }
@@ -53,6 +54,10 @@ export class ScheduleShiftComponent {
 
   entryForm: EntryForm | null = null;
   entryError = '';
+  templates: ShiftTemplate[] = [];
+  templatesLoading = false;
+  templatesError = '';
+  private templateRequest = 0;
   tagsOpen = false;
   tagForm: TagForm | null = null;
   tagError = '';
@@ -141,6 +146,8 @@ export class ScheduleShiftComponent {
   private reset(): void {
     this.week = null; this.days = []; this.staff = []; this.tags = [];
     this.entryForm = null; this.tagsOpen = false; this.tagForm = null; this.confirmPublish = false;
+    this.templateRequest++;
+    this.templates = []; this.templatesLoading = false; this.templatesError = '';
     this.error = ''; this.flash('');
   }
 
@@ -238,9 +245,47 @@ export class ScheduleShiftComponent {
 
   // ---------- 排班新增／修改／刪除 ----------
 
+  async loadTemplates(): Promise<void> {
+    if (!this.canEdit || this.templatesLoading) return;
+    const request = ++this.templateRequest;
+    this.templatesLoading = true;
+    this.templatesError = '';
+    try {
+      const templates = await this.api.templates();
+      if (request === this.templateRequest) this.templates = templates;
+    } catch (error) {
+      if (request === this.templateRequest) {
+        this.templates = [];
+        this.templatesError = errorMessage(error);
+      }
+    } finally {
+      if (request === this.templateRequest) this.templatesLoading = false;
+    }
+  }
+
+  applyTemplate(form: EntryForm, templateId: number | null): void {
+    if (templateId === form.templateId) return;
+    const template = this.templates.find(item => item.templateId === templateId);
+    form.templateId = template?.templateId ?? null;
+    form.templateName = template?.name ?? null;
+    if (template) {
+      form.startTime = hm(template.startTime);
+      form.endTime = hm(template.endTime);
+    }
+  }
+
+  hasTemplate(templateId: number): boolean {
+    return this.templates.some(template => template.templateId === templateId);
+  }
+
   openNew(date: string): void {
+    if (!this.canEdit) return;
     this.entryError = '';
-    this.entryForm = { scheduleId: null, workDate: date, staffId: null, startTime: '09:00', endTime: '15:00', note: '', tagIds: [] };
+    this.entryForm = {
+      scheduleId: null, workDate: date, staffId: null, templateId: null, templateName: null,
+      startTime: '09:00', endTime: '15:00', note: '', tagIds: []
+    };
+    void this.loadTemplates();
   }
 
   openEdit(entry: ScheduleEntry): void {
@@ -248,8 +293,10 @@ export class ScheduleShiftComponent {
     this.entryError = '';
     this.entryForm = {
       scheduleId: entry.scheduleId, workDate: entry.workDate, staffId: entry.staffId,
+      templateId: entry.templateId, templateName: entry.templateName,
       startTime: hm(entry.startTime), endTime: hm(entry.endTime), note: entry.note ?? '', tagIds: [...entry.tagIds]
     };
+    void this.loadTemplates();
   }
 
   /** 表單可選的標籤：啟用中的，加上這段班已經貼著但已停用的。 */
@@ -277,6 +324,7 @@ export class ScheduleShiftComponent {
     if (f.endTime <= f.startTime) { this.entryError = '下班時間必須晚於上班時間'; return; }
     const body: EntrySave = {
       workDate: f.workDate, staffId: f.staffId,
+      ...(f.templateId === null ? {} : { templateId: f.templateId }),
       startTime: f.startTime, endTime: f.endTime, note: f.note.trim() || null, tagIds: f.tagIds
     };
     this.busy = true; this.entryError = '';
