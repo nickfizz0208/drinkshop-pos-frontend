@@ -1,0 +1,109 @@
+<div class="page-heading">
+  <div class="heading-actions">
+    <button class="button secondary" (click)="state.load()" [disabled]="ui.busy || state.loading || state.changeCount > 0">重新整理</button>
+  </div>
+</div>
+
+@if (state.error) { <p class="alert error" role="alert">{{ state.error }}</p> }
+@if (state.loading) { <p class="loading" role="status">正在讀取停售狀態…</p> }
+
+@if (state.data) {
+@if (!state.canEdit) { <p class="alert warning" role="status">你的帳號只能查看。要設定停售，請用門市 POS 或店長帳號。</p> }
+
+<!-- 第一層：種類 -->
+<div class="kind-tabs" role="tablist" aria-label="停售種類">
+  @for (k of kinds; track k.kind) {
+  <button type="button" role="tab" class="kind-tab" [class.selected]="state.kind === k.kind" [attr.aria-selected]="state.kind === k.kind"
+    [disabled]="ui.busy" (click)="state.selectKind(k.kind)">
+    <strong>{{ k.label }}</strong>
+    <small [class.has-stopped]="state.stoppedCount(k.kind) > 0">{{ state.stoppedCount(k.kind) ? '停售 ' + state.stoppedCount(k.kind) + ' / ' : '' }}共 {{ state.totalCount(k.kind) }} 項</small>
+  </button>
+  }
+</div>
+
+<!-- 第二層：分類（加料沒有分類） -->
+@if (state.kind !== 'topping') {
+<div class="category-chips" role="group" aria-label="分類">
+  <button type="button" class="chip" [class.selected]="state.category === null" [attr.aria-pressed]="state.category === null"
+    [disabled]="ui.busy" (click)="state.selectCategory(null)">全部</button>
+  @for (c of state.categoriesOf(state.kind); track c) {
+  <button type="button" class="chip" [class.selected]="state.category === c" [attr.aria-pressed]="state.category === c"
+    [disabled]="ui.busy" (click)="state.selectCategory(c)">{{ c }}
+    @if (state.stoppedCount(state.kind, c)) { <span class="chip-badge" [attr.aria-label]="'停售 ' + state.stoppedCount(state.kind, c) + ' 項'">{{ state.stoppedCount(state.kind, c) }}</span> }
+    @else { <span class="chip-count">{{ state.totalCount(state.kind, c) }}</span> }</button>
+  }
+</div>
+}
+
+<div class="filters">
+  <label class="search"><span class="sr-only">搜尋</span><input type="search" [(ngModel)]="state.search"
+      [placeholder]="'搜尋' + kindLabel" [disabled]="ui.busy"></label>
+  <label class="only-stopped"><input type="checkbox" [(ngModel)]="state.onlyStopped" [disabled]="ui.busy">只看停售</label>
+  @if (state.canEditCategory && (state.kind === 'inventory' || state.kind === 'prep')) {
+  <label class="only-stopped"><input type="checkbox" [(ngModel)]="state.editingCategories" [disabled]="ui.busy">修改分類</label>
+  }
+</div>
+@if (state.editingCategories) { <p class="hint">在每一項右邊選擇或輸入分類，離開欄位就會儲存；清空＝未分類。輸入新的名稱就會多一個分類。</p> }
+@if (state.search.trim()) { <p class="hint">搜尋「{{ state.search.trim() }}」：顯示{{ kindLabel }}的所有分類。</p> }
+
+<section class="panel" [attr.aria-label]="kindLabel + '清單'">
+  @for (g of state.groups; track g.category) {
+  @if (g.category) { <h3>{{ g.category }}</h3> }
+  <ul class="rows">
+    @for (r of g.rows; track r.id) {
+    <li class="sale-row" [class.stopped]="r.state === 'stopped'" [class.linked]="r.state === 'linked'" [class.changed]="r.changed">
+      <label class="row-check">
+        <input type="checkbox" [checked]="r.checked" [disabled]="!state.canEdit || ui.busy" (change)="toggle(r.kind, r.id, $event)"
+          [attr.aria-label]="'停售 ' + r.name">
+        <span class="row-main"><strong>{{ r.name }}</strong>
+          @if (r.reason) { <small class="reason">{{ r.reason }}</small> }
+          @if (r.note) { <small>{{ r.note }}</small> }
+          @if (r.kind === 'inventory' || r.kind === 'prep') {
+          @if (r.affects.length) {
+          <small class="affects" [class.on]="r.checked"><b>{{ r.checked ? '一起停售：' : '停售後一起停售：' }}</b>{{ r.affects.join('、') }}</small>
+          } @else { <small>沒有飲品或加料用到，停售不影響點餐</small> }
+          }
+        </span>
+      </label>
+      @if (state.editingCategories) {
+      <input class="category-input" [attr.list]="'sale-categories-' + r.kind" [value]="r.category ?? ''" placeholder="未分類"
+        maxlength="20" [attr.aria-label]="r.name + ' 的分類'" [disabled]="ui.busy"
+        (change)="state.setCategory(r.kind, r.id, $any($event.target).value)">
+      }
+      <span class="tag" [class.off]="r.state !== 'on'">{{ stateLabel(r.state) }}</span>
+    </li>
+    }
+  </ul>
+  } @empty { <p class="empty">{{ state.onlyStopped ? '這裡沒有停售的品項。' : '沒有符合的品項。' }}</p> }
+</section>
+<datalist id="sale-categories-inventory">@for (c of state.categoriesOf('inventory'); track c) { @if (c !== '未分類') { <option [value]="c"></option> } }</datalist>
+<datalist id="sale-categories-prep">@for (c of state.categoriesOf('prep'); track c) { @if (c !== '未分類') { <option [value]="c"></option> } }</datalist>
+
+@if (state.canEdit && state.changeCount) {
+<div class="save-bar" role="region" aria-label="尚未儲存的變更">
+  <p><strong>已變更 {{ state.changeCount }} 項</strong>{{ state.preview.linkedStop.length ? '，連動停售 ' + state.preview.linkedStop.length + ' 項' : '' }}{{ state.preview.linkedResume.length ? '，連動恢復 ' + state.preview.linkedResume.length + ' 項' : '' }}</p>
+  <div class="save-actions">
+    <button class="button secondary" (click)="state.discard()" [disabled]="ui.busy">放棄變更</button>
+    <button class="button primary" (click)="state.openConfirm()" [disabled]="ui.busy">儲存變更</button>
+  </div>
+</div>
+}
+}
+
+@if (state.confirmOpen) {
+<app-modal title="確認停售設定" subtitle="SALE STATUS / 停售管理" [busy]="ui.busy" (dismissed)="state.closeConfirm()">
+  <div class="modal-body">
+    @if (state.confirmError) { <p class="alert error" role="alert">{{ state.confirmError }}</p> }
+    @if (state.preview; as pv) {
+    @if (pv.stop.length) { <h3 class="confirm-title">停售</h3><p>{{ pv.stop.join('、') }}</p> }
+    @if (pv.resume.length) { <h3 class="confirm-title">恢復販售</h3><p>{{ pv.resume.join('、') }}</p> }
+    @if (pv.linkedStop.length) { <h3 class="confirm-title">因原物料一起停售</h3><p class="linked-list">{{ pv.linkedStop.join('、') }}</p> }
+    @if (pv.linkedResume.length) { <h3 class="confirm-title">因原物料恢復而恢復販售</h3><p>{{ pv.linkedResume.join('、') }}</p> }
+    }
+    <p class="muted small-copy">儲存後點餐畫面立即不顯示停售的飲品與加料；已在購物車或已送出的訂單不受影響，送單時停售的品項會被擋下。</p>
+  </div>
+  <div class="modal-footer"><button type="button" class="button secondary" [disabled]="ui.busy"
+      (click)="state.closeConfirm()">返回修改</button><button type="button" class="button primary" [disabled]="ui.busy"
+      (click)="state.save()">{{ ui.busy ? '儲存中…' : '確認儲存' }}</button></div>
+</app-modal>
+}

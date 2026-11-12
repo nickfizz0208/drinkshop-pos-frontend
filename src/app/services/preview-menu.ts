@@ -4,11 +4,11 @@ import { Menu, Rule } from '../models/pos';
 // 登入成功後 AppComponent 會改用 API 資料；新增正式商品要改資料庫，不是只改這份。
 export const PREVIEW_MENU: Menu = {
   products: [
-    { product_id: 1, name: '經典紅茶', category: '茶類', base_price: 25, large_extra: 5, hot_allowed: true },
-    { product_id: 2, name: '茉香綠茶', category: '茶類', base_price: 25, large_extra: 5, hot_allowed: true },
-    { product_id: 3, name: '經典奶茶', category: '奶茶', base_price: 40, large_extra: 10, hot_allowed: true },
-    { product_id: 4, name: '珍珠奶茶', category: '奶茶', base_price: 50, large_extra: 10, hot_allowed: true },
-    { product_id: 5, name: '芒果冰沙', category: '冰沙', base_price: 55, large_extra: 10, hot_allowed: false }
+    { product_id: 1, name: '經典紅茶', category: '茶類', price_m: 25, price_l: 30, price_bottle: null, hot_allowed: true },
+    { product_id: 2, name: '茉香綠茶', category: '茶類', price_m: 25, price_l: 30, price_bottle: null, hot_allowed: true },
+    { product_id: 3, name: '經典奶茶', category: '奶茶', price_m: 40, price_l: 50, price_bottle: null, hot_allowed: true },
+    { product_id: 4, name: '珍珠奶茶', category: '奶茶', price_m: 50, price_l: 60, price_bottle: null, hot_allowed: true },
+    { product_id: 5, name: '芒果冰沙', category: '冰沙', price_m: 55, price_l: 65, price_bottle: null, hot_allowed: false }
   ],
   toppings: [{ topping_id: 1, name: '珍珠', price: 10 }, { topping_id: 2, name: '茶凍', price: 10 }]
 };

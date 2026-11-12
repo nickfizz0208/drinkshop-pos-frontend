@@ -2,7 +2,7 @@ import { IconComponent } from './shared/icon.component';
 import { Component, effect, inject, untracked } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ModalComponent } from './shared/modal.component';
-import { COUNTER_VIEWS, PERSONAL_VIEWS, UiStateService, WorkspaceView } from './shared/ui-state.service';
+import { COUNTER_VIEWS, PERSONAL_VIEWS, UiStateService, VIEW_TITLES, WorkspaceView } from './shared/ui-state.service';
 import { PosApiService, errorMessage } from './services/pos-api.service';
 import { money } from './models/pos';
 import { ShiftClosingSummary, ShiftStatus } from './models/time-clock';
@@ -17,6 +17,7 @@ import { TimeTrackerComponent } from './time-tracker/time-tracker.component';
 import { ScheduleShiftComponent } from './schedule-shift/schedule-shift.component';
 import { CheckListComponent } from './check-list/check-list.component';
 import { InventoryCountComponent } from './features/inventory-count/inventory-count.component';
+import { SaleStatusComponent } from './features/sale-status/sale-status.component';
 
 /**
  * 工作台外框：登入、登出、切頁，以及上方工具列的開班／關班。
@@ -25,7 +26,7 @@ import { InventoryCountComponent } from './features/inventory-count/inventory-co
 @Component({
   selector: 'app-root',
   imports: [IconComponent, FormsModule, ModalComponent, PosComponent, OrdersComponent, StoreOpsComponent,
-    TimeTrackerComponent, ScheduleShiftComponent, CheckListComponent, InventoryCountComponent],
+    TimeTrackerComponent, ScheduleShiftComponent, CheckListComponent, InventoryCountComponent, SaleStatusComponent],
   templateUrl: './app.component.html',
   styleUrl: './app.component.scss'
 })
@@ -37,6 +38,8 @@ export class AppComponent {
   private readonly store = inject(StoreOpsStateService);
   readonly money = money;
 
+  /** 橫幅上的頁面標題。 */
+  get pageTitle(): string { return VIEW_TITLES[this.ui.view]; }
   get todayLabel(): string { return new Intl.DateTimeFormat('zh-TW', { timeZone: 'Asia/Taipei', month: 'long', day: 'numeric', weekday: 'long' }).format(new Date()); }
 
   /** 門市 POS 機的共用帳號。點餐收銀、訂單管理、日結與報廢只限這個帳號（後端也會擋）。 */
@@ -175,7 +178,8 @@ export class AppComponent {
   private async resumeSession(): Promise<void> {
     this.ui.busy = true;
     try { await this.enterSession(); }
-    catch (error) { this.resetSession(); this.ui.error = errorMessage(error); }
+    // 恢復失敗會回到登入畫面，錯誤顯示在登入表單上
+    catch (error) { this.resetSession(); this.ui.modalError = errorMessage(error); }
     finally { this.ui.busy = false; }
   }
   private sessionExpired(): void {
@@ -217,6 +221,18 @@ export class AppComponent {
     if (COUNTER_VIEWS.includes(view) && !this.counterAllowed) return;
     if (PERSONAL_VIEWS.includes(view) && this.isPos) return;
     if (!this.ui.navigate(view)) return;
+    if (view === 'pos') void this.refreshMenu();
     if (view === 'orders' && !this.ui.preview && !this.shiftLocked) await this.orders.loadOrders();
+  }
+  /**
+   * 每次回到點餐收銀都重新讀菜單：停售管理改過（不論在哪台機器改）都會馬上反映。
+   * 讀不到就沿用目前的菜單，不打擾員工；停售的品項送單時後端也會擋。
+   */
+  private async refreshMenu(): Promise<void> {
+    if (this.ui.preview || !this.isPos) return;
+    try {
+      const menu = await this.api.menu();
+      if (menu?.products && menu?.toppings && !this.ui.preview) this.pos.menu = menu;
+    } catch { /* 沿用目前的菜單 */ }
   }
 }

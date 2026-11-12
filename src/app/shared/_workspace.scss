@@ -16,23 +16,9 @@ main > .alert {
 .page-heading {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 16px;
   margin: 7px 0 25px;
-}
-
-h1 {
-  font-size: 30px;
-  letter-spacing: 0;
-  font-weight: 650;
-  line-height: 1.4;
-  margin: 0 0 9px;
-}
-
-.heading-description {
-  color: var(--text-muted);
-  font-size: 14px;
-  margin: 0;
 }
 
 .line-title {
@@ -58,9 +44,6 @@ h1 {
 @media (max-width: 760px) {
   .page-heading {
     margin: 12px 0 22px;
-  }
-  h1 {
-    font-size: 27px;
   }
 }
 

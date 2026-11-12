@@ -1,8 +1,8 @@
-import { Product, Rule, Selection, Topping, cents } from '../models/pos';
+import { Product, Rule, Selection, Topping, cents, sizePrice, sizesOf } from '../models/pos';
 
-// 客製彈窗的預設值；套規則後可能變成飲料限定的冰甜，例如冰沙。
-export function initialSelection(): Selection {
-  return { size: 'M', temperature: 'COLD', sugar: 'HALF', ice: 'LESS', qty: 1, toppingIds: [], note: '' };
+// 客製彈窗的預設值；容量選這杯有賣的最小容量。套規則後可能變成飲料限定的冰甜，例如冰沙。
+export function initialSelection(product?: Product): Selection {
+  return { size: (product && sizesOf(product)[0]) ?? 'M', temperature: 'COLD', sugar: 'HALF', ice: 'LESS', qty: 1, toppingIds: [], note: '' };
 }
 export function matches(rule: Rule, product: Product, selection: Selection): boolean {
   const c = rule.condition_json;
@@ -48,8 +48,8 @@ export function toppingLimit(product: Product, selection: Selection, rules: Rule
   return rules.filter(rule => rule.rule_type === 'MAX_COUNT' && matches(rule, product, selection))
     .reduce((limit, rule) => Math.min(limit, rule.action_json.maxDistinct ?? limit), 20);
 }
-// 顯示用單杯價格 = 基本價＋大杯差價＋額外加料；不是整列總價，尚未乘 qty。
+// 顯示用單杯價格 = 這個容量的價格＋額外加料；不是整列總價，尚未乘 qty。
 export function unitCents(product: Product, selection: Selection, toppings: Topping[]): number {
-  return cents(product.base_price) + (selection.size === 'L' ? cents(product.large_extra) : 0)
+  return cents(sizePrice(product, selection.size) ?? 0)
     + toppings.filter(t => selection.toppingIds.includes(t.topping_id)).reduce((sum, t) => sum + cents(t.price), 0);
 }

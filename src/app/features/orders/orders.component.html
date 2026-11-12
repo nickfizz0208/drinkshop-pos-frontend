@@ -1,9 +1,6 @@
           <!-- 訂單只依狀態分頁顯示；完成或取消後仍可在當日紀錄查到。 -->
       <div class="page-heading order-heading">
-        <div>
-          <h1>訂單管理</h1>
-          <p class="heading-description">待處理看製作、待取餐看交付，完整訂單保留在當日紀錄。</p>
-        </div>@if (!ui.preview) { <div class="date-filter"><label for="order-date">營業日</label><input id="order-date"
+        @if (!ui.preview) { <div class="date-filter"><label for="order-date">營業日</label><input id="order-date"
             type="date" [(ngModel)]="state.orderDate" [disabled]="ui.busy || state.orderLoading" (change)="state.changeOrderDate()"><button
             class="button secondary small" [disabled]="state.orderLoading || ui.busy" (click)="state.loadOrders()">重新整理</button></div>
         }

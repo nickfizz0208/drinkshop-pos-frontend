@@ -2,7 +2,7 @@
  * 前後端共用的資料約定：查詢結果多沿用資料庫 snake_case；送單 DTO 使用 camelCase。
  * interface 只協助 TypeScript 檢查欄位，不會自行建立資料表，也不會驗證網路回應內容。
  */
-export type Size = 'M' | 'L';
+export type Size = 'M' | 'L' | 'BOTTLE';
 export type Temperature = 'COLD' | 'WARM' | 'HOT';
 export type Sugar = 'NORMAL' | 'LESS' | 'HALF' | 'LIGHT' | 'NONE';
 export type Ice = 'NORMAL' | 'LESS' | 'LIGHT' | 'NONE';
@@ -11,7 +11,11 @@ export type Source = 'DINE_IN' | 'TAKE_OUT' | 'PHONE_DELIVERY' | 'UBER_EATS';
 export type Payment = 'CASH' | 'CREDIT_CARD' | 'LINE_PAY' | 'UBER_EATS';
 export type ItemStatus = 'PENDING' | 'MAKING' | 'DONE' | 'PICKED_UP' | 'CANCELLED' | 'WASTED';
 export interface Staff { staffId: number; username: string; name: string; level: string; }
-export interface Product { product_id: number; name: string; category: string; base_price: number; large_extra: number; hot_allowed: boolean; }
+/** 飲品。容量價格（024）：price_m 中杯、price_l 大杯、price_bottle 瓶，null＝這杯不賣這個容量。 */
+export interface Product {
+  product_id: number; name: string; category: string;
+  price_m: number | null; price_l: number | null; price_bottle: number | null; hot_allowed: boolean;
+}
 export interface Topping { topping_id: number; name: string; price: number; }
 export interface Menu { products: Product[]; toppings: Topping[]; }
 export interface Rule {
@@ -37,7 +41,15 @@ export interface OrderItem {
 export interface Order extends OrderSummary { received_cash: number | null; change_cash: number | null; note: string | null; items: OrderItem[]; }
 // manager 欄位是舊版相容資料，目前畫面與取消流程不要求 PIN。
 export interface CancelRequest { reason: string; managerUsername?: string; managerPin?: string; refundAmount?: number; }
-export const SIZE_LABELS: Record<Size, string> = { M: '中杯', L: '大杯' };
+export const SIZE_LABELS: Record<Size, string> = { M: '中杯', L: '大杯', BOTTLE: '瓶' };
+/** 容量由小到大的順序（按鈕順序、預設選最前面有賣的）。 */
+export const SIZE_ORDER: readonly Size[] = ['M', 'L', 'BOTTLE'];
+/** 這杯飲品這個容量的價格；不賣回傳 null。 */
+export function sizePrice(product: Product, size: Size): number | null {
+  return size === 'M' ? product.price_m : size === 'L' ? product.price_l : product.price_bottle;
+}
+/** 這杯飲品有賣的容量，由小到大。 */
+export function sizesOf(product: Product): Size[] { return SIZE_ORDER.filter(size => sizePrice(product, size) !== null); }
 export const TEMP_LABELS: Record<Temperature, string> = { COLD: '冰飲', WARM: '溫飲', HOT: '熱飲' };
 export const SUGAR_LABELS: Record<Sugar, string> = { NORMAL: '正常糖', LESS: '少糖', HALF: '半糖', LIGHT: '微糖', NONE: '無糖' };
 export const ICE_LABELS: Record<Ice, string> = { NORMAL: '正常冰', LESS: '少冰', LIGHT: '微冰', NONE: '去冰' };

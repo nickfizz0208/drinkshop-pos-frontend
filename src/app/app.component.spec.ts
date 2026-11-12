@@ -36,12 +36,44 @@ describe('POS 工作台', () => {
   function addTea(qty = 1): void { pos.openProduct(PREVIEW_MENU.products[0]); pos.selection.qty = qty; pos.addToCart(); }
   async function signIn(): Promise<void> { ui.username = 'test'; ui.password = 'example'; await app.login(); }
 
-  it('預覽會標示範例內容，而且不呼叫訂單 API', async () => {
-    addTea(); pos.openCheckout();
-    expect(ui.preview).toBeTrue(); expect(ui.loginOpen).toBeTrue(); expect(api.create).not.toHaveBeenCalled();
-    const fixture = TestBed.createComponent(AppComponent); fixture.detectChanges();
-    expect(fixture.nativeElement.textContent).toContain('介面預覽');
-    expect(fixture.nativeElement.querySelectorAll('.product-card').length).toBe(5);
+  it('回到點餐收銀會重新讀菜單：停售的飲品、加料馬上消失；讀不到就沿用原菜單', async () => {
+    await signIn(); await app.switchView('store');
+    const stopped = { products: PREVIEW_MENU.products.slice(1), toppings: [] };
+    api.menu.and.resolveTo(stopped);
+    await app.switchView('pos'); await Promise.resolve(); await Promise.resolve();
+    expect(pos.menu).toBe(stopped);
+    expect(pos.toppingsText([PREVIEW_MENU.toppings[0].topping_id])).toBe('（已停售的加料）');
+    api.menu.and.rejectWith(new Error('offline'));
+    await app.switchView('store'); await app.switchView('pos'); await Promise.resolve(); await Promise.resolve();
+    expect(pos.menu).toBe(stopped); expect(ui.error).toBe('');
+  });
+  it('操作成功的提示幾秒後自動消失', () => {
+    jasmine.clock().install();
+    try {
+      ui.notice = '已儲存停售設定。'; expect(ui.notice).toBe('已儲存停售設定。');
+      jasmine.clock().tick(3900); expect(ui.notice).toBe('已儲存停售設定。');
+      jasmine.clock().tick(200); expect(ui.notice).toBe('');
+    } finally { jasmine.clock().uninstall(); }
+  });
+  it('沒有登入只顯示登入畫面，看不到工作台；登入後進入工作台，登出又回到登入畫面', async () => {
+    const fixture = TestBed.createComponent(AppComponent); app = fixture.componentInstance; fixture.detectChanges();
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('.login-screen')).not.toBeNull();
+    expect(el.querySelector('.workspace')).toBeNull(); expect(el.querySelectorAll('.rail-link').length).toBe(0);
+    expect(el.querySelector('app-pos')).toBeNull(); expect(api.orders).not.toHaveBeenCalled();
+    const submit = el.querySelector('.login-submit') as HTMLButtonElement;
+    expect(submit.disabled).toBeTrue();
+    await signIn(); fixture.detectChanges();
+    expect(el.querySelector('.login-screen')).toBeNull(); expect(el.querySelector('app-pos')).not.toBeNull();
+    app.logout(); fixture.detectChanges();
+    expect(el.querySelector('.login-screen')).not.toBeNull(); expect(el.querySelector('.workspace')).toBeNull();
+  });
+  it('登入失敗留在登入畫面並顯示原因', async () => {
+    api.login.and.rejectWith(new HttpErrorResponse({ status: 401, error: { message: '帳號或密碼錯誤' } }));
+    const fixture = TestBed.createComponent(AppComponent); app = fixture.componentInstance;
+    await signIn(); fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.login-screen')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('.login-card .alert.error')?.textContent).toBeTruthy();
   });
   it('個人帳號登入後直接進工時管理，不能切到點餐、訂單', async () => {
     api.login.and.callFake(async () => { staff.set({ staffId: 4, username: 'clerk', name: '一般員工', level: 'STAFF' }); });
@@ -142,7 +174,8 @@ describe('POS 工作台', () => {
     expect(ui.view).toBe('pos'); expect(ui.preview).toBeFalse();
     expect(api.staff()).toBe(before); expect(pos.cups).toBe(2);
     expect(api.logout).not.toHaveBeenCalled();
-    expect(fixture.nativeElement.querySelector('#menu-title')?.textContent).toContain('今天，來杯好茶');
+    expect(fixture.nativeElement.querySelector('.page-title')?.textContent).toContain('點餐收銀');
+    expect(fixture.nativeElement.querySelector('app-pos')).not.toBeNull();
   });
   it('相同規格可合併多杯，包含加料計價並能修改杯數', () => {
     pos.openProduct(PREVIEW_MENU.products[0]); pos.toggleTopping(1); pos.selection.qty = 2; pos.addToCart();
@@ -364,7 +397,7 @@ describe('POS 工作台', () => {
   });
 
   it('共用 busy 同時鎖住主選單、直接切頁與購物車修改', async () => {
-    addTea(); const fixture = TestBed.createComponent(AppComponent); fixture.detectChanges();
+    await signIn(); addTea(); const fixture = TestBed.createComponent(AppComponent); fixture.detectChanges();
     ui.busy = true; fixture.detectChanges();
     const menu = fixture.nativeElement.querySelectorAll('.rail-link') as NodeListOf<HTMLButtonElement>;
     expect(menu[0].disabled).toBeTrue(); expect(menu[1].disabled).toBeTrue();

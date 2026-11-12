@@ -3,7 +3,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { PosApiService, errorMessage } from '../../services/pos-api.service';
 import { PREVIEW_MENU, PREVIEW_RULES } from '../../services/preview-menu';
 import { applyRules, initialSelection, toppingLimit, unitCents } from '../../services/menu-rules';
-import { CartLine, CreateOrder, ICE_LABELS, Ice, Menu, Order, PAYMENT_LABELS, Payment, Product, Rule, SIZE_LABELS, SOURCE_LABELS, SUGAR_LABELS, Sugar, TEMP_LABELS, Temperature, cents, money, Delivery, DeliverySelection, Member, Source, distanceText } from '../../models/pos';
+import { CartLine, CreateOrder, ICE_LABELS, Size, sizesOf, Ice, Menu, Order, PAYMENT_LABELS, Payment, Product, Rule, SIZE_LABELS, SOURCE_LABELS, SUGAR_LABELS, Sugar, TEMP_LABELS, Temperature, cents, money, Delivery, DeliverySelection, Member, Source, distanceText } from '../../models/pos';
 import { HereMapService } from '../../services/here-map.service';
 import { UiStateService } from '../../shared/ui-state.service';
 import { OrdersStateService } from '../orders/orders-state.service';
@@ -25,7 +25,6 @@ export class PosStateService {
   readonly ices = ICE_LABELS;
   readonly sources = SOURCE_LABELS;
   readonly payments = PAYMENT_LABELS;
-  readonly sizeOptions = Object.keys(SIZE_LABELS) as ('M' | 'L')[];
   readonly temperatureOptions = Object.keys(TEMP_LABELS) as Temperature[];
   readonly sugarOptions = Object.keys(SUGAR_LABELS) as Sugar[];
   readonly iceOptions = Object.keys(ICE_LABELS) as Ice[];
@@ -66,17 +65,25 @@ export class PosStateService {
   get cups(): number { return this.cart.reduce((sum, line) => sum + line.qty, 0); }
   // 前端先把金額乘 100 變整數「分」計算，顯示時除回 100；正式價格仍以後端重算為準。
   get totalCents(): number { return this.cart.reduce((sum, line) => sum + line.unitCents * line.qty, 0); }
+  /** 目前這杯有賣的容量（由小到大）。 */
+  get sizeOptions(): Size[] { return this.product ? sizesOf(this.product) : []; }
+  /** 飲品卡片上列出有賣的容量（不顯示價格），例如「大杯・瓶」。 */
+  sizesText(product: Product): string { return sizesOf(product).map(size => SIZE_LABELS[size]).join('・'); }
   get selectedUnitCents(): number { return this.product ? unitCents(this.product, this.selection, this.menu.toppings) : 0; }
   get changeCents(): number { return Math.max(0, cents(this.received ?? 0) - this.totalCents); }
   openProduct(product: Product, line?: CartLine): void {
     if (this.pending || this.ui.busy) return;
     this.product = product; this.editingKey = line?.key ?? null;
-    this.selection = line ? { size: line.size, temperature: line.temperature, sugar: line.sugar, ice: line.ice, qty: line.qty, toppingIds: [...line.toppingIds], note: line.note } : initialSelection();
+    this.selection = line ? { size: line.size, temperature: line.temperature, sugar: line.sugar, ice: line.ice, qty: line.qty, toppingIds: [...line.toppingIds], note: line.note } 
+      : initialSelection(product);
     this.ui.modalError = ''; this.adjustment = ''; this.normalize();
   }
   // 每次切換規格重新套規則：例如冰沙固定冰甜、切熱飲後移除不相容加料。
   private normalize(): void {
     if (!this.product) return;
+    // 購物車裡的舊選擇若這杯已經不賣那個容量（例如菜單剛改），改成有賣的最小容量
+    const sizes = sizesOf(this.product);
+    if (sizes.length && !sizes.includes(this.selection.size)) this.selection = { ...this.selection, size: sizes[0] };
     const result = applyRules(this.product, this.selection, this.rules);
     this.selection = result.selection; this.blocked = result.blocked; this.locked = result.locked;
     this.adjustment = result.notices.join(' ');
@@ -116,7 +123,8 @@ export class PosStateService {
     this.cart = this.cart.map(item => item.key === line.key ? { ...item, qty } : item);
   }
   remove(line: CartLine): void { if (!this.pending && !this.ui.busy) this.cart = this.cart.filter(item => item.key !== line.key); }
-  toppingsText(ids: number[]): string { return this.menu.toppings.filter(t => ids.includes(t.topping_id)).map(t => t.name).join('、'); }
+  // 購物車裡的加料若剛被停售，菜單已沒有它的名稱，照樣列出提醒員工（送單時後端會擋）
+  toppingsText(ids: number[]): string { return ids.map(id => this.menu.toppings.find(t => t.topping_id === id)?.name ?? '（已停售的加料）').join('、'); }
   openCheckout(): void {
     if (!this.cart.length || this.ui.busy) return;
     if (this.ui.preview) { this.ui.openLogin(); return; }

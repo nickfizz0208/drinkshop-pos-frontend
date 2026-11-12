@@ -7,5 +7,5 @@ import { Component, Input } from '@angular/core';
   styles: [`:host { display: inline-flex; width: 20px; height: 20px; flex: 0 0 auto; vertical-align: middle; } svg { width: 100%; height: 100%; }`]
 })
 export class IconComponent {
-  @Input({ required: true }) name!: 'leaf' | 'layout-grid' | 'receipt-text' | 'search' | 'plus' | 'shopping-bag' | 'log-in' | 'check' | 'arrow-right' | 'clipboard-list' | 'clock' | 'calendar' | 'list-checks' | 'package';
+  @Input({ required: true }) name!: 'leaf' | 'layout-grid' | 'receipt-text' | 'search' | 'plus' | 'shopping-bag' | 'log-in' | 'check' | 'arrow-right' | 'clipboard-list' | 'clock' | 'calendar' | 'list-checks' | 'package' | 'ban';
 }

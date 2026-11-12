@@ -2,13 +2,7 @@
         <span>前次送單結果待確認，已保留原內容，避免重複建單。</span><button class="text-button" (click)="state.openCheckout()">繼續確認</button></div>
       }
       <div class="pos-layout">
-        <section class="menu-section" aria-labelledby="menu-title">
-          <div class="page-heading">
-            <div>
-              <h1 id="menu-title">今天，來杯好茶。</h1>
-              <p class="heading-description">選一杯喜歡的，調成剛剛好的味道。</p>
-            </div>
-          </div>
+        <section class="menu-section" aria-label="飲品菜單">
           <div class="menu-toolbar">
             <div class="category-tabs" role="group" aria-label="飲品分類">@for (item of state.categories; track item) { <button
                 [class.selected]="state.category === item" [attr.aria-pressed]="state.category === item"
@@ -36,10 +30,10 @@
               <div class="product-info">
                 <div><span class="product-category">{{ drink.category }}</span>
                   <h2>{{ drink.name }}</h2>
-                  <p>{{ drink.hot_allowed ? '冰飲 / 溫飲 / 熱飲' : '沁涼冰飲 / 固定冰甜' }}</p>
+                  <p>{{ drink.hot_allowed ? '冰飲 / 溫飲 / 熱飲' : '只有冰飲' }}</p>
                 </div>
-                <div class="product-bottom"><span class="price">{{ state.money(drink.base_price) }}<small>
-                      起</small></span><span class="add-circle" aria-hidden="true"><app-icon name="plus" /></span></div>
+                <!-- 不顯示基本售價：價格依容量與加料不同，加入本次點餐後在右邊算出每杯的最終價格 -->
+                <div class="product-bottom"><span class="sizes">{{ state.sizesText(drink) }}</span><span class="add-circle" aria-hidden="true"><app-icon name="plus" /></span></div>
               </div>
             </button>
             } @empty { <div class="empty-search"><app-icon name="search" />
@@ -88,6 +82,8 @@
                 <div class="line-title"><button class="text-button" [disabled]="!!state.pending || ui.busy"
                     (click)="state.openProduct(line.product, line)">{{ line.product.name }}</button><strong>{{
                     state.money(line.unitCents * line.qty / 100) }}</strong></div>
+                <!-- 這杯的最終價格：容量價格＋加料，乘上杯數就是右上的金額 -->
+                <p class="line-price">每杯 {{ state.money(line.unitCents / 100) }} × {{ line.qty }} 杯</p>
                 <p>{{ state.sizes[line.size] }} / {{ state.temperatures[line.temperature] }} / {{ state.sugars[line.sugar] }} / {{
                   state.ices[line.ice] }}</p>@if (line.toppingIds.length) { <p class="topping-note">＋{{
                   state.toppingsText(line.toppingIds) }}</p> }@if (line.note) { <p>備註：{{ line.note }}</p> }
@@ -135,8 +131,7 @@
       <legend>杯型</legend>
       <div class="choice-row">@for (value of state.sizeOptions; track value) { <button
           [class.selected]="state.selection.size === value" [attr.aria-pressed]="state.selection.size === value"
-          (click)="state.choose('size', value)">{{ state.sizes[value] }} <small>{{ state.money(current.base_price + (value === 'L' ?
-            current.large_extra : 0)) }}</small></button> }</div>
+          (click)="state.choose('size', value)">{{ state.sizes[value] }}</button> }</div>
     </fieldset>
     <fieldset>
       <legend>溫度</legend>

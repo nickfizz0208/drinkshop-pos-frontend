@@ -305,16 +305,9 @@
   align-items: center;
 }
 
-.price {
-  font-size: 23px;
-  font-weight: 650;
+.sizes {
+  font-size: 13px;
   color: var(--text-muted);
-}
-
-.price small {
-  color: var(--text-muted);
-  font-size: 12px;
-  font-weight: 400;
 }
 
 .add-circle {
@@ -441,7 +434,7 @@
 
 .empty-cart .empty-cup { width: 38px; height: 38px; margin-bottom: 16px; border: 0; background: transparent; }
 .category-tabs button:not(.selected):hover { background: var(--bg-card-sub); }
-.cart-footer .grand-total strong, .price { font-variant-numeric: tabular-nums; }
+.cart-footer .grand-total strong, .line-price { font-variant-numeric: tabular-nums; }
 
 .empty-cup {
   width: 61px;
@@ -501,6 +494,11 @@
 
 .line-content .topping-note {
   color: var(--text-muted);
+}
+
+.line-content .line-price {
+  color: var(--text-main);
+  font-weight: 600;
 }
 
 .line-actions {

@@ -1,6 +1,6 @@
 import { PREVIEW_MENU, PREVIEW_RULES } from './preview-menu';
 import { applyRules, initialSelection, toppingLimit, unitCents } from './menu-rules';
-import { cents } from '../models/pos';
+import { cents, sizesOf } from '../models/pos';
 
 describe('點餐規則與金額', () => {
   it('冰沙固定冷飲、正常冰與正常糖', () => {
@@ -18,10 +18,17 @@ describe('點餐規則與金額', () => {
     expect(unitCents(PREVIEW_MENU.products[0], selection, PREVIEW_MENU.toppings)).toBe(4000);
   });
   it('小數價格以分計算，40.30 三杯為 120.90', () => {
-    const product = { ...PREVIEW_MENU.products[0], base_price: 25.15, large_extra: 5.05 };
+    const product = { ...PREVIEW_MENU.products[0], price_m: 25.15, price_l: 30.20 };
     const selection = { ...initialSelection(), size: 'L' as const, toppingIds: [1] };
     expect(unitCents(product, selection, [{ topping_id: 1, name: '珍珠', price: 10.10 }]) * 3).toBe(12090);
     expect(cents(200.25) - 12090).toBe(7935);
+  });
+  it('只賣大杯與瓶裝的飲品：預設選大杯，瓶裝用瓶裝價', () => {
+    const milkTea = { ...PREVIEW_MENU.products[2], price_m: null, price_l: 50, price_bottle: 75 };
+    expect(sizesOf(milkTea)).toEqual(['L', 'BOTTLE']);
+    expect(initialSelection(milkTea).size).toBe('L');
+    expect(unitCents(milkTea, { ...initialSelection(milkTea), size: 'BOTTLE', toppingIds: [1] }, PREVIEW_MENU.toppings)).toBe(8500);
+    expect(initialSelection(PREVIEW_MENU.products[0]).size).toBe('M');
   });
   it('讀取資料庫規則的加料種類上限', () => {
     expect(toppingLimit(PREVIEW_MENU.products[0], initialSelection(), PREVIEW_RULES)).toBe(3);

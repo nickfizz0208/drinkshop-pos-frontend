@@ -158,8 +158,9 @@ describe('日結與報廢操作（隔離 API，不連共用庫）', () => {
     expect(api.rawWastage).not.toHaveBeenCalled(); expect(api.closeShift).not.toHaveBeenCalled();
     fixture.componentInstance.logout(); fixture.detectChanges(); expect(state.shift).toBeNull(); expect(fixture.nativeElement.querySelector('app-store-ops')).toBeNull();
   });
-  it('預覽只顯示登入入口，不呼叫受保護 API', async () => {
+  it('沒有登入只顯示登入畫面，不呼叫受保護 API', async () => {
     staff.set(null); ui.preview = true; ui.view = 'store'; const fixture = TestBed.createComponent(AppComponent); fixture.detectChanges();
-    expect(fixture.nativeElement.textContent).toContain('登入後管理門市營運'); expect(api.shift).not.toHaveBeenCalled();
+    expect(fixture.nativeElement.querySelector('.login-screen')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('app-store-ops')).toBeNull(); expect(api.shift).not.toHaveBeenCalled();
   });
 });

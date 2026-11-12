@@ -1,4 +1,35 @@
 <!-- 閱讀提示：{{ }} 顯示資料；(click) 呼叫 TS 方法；[(ngModel)] 雙向綁定表單；@if／@for 控制顯示與重複。 -->
+@if (ui.preview) {
+<!-- 沒有登入：一律顯示登入畫面，看不到工作台。登入後（或重新整理時恢復登入）才進入工作台 -->
+<main class="login-screen" id="main-content">
+  <section class="login-brand" aria-hidden="true">
+    <div class="login-symbol"><span>青</span><i></i></div>
+    <p class="login-name">青日茶所<small>Qingri Tea</small></p>
+    <p class="login-tagline">好茶，慢慢來。<br>每一杯，都用心。</p>
+    <app-icon class="login-leaf" name="leaf" />
+  </section>
+  <section class="login-card" aria-labelledby="login-title">
+    @if (api.staff() && ui.busy) {
+    <!-- 重新整理後恢復登入、或剛按下登入：正在載入菜單與班次 -->
+    <p class="login-loading" role="status">正在載入門市工作台…</p>
+    } @else {
+    <p class="login-context">STAFF SIGN IN / 員工登入</p>
+    <h1 id="login-title">歡迎回來，準備好茶。</h1>
+    <p class="form-intro">使用你的門市員工帳號登入工作台。</p>
+    <form (ngSubmit)="login()">
+      @if (ui.modalError) { <p class="alert error" role="alert">{{ ui.modalError }}</p> }
+      <label class="field">員工帳號<input name="username" [(ngModel)]="ui.username" autocomplete="username"
+          placeholder="請輸入員工帳號" required [disabled]="ui.busy" autofocus></label>
+      <label class="field">密碼<input name="password" type="password" [(ngModel)]="ui.password"
+          autocomplete="current-password" placeholder="請輸入密碼" required [disabled]="ui.busy"></label>
+      <button type="submit" class="button primary login-submit"
+        [disabled]="ui.busy || !ui.username.trim() || !ui.password">{{ ui.busy ? '登入中…' : '登入工作台' }}<app-icon name="log-in" /></button>
+    </form>
+    <p class="muted small-copy">帳號由門市管理人員建立。離職或停用帳號無法登入。</p>
+    }
+  </section>
+</main>
+} @else {
 <a class="skip-link" href="#main-content">跳至主要內容</a>
 <div class="workspace">
   <!-- 主選單用 switchView 切換內容，不重新載入網頁，因此不會因點首頁而清除登入憑證。 -->
@@ -26,6 +57,9 @@
       <button class="rail-link" [class.active]="ui.view === 'inventory-count'" [disabled]="ui.busy"
         (click)="switchView('inventory-count')"><app-icon name="package" />盤點</button>
       }
+      <!-- 停售管理：登入帳號都能看；POS、店長、總部才能修改（頁面內控制，後端也會擋） -->
+      <button class="rail-link" [class.active]="ui.view === 'sale-status'" [disabled]="ui.busy"
+        (click)="switchView('sale-status')"><app-icon name="ban" />停售管理</button>
     </nav>
     <div class="rail-bottom">
       <app-icon class="leaf-mark" name="leaf" />
@@ -35,8 +69,12 @@
 
   <div class="main-shell">
     <header class="topbar">
+      <!-- 頁面標題放在橫幅，依目前的頁面切換；各頁內容區不再放大標題 -->
       <div class="brand-word"><strong>青日茶所<span>Qingri Tea</span></strong><span
-          class="top-divider"></span><span>門市營運系統</span></div>
+          class="top-divider"></span><h1 class="page-title">{{ pageTitle }}</h1>
+        <!-- 操作成功的提示：幾秒後自動消失，點一下也可以關掉 -->
+        @if (ui.notice) { <button type="button" class="top-notice" role="status" [title]="ui.notice + '（點一下關閉）'"
+          (click)="ui.notice = ''"><span aria-hidden="true">✓</span>{{ ui.notice }}</button> }</div>
       <div class="top-right"><span class="date-label">{{ todayLabel }}</span>
         <!-- 開班／關班：只有門市 POS 帳號 -->
         @if (isPos) {
@@ -56,19 +94,13 @@
         <span class="staff-avatar" aria-hidden="true">{{ staff.name.slice(0, 1) }}</span><span class="staff-name">{{
           staff.name }}<small>員工 {{ staff.staffId }}</small></span>
         <button class="text-button" [disabled]="ui.busy" (click)="logout()">登出</button>
-        } @else { <button class="button small primary" (click)="ui.openLogin()">員工登入 <app-icon name="log-in" /></button> }
+        }
       </div>
     </header>
 
     <main id="main-content">
-      @if (ui.preview) {
-      <div class="preview-bar"><strong>介面預覽</strong><span>使用範例菜單試選飲品；登入後即可建立門市訂單。</span><button class="text-button"
-          (click)="ui.openLogin()">登入工作台</button></div>
-      }
       @if (ui.error) { <div class="alert error" role="alert">{{ ui.error }}<button class="text-button" (click)="ui.error = ''"
           aria-label="關閉錯誤訊息">×</button></div> }
-      @if (ui.notice) { <div class="notice" role="status"><span>✓ {{ ui.notice }}</span><button class="text-button"
-          (click)="ui.notice = ''" aria-label="關閉提示">×</button></div> }
       @if (shiftLocked) {
       <!-- 開班前、關班後：POS 帳號的點餐收銀與訂單管理只顯示這裡（日結與報廢、打卡、班表、檢核表不受影響） -->
       <section class="signin-prompt shift-gate" aria-labelledby="shift-gate-title">
@@ -93,12 +125,15 @@
         @case ('schedule') { <app-schedule-shift /> }
         @case ('checklist') { <app-check-list /> }
         @case ('inventory-count') { <app-inventory-count /> }
+        @case ('sale-status') { <app-sale-status /> }
       }
       }
       <footer class="page-footer"><span>青日茶所 / 門市工作台</span><span>用心做好每一杯。</span></footer>
     </main>
   </div>
 </div>
+
+}
 
 <!-- 共用 app-modal 是外殼；下方各區塊提供自己的表單與確認動作。 -->
 <!-- 開班：選開班人員、填零用金 -->
@@ -178,24 +213,5 @@
         [disabled]="ui.busy || closerId === null || countedCash === null">{{ ui.busy ? '關班中…' : '確認關班' }}</button></div>
   </form>
   }
-</app-modal>
-}
-<!-- 員工登入：不是會員登入。 -->
-@if (ui.loginOpen) {
-<app-modal title="歡迎回來，準備好茶。" subtitle="STAFF SIGN IN / 員工登入" [busy]="ui.busy"
-  (dismissed)="ui.loginOpen = false; ui.password = ''">
-  <form (ngSubmit)="login()">
-    <div class="modal-body">
-      <p class="form-intro">使用你的門市員工帳號登入工作台。</p>@if (ui.modalError) { <p class="alert error" role="alert">{{ ui.modalError }}
-      </p> }<label class="field">員工帳號<input name="username" [(ngModel)]="ui.username" autocomplete="username"
-          placeholder="請輸入員工帳號" required [disabled]="ui.busy" autofocus></label><label class="field">密碼<input
-          name="password" type="password" [(ngModel)]="ui.password" autocomplete="current-password" placeholder="請輸入密碼"
-          required [disabled]="ui.busy"></label>
-      <p class="muted small-copy">帳號由門市管理人員建立。離職或停用帳號無法登入。</p>
-    </div>
-    <div class="modal-footer"><button type="button" class="button secondary" [disabled]="ui.busy"
-        (click)="ui.loginOpen = false; ui.password = ''">繼續預覽</button><button type="submit" class="button primary"
-        [disabled]="ui.busy || !ui.username.trim() || !ui.password">{{ ui.busy ? '登入中…' : '登入工作台' }}</button></div>
-  </form>
 </app-modal>
 }

@@ -1,5 +1,4 @@
 <div class="page-heading">
-  <div><h1>日結與報廢</h1><p class="heading-description">核對錢櫃，並追蹤飲品與原料報廢。</p></div>
   @if (!ui.preview) {
     <div class="date-tools"><label for="ops-date">營業日</label><input id="ops-date" type="date" [(ngModel)]="state.date" (change)="changeDate()" [disabled]="ui.busy || state.loading">
       <button class="button secondary" (click)="state.load()" [disabled]="ui.busy || state.loading">重新整理</button></div>
