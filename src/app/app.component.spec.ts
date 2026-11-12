@@ -22,7 +22,8 @@ describe('POS 工作台', () => {
   const staff = signal<Staff | null>(null);
   beforeEach(async () => {
     sessionStorage.clear(); staff.set(null);
-    api = jasmine.createSpyObj<PosApiService>('PosApiService', ['login', 'logout', 'menu', 'rules', 'orders', 'order', 'create', 'collect', 'status', 'statusAll', 'cancel', 'upload', 'photo', 'shiftToday', 'staffOptions', 'openShift', 'shift', 'closeShift', 'reopenShift'], { staff });
+    api = jasmine.createSpyObj<PosApiService>('PosApiService', ['login', 'logout', 'refreshStaff', 'menu', 'rules', 'orders', 'order', 'create', 'collect', 'status', 'statusAll', 'cancel', 'upload', 'photo', 'shiftToday', 'staffOptions', 'openShift', 'shift', 'closeShift', 'reopenShift'], { staff });
+    api.refreshStaff.and.resolveTo();
     api.menu.and.resolveTo(PREVIEW_MENU); api.rules.and.resolveTo(PREVIEW_RULES); api.orders.and.resolveTo([]);
     api.login.and.callFake(async () => { staff.set({ staffId: 3, username: 'test', name: '門市 POS', level: 'POS' }); });
     api.logout.and.callFake(() => staff.set(null));
@@ -432,6 +433,7 @@ describe('POS 工作台', () => {
     const fixture = TestBed.createComponent(AppComponent); const page = fixture.componentInstance;
     await fixture.whenStable();
     expect(api.login).not.toHaveBeenCalled(); expect(api.menu).toHaveBeenCalled();
+    expect(api.refreshStaff).toHaveBeenCalledBefore(api.menu);
     expect(ui.preview).toBeFalse(); expect(ui.loginOpen).toBeFalse();
   });
 });

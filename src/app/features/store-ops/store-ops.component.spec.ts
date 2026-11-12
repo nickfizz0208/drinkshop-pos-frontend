@@ -22,7 +22,8 @@ describe('日結與報廢操作（隔離 API，不連共用庫）', () => {
     const date = taipeiDate();
     shift = { businessDate: date, status: 'OPEN', pettyCash: 1000, openedBy: 5, openedAt: date + 'T09:00:00', closedBy: null, closedAt: null, expectedCash: null, countedCash: null, diffReason: null, revenueByPayment: null, cups: null, rolesJson: '[]' };
     waste = { date, totalWastedCount: 0, totalWastageCost: 0, wastedItems: [], costComplete: true, rawWastageEnabled: true, rawMaterialWastages: [] };
-    api = jasmine.createSpyObj<PosApiService>('api', ['shift', 'openShift', 'closeShift', 'wastages', 'inventories', 'rawWastage', 'orders', 'order', 'logout', 'menu', 'rules', 'shiftToday', 'staffOptions'], { staff });
+    api = jasmine.createSpyObj<PosApiService>('api', ['shift', 'openShift', 'closeShift', 'wastages', 'inventories', 'rawWastage', 'orders', 'order', 'logout', 'refreshStaff', 'menu', 'rules', 'shiftToday', 'staffOptions'], { staff });
+    api.refreshStaff.and.resolveTo();
     api.shift.and.callFake(async () => shift); api.wastages.and.callFake(async date => ({ ...waste, date })); api.inventories.and.resolveTo([material]); api.orders.and.resolveTo([]);
     api.rawWastage.and.resolveTo(material);
     // 工作台外框重新整理後會恢復登入：載入菜單與今日班次

@@ -160,7 +160,7 @@ describe('原料盤點（隔離 API，不連共用庫）', () => {
     await state.load(); fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('app-inventory-count')).not.toBeNull();
     // 低於安全庫存：安全庫存欄位加上標示（奶料帳面 10 < 安全庫存 20）
-    const lowTags = [...fixture.nativeElement.querySelectorAll('app-inventory-count .safety .tag.low')].map((e: HTMLElement) => e.textContent!.trim());
+    const lowTags = [...fixture.nativeElement.querySelectorAll('app-inventory-count .safety .low')].map((e: HTMLElement) => e.textContent!.trim());
     expect(lowTags).toEqual(['20 份']);
     expect(fixture.nativeElement.querySelectorAll('app-inventory-count tbody tr').length).toBe(2);
     staff.set({ staffId: 3, username: 'pos', name: '門市 POS', level: 'POS' }); ui.view = 'orders'; fixture.detectChanges();
