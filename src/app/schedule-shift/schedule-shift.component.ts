@@ -4,7 +4,6 @@ import { ModalComponent } from '../shared/modal.component';
 import { PosApiService, errorMessage } from '../services/pos-api.service';
 import { ScheduleApiService } from '../services/schedule-api.service';
 import { EntrySave, ScheduleEntry, ScheduleTag, ScheduleWeek, ShiftTemplate, StaffOption } from '../models/schedule';
-import { downloadScheduleExcel } from './schedule-excel';
 
 /** 排班表單的編輯狀態；scheduleId 為 null 代表新增。 */
 interface EntryForm {
@@ -380,10 +379,12 @@ export class ScheduleShiftComponent {
 
   /** 只有店長、總部可以匯出；尚未發布時匯出的是草稿（檔名會標示草稿）。 */
   async exportExcel(): Promise<void> {
-    if (!this.week || !this.canEdit || this.exporting) return;
+    const { week, staff } = this;
+    if (!week || !this.canEdit || this.exporting) return;
     this.exporting = true; this.error = '';
     try {
-      await downloadScheduleExcel(this.week, this.staff);
+      const { downloadScheduleExcel } = await import('./schedule-excel');
+      await downloadScheduleExcel(week, staff);
       this.flash('已下載 Excel 班表');
     } catch (e) { this.error = '匯出失敗：' + errorMessage(e); }
     finally { this.exporting = false; }
