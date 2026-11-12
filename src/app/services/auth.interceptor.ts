@@ -10,8 +10,10 @@ import { PosApiService } from './pos-api.service';
 export const authInterceptor: HttpInterceptorFn = (request, next) => {
   const api = inject(PosApiService);
   return next(request).pipe(catchError((error: unknown) => {
+    const authorization = request.headers.get('Authorization');
     if (error instanceof HttpErrorResponse && error.status === 401
-        && request.headers.get('Authorization')?.startsWith('Bearer ')) api.logout();
+        && authorization?.startsWith('Bearer ')
+        && authorization === api.authHeaders().get('Authorization')) api.logout();
     return throwError(() => error);
   }));
 };

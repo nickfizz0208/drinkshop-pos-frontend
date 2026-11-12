@@ -45,6 +45,19 @@ describe('POS API 與員工驗證', () => {
     http.expectOne('/api/menu').flush({ success: false, message: '請重新登入' }, { status: 401, statusText: 'Unauthorized' }); await failed;
     expect(api.staff()).toBeNull(); expect(sessionStorage.getItem(AUTH_STORAGE_KEY)).toBeNull();
   });
+  it('向後端更新目前登入者的角色', async () => {
+    const login = api.login('pos_cashier', 'test-only-password');
+    http.expectOne('/api/auth/login').flush({ token: 'aaa.bbb.ccc', expiresAt: FUTURE, staff: STAFF });
+    await login;
+
+    const refresh = api.refreshStaff();
+    const me = http.expectOne('/api/auth/me');
+    expect(me.request.headers.get('Authorization')).toBe('Bearer aaa.bbb.ccc');
+    me.flush({ ...STAFF, level: 'STAFF' });
+    await refresh;
+
+    expect(api.staff()?.level).toBe('STAFF');
+  });
   it('查詢訂單帶營業日參數', async () => {
     const result = api.orders('2026-10-28'); const request = http.expectOne('/api/orders?date=2026-10-28'); expect(request.request.params.get('date')).toBe('2026-10-28'); request.flush([]); expect(await result).toEqual([]);
   });

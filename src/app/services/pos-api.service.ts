@@ -37,6 +37,11 @@ export class PosApiService {
     this.credentials = ''; this.staff.set(null);
     try { sessionStorage.removeItem(AUTH_STORAGE_KEY); } catch { /* 忽略 */ }
   }
+  async refreshStaff(): Promise<void> {
+    const headers = this.headers;
+    const staff = await this.wait(this.http.get<Staff>('/api/auth/me', { headers }));
+    if (headers.get('Authorization') === this.credentials) this.staff.set(staff);
+  }
   // 重新整理後從 sessionStorage 取回還沒過期的 token；過期或格式不對就當作沒登入。
   private restore(): void {
     try {

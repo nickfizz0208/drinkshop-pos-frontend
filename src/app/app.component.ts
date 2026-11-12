@@ -174,7 +174,10 @@ export class AppComponent {
   }
   private async resumeSession(): Promise<void> {
     this.ui.busy = true;
-    try { await this.enterSession(); }
+    try {
+      await this.api.refreshStaff();
+      await this.enterSession();
+    }
     catch (error) { this.resetSession(); this.ui.error = errorMessage(error); }
     finally { this.ui.busy = false; }
   }
