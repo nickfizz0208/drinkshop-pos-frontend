@@ -1,10 +1,10 @@
 import { Injectable } from '@angular/core';
 
-export type WorkspaceView = 'pos' | 'orders' | 'store' | 'time-tracker' | 'schedule' | 'checklist' | 'inventory-count' | 'sale-status';
+export type WorkspaceView = 'pos' | 'orders' | 'store' | 'time-tracker' | 'schedule' | 'checklist' | 'inventory-count' | 'sale-status' | 'material-consumption';
 /** 各頁標題：顯示在最上面的橫幅（AppComponent），頁面內不再放大標題。 */
 export const VIEW_TITLES: Record<WorkspaceView, string> = {
   'pos': '點餐收銀', 'orders': '訂單管理', 'store': '日結與報廢', 'time-tracker': '打卡', 'schedule': '班表',
-  'checklist': '檢核表', 'inventory-count': '原料盤點', 'sale-status': '停售管理'
+  'checklist': '檢核表', 'inventory-count': '原料盤點', 'sale-status': '停售管理', 'material-consumption': '物料消耗'
 };
 /** 只有門市 POS 共用帳號能用的頁面（後端 /api/orders、/api/daily-shifts 也只限 POS）。 */
 export const COUNTER_VIEWS: readonly WorkspaceView[] = ['pos', 'orders', 'store'];

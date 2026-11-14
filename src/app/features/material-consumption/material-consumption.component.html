@@ -1,0 +1,282 @@
+<section class="consumption-container" aria-label="物料月度消耗分析">
+  <!-- 頁面頂部控制列：切換年、月 -->
+  <div class="filter-header card">
+    <div class="header-left">
+      <h2>物料消耗走勢</h2>
+      <p class="subtitle">依據訂單銷售配方用量與原料報廢，統計每日原物料消耗趨勢。</p>
+    </div>
+
+    <div class="date-controls">
+      <div class="year-selector">
+        <label for="year-select">年份</label>
+        <select id="year-select" [(ngModel)]="currentYear" (change)="onYearChange()" [disabled]="loading">
+          @for (y of years; track y) {
+            <option [value]="y">{{ y }} 年</option>
+          }
+        </select>
+      </div>
+
+      <div class="month-pills" role="group" aria-label="選擇月份">
+        @for (m of months; track m) {
+          <button
+            type="button"
+            class="month-btn"
+            [class.active]="currentMonth === m"
+            [disabled]="loading"
+            (click)="selectMonth(m)">
+            {{ m }} 月
+          </button>
+        }
+      </div>
+    </div>
+  </div>
+
+  <!-- 品項篩選選擇列 -->
+  <div class="material-filter-card card">
+    <div class="filter-title-row">
+      <span class="filter-label">品項篩選（點擊切換折線顯示）：</span>
+      <div class="filter-actions">
+        <button type="button" class="btn-text" (click)="selectAll()">全選</button>
+        <span class="divider">|</span>
+        <button type="button" class="btn-text" (click)="clearAll()">全部清除</button>
+      </div>
+    </div>
+
+    <div class="chips-wrap">
+      @for (mat of materials; track mat.inventory_id) {
+        <button
+          type="button"
+          class="material-chip"
+          [class.selected]="selectedIds.has(mat.inventory_id)"
+          [class.has-consumed]="isConsumed(mat.inventory_id)"
+          (click)="toggleMaterial(mat.inventory_id)">
+          <span
+            class="color-dot"
+            [style.background-color]="colorOf(mat.inventory_id)">
+          </span>
+          <span class="chip-name">{{ mat.name }}</span>
+          @if (isConsumed(mat.inventory_id)) {
+            <span class="chip-badge">有消耗</span>
+          }
+        </button>
+      }
+    </div>
+  </div>
+
+  <!-- 主折線圖區塊 -->
+  <div class="chart-card card">
+    <div class="chart-header">
+      <div class="chart-title-area">
+        <h3>{{ currentYear }} 年 {{ currentMonth }} 月 每日消耗趨勢圖</h3>
+        <span class="chart-unit-hint">單位：依物料各自基準單位計量（滑鼠移至圓點可看詳細數據）</span>
+      </div>
+      @if (loading) {
+        <span class="loading-tag">讀取中…</span>
+      }
+    </div>
+
+    @if (selectedIds.size === 0) {
+      <div class="empty-state">
+        <app-icon name="clipboard-list" />
+        <p>尚未選取任何物料品項，請於上方勾選欲查看之原物料折線。</p>
+      </div>
+    } @else {
+      <div class="chart-stage">
+        <svg
+          class="trend-svg"
+          [attr.viewBox]="'0 0 ' + svgWidth + ' ' + svgHeight"
+          preserveAspectRatio="xMidYMid meet"
+          (mouseleave)="hideTooltip()">
+          
+          <!-- 背景橫向網格線與 Y 軸標籤 -->
+          @for (tick of yTicks; track tick.value) {
+            <g class="grid-line-group">
+              <line
+                [attr.x1]="padding.left"
+                [attr.y1]="tick.y"
+                [attr.x2]="svgWidth - padding.right"
+                [attr.y2]="tick.y"
+                stroke="#e5e7eb"
+                stroke-dasharray="3 3"
+              />
+              <text
+                [attr.x]="padding.left - 10"
+                [attr.y]="tick.y + 4"
+                text-anchor="end"
+                class="axis-text">
+                {{ tick.value }}
+              </text>
+            </g>
+          }
+
+          <!-- X 軸標籤（日期） -->
+          @for (tick of xTicks; track tick.day) {
+            <g class="x-tick-group">
+              <line
+                [attr.x1]="tick.x"
+                [attr.y1]="svgHeight - padding.bottom"
+                [attr.x2]="tick.x"
+                [attr.y2]="svgHeight - padding.bottom + 5"
+                stroke="#9ca3af"
+              />
+              <text
+                [attr.x]="tick.x"
+                [attr.y]="svgHeight - padding.bottom + 20"
+                text-anchor="middle"
+                class="axis-text">
+                {{ tick.label }}
+              </text>
+            </g>
+          }
+
+          <!-- X 軸與 Y 軸主軸線 -->
+          <line
+            [attr.x1]="padding.left"
+            [attr.y1]="padding.top"
+            [attr.x2]="padding.left"
+            [attr.y2]="svgHeight - padding.bottom"
+            stroke="#9ca3af"
+            stroke-width="1.5"
+          />
+          <line
+            [attr.x1]="padding.left"
+            [attr.y1]="svgHeight - padding.bottom"
+            [attr.x2]="svgWidth - padding.right"
+            [attr.y2]="svgHeight - padding.bottom"
+            stroke="#9ca3af"
+            stroke-width="1.5"
+          />
+
+          <!-- 各品項折線 -->
+          @for (s of seriesList; track s.inventoryId) {
+            <g class="series-group">
+              <path
+                [attr.d]="s.pathD"
+                fill="none"
+                [attr.stroke]="s.color"
+                stroke-width="2.5"
+                stroke-linejoin="round"
+                stroke-linecap="round"
+                class="trend-line"
+              />
+
+              <!-- 折線節點圓點 -->
+              @for (p of s.points; track p.day) {
+                @if (p.value > 0) {
+                  <circle
+                    [attr.cx]="p.x"
+                    [attr.cy]="p.y"
+                    r="4.5"
+                    [attr.fill]="s.color"
+                    stroke="#ffffff"
+                    stroke-width="2"
+                    class="data-circle"
+                    (mouseenter)="showTooltip(s, p)"
+                  />
+                }
+              }
+            </g>
+          }
+
+          <!-- 懸浮提示框 (Tooltip) -->
+          @if (hoverPoint) {
+            <g class="tooltip-group" [attr.transform]="'translate(' + hoverPoint.x + ',' + (hoverPoint.y - 45) + ')'">
+              <rect
+                x="-65"
+                y="-15"
+                width="130"
+                height="40"
+                rx="6"
+                fill="#1f2937"
+                opacity="0.92"
+              />
+              <text x="0" y="2" text-anchor="middle" fill="#ffffff" font-size="11" font-weight="bold">
+                {{ hoverPoint.date }}
+              </text>
+              <text x="0" y="17" text-anchor="middle" fill="#a7f3d0" font-size="11">
+                {{ hoverPoint.name }}: {{ hoverPoint.value }} {{ hoverPoint.unit }}
+              </text>
+            </g>
+          }
+        </svg>
+      </div>
+    }
+  </div>
+
+  <!-- 底部月度彙整卡片 -->
+  <div class="summary-cards-row">
+    <div class="summary-card card">
+      <span class="card-icon"><app-icon name="receipt-text" /></span>
+      <div class="card-content">
+        <span class="card-label">已選品項累計總消耗量</span>
+        <strong class="card-value">{{ totalMonthlyConsumptionCount }}</strong>
+        <span class="card-hint">本月合計數據</span>
+      </div>
+    </div>
+
+    @if (topMaterial) {
+      <div class="summary-card card">
+        <span class="card-icon"><app-icon name="package" /></span>
+        <div class="card-content">
+          <span class="card-label">本月消耗最高品項</span>
+          <strong class="card-value">{{ topMaterial.name }}</strong>
+          <span class="card-hint">
+            共消耗 {{ topMaterial.total }} {{ topMaterial.unit }}
+          </span>
+        </div>
+      </div>
+    }
+
+    <div class="summary-card card">
+      <span class="card-icon"><app-icon name="list-checks" /></span>
+      <div class="card-content">
+        <span class="card-label">目前觀測品項數</span>
+        <strong class="card-value">{{ selectedIds.size }} / {{ materials.length }}</strong>
+        <span class="card-hint">已勾選品項比例</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 詳情統計清單表格 -->
+  <div class="details-table-card card">
+    <h4>已選品項月消耗明細統計</h4>
+    <div class="table-wrap">
+      <table class="consumption-table">
+        <thead>
+          <tr>
+            <th>標記顏色</th>
+            <th>物料品項</th>
+            <th>基準單位</th>
+            <th>本月累計消耗</th>
+            <th>狀態備註</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (s of seriesList; track s.inventoryId) {
+            <tr>
+              <td>
+                <span class="color-badge" [style.background-color]="s.color"></span>
+              </td>
+              <td class="mat-name"><strong>{{ s.name }}</strong></td>
+              <td>{{ s.unit }}</td>
+              <td class="mat-qty">
+                <span [class.highlight-qty]="s.total > 0">{{ s.total }} {{ s.unit }}</span>
+              </td>
+              <td>
+                @if (s.total > 0) {
+                  <span class="tag tag-active">本月正常消耗</span>
+                } @else {
+                  <span class="tag tag-idle">無消耗記錄</span>
+                }
+              </td>
+            </tr>
+          } @empty {
+            <tr>
+              <td colspan="5" class="empty-row">尚未選取任何品項</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>

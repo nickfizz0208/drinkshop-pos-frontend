@@ -60,6 +60,9 @@
       <!-- 停售管理：登入帳號都能看；POS、店長、總部才能修改（頁面內控制，後端也會擋） -->
       <button class="rail-link" [class.active]="ui.view === 'sale-status'" [disabled]="ui.busy"
         (click)="switchView('sale-status')"><app-icon name="ban" />停售管理</button>
+      <!-- 物料消耗：統計每月原物料消耗多線折線圖，所有帳號皆可查看 -->
+      <button class="rail-link" [class.active]="ui.view === 'material-consumption'" [disabled]="ui.busy"
+        (click)="switchView('material-consumption')"><app-icon name="clipboard-list" />物料消耗</button>
     </nav>
     <div class="rail-bottom">
       <app-icon class="leaf-mark" name="leaf" />
@@ -126,6 +129,7 @@
         @case ('checklist') { <app-check-list /> }
         @case ('inventory-count') { <app-inventory-count /> }
         @case ('sale-status') { <app-sale-status /> }
+        @case ('material-consumption') { <app-material-consumption /> }
       }
       }
       <footer class="page-footer"><span>青日茶所 / 門市工作台</span><span>用心做好每一杯。</span></footer>
