@@ -18,6 +18,7 @@ import { ScheduleShiftComponent } from './schedule-shift/schedule-shift.componen
 import { CheckListComponent } from './check-list/check-list.component';
 import { InventoryCountComponent } from './features/inventory-count/inventory-count.component';
 import { SaleStatusComponent } from './features/sale-status/sale-status.component';
+import { RecipesComponent } from './features/recipes/recipes.component';
 import { SALE_EDIT_LEVELS } from './features/sale-status/sale-status-state.service';
 
 /**
@@ -27,7 +28,7 @@ import { SALE_EDIT_LEVELS } from './features/sale-status/sale-status-state.servi
 @Component({
   selector: 'app-root',
   imports: [IconComponent, FormsModule, ModalComponent, PosComponent, OrdersComponent, StoreOpsComponent,
-    TimeTrackerComponent, ScheduleShiftComponent, CheckListComponent, InventoryCountComponent, SaleStatusComponent],
+    TimeTrackerComponent, ScheduleShiftComponent, CheckListComponent, InventoryCountComponent, SaleStatusComponent, RecipesComponent],
   templateUrl: './app.component.html',
   styleUrl: './app.component.scss'
 })
@@ -49,6 +50,7 @@ export class AppComponent {
   get storeAllowed(): boolean { return STORE_LEVELS.includes(this.api.staff()?.level ?? ''); }
   /** 停售管理只限門市 POS、店長；其他帳號選單不顯示、也切不過去。 */
   get saleAllowed(): boolean { return SALE_EDIT_LEVELS.includes(this.api.staff()?.level ?? ''); }
+  get canViewRecipes(): boolean { return !this.ui.preview && !!this.api.staff(); }
   /** 點餐、訂單、日結頁可不可以用：未登入的介面預覽可以看；登入後只有 POS 帳號可以，個人帳號不行。 */
   get counterAllowed(): boolean { const staff = this.api.staff(); return this.ui.preview || !staff || staff.level === 'POS'; }
 
@@ -225,6 +227,7 @@ export class AppComponent {
     if (COUNTER_VIEWS.includes(view) && !this.counterAllowed) return;
     if (PERSONAL_VIEWS.includes(view) && this.isPos) return;
     if (view === 'sale-status' && !this.saleAllowed) return;
+    if (view === 'recipes' && !this.canViewRecipes) return;
     if (view === 'store' && !this.storeAllowed) return;
     if (!this.ui.navigate(view)) return;
     if (view === 'pos') void this.refreshMenu();

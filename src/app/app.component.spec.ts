@@ -9,6 +9,7 @@ import { UiStateService } from './shared/ui-state.service';
 import { PosApiService } from './services/pos-api.service';
 import { PREVIEW_MENU, PREVIEW_RULES } from './services/preview-menu';
 import { Order, Staff } from './models/pos';
+import { RecipeDetail } from './models/recipe';
 import { TimeoutError } from 'rxjs';
 
 const ORDER: Order = { order_id: 8, order_no: 'test', business_date: '2026-10-28', source: 'TAKE_OUT', payment: 'CASH', total: 25, status: 'PENDING', created_at: '2026-10-28T10:00:00', received_cash: 100, change_cash: 75, note: '', items: [] };
@@ -22,7 +23,7 @@ describe('POS 工作台', () => {
   const staff = signal<Staff | null>(null);
   beforeEach(async () => {
     sessionStorage.clear(); staff.set(null);
-    api = jasmine.createSpyObj<PosApiService>('PosApiService', ['login', 'logout', 'menu', 'rules', 'orders', 'order', 'create', 'collect', 'status', 'statusAll', 'cancel', 'upload', 'photo', 'shiftToday', 'staffOptions', 'openShift', 'shift', 'closeShift', 'reopenShift'], { staff });
+    api = jasmine.createSpyObj<PosApiService>('PosApiService', ['login', 'logout', 'menu', 'rules', 'orders', 'order', 'create', 'collect', 'status', 'statusAll', 'cancel', 'upload', 'photo', 'shiftToday', 'staffOptions', 'openShift', 'shift', 'closeShift', 'reopenShift', 'recipes', 'recipe', 'updateRecipe'], { staff });
     api.menu.and.resolveTo(PREVIEW_MENU); api.rules.and.resolveTo(PREVIEW_RULES); api.orders.and.resolveTo([]);
     api.login.and.callFake(async () => { staff.set({ staffId: 3, username: 'test', name: '門市 POS', level: 'POS' }); });
     api.logout.and.callFake(() => staff.set(null));
@@ -270,6 +271,68 @@ describe('POS 工作台', () => {
     await orders.confirmCancel();
     expect(api.cancel.calls.mostRecent().args[2]).toEqual({ reason: '顧客未取餐', refundAmount: 0 });
   });
+  const recipe: RecipeDetail = {
+    productId: 1, name: '紅茶', category: '茶類', recipeStatus: 'OK', version: 'test',
+    steps: '先泡茶。', watermark: '',
+    materials: [{ kind: 'INVENTORY', id: 1, name: '紅茶包', madeFrom: [], portions: 1 }]
+  };
+
+  it('POS 從待製作品項查看配方和訂單備註', async () => {
+    const fixture = TestBed.createComponent(AppComponent);
+    app = fixture.componentInstance;
+    await signIn();
+    await app.switchView('orders');
+    prepareCancel();
+    orders.cancelTarget = null;
+    const item = orders.selectedOrder!.items[0];
+    item.product_id = 1;
+    item.note = '加冰請確認';
+    api.recipe.and.resolveTo(recipe);
+    fixture.detectChanges();
+    const buttons = fixture.nativeElement.querySelectorAll('.detail-actions button') as NodeListOf<HTMLButtonElement>;
+    [...buttons].find(button => button.textContent?.includes('看配方'))!.click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(api.recipe).toHaveBeenCalledOnceWith(item.product_id);
+    const dialog = fixture.nativeElement.querySelector('dialog');
+    expect(dialog.textContent).toContain('加冰請確認');
+    expect(dialog.textContent).toContain('1 份');
+    expect(dialog.textContent).not.toContain('編輯配方');
+  });
+
+  it('配方頁只對店長或總部顯示編輯入口，並以配方版本儲存材料份數', async () => {
+    const fixture = TestBed.createComponent(AppComponent);
+    app = fixture.componentInstance;
+    await signIn();
+    api.recipes.and.resolveTo([recipe]);
+    api.recipe.and.resolveTo(recipe);
+    api.updateRecipe.and.resolveTo({ ...recipe, materials: [{ ...recipe.materials[0], portions: 1.5 }] });
+    await app.switchView('recipes');
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    fixture.nativeElement.querySelector('.recipe-row').click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const dialog = fixture.nativeElement.querySelector('dialog') as HTMLDialogElement;
+    expect(dialog.textContent).not.toContain('編輯配方');
+    staff.set({ staffId: 5, username: 'boss', name: '店長', level: 'MANAGER' });
+    fixture.detectChanges();
+    dialog.querySelector<HTMLButtonElement>('.recipe-actions button')!.click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const portions = dialog.querySelector<HTMLInputElement>('input[type="number"]')!;
+    portions.value = '1.5';
+    portions.dispatchEvent(new Event('input', { bubbles: true }));
+    dialog.querySelector('form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(api.updateRecipe).toHaveBeenCalledOnceWith(1, {
+      version: 'test', steps: '先泡茶。', materials: [{ kind: 'INVENTORY', id: 1, portions: 1.5 }]
+    });
+    expect(dialog.textContent).toContain('1.5 份');
+  });
+
   it('依序顯示待處理、待取餐、當日紀錄，各分頁只計入符合狀態的訂單', () => {
     const fixture = TestBed.createComponent(AppComponent);
     ui.preview = false; ui.view = 'orders';

@@ -62,6 +62,11 @@
       <button class="rail-link" [class.active]="ui.view === 'store'" [disabled]="ui.busy"
         (click)="switchView('store')"><app-icon name="clipboard-list" />原料報廢回報</button>
       }
+      @if (canViewRecipes) {
+      <button type="button" class="rail-link" [class.active]="ui.view === 'recipes'"
+        [attr.aria-current]="ui.view === 'recipes' ? 'page' : null" [disabled]="ui.busy"
+        (click)="switchView('recipes')"><app-icon name="receipt-text" />配方</button>
+      }
       <!-- 停售管理：只有門市 POS、店長帳號看得到（後端也會擋） -->
       @if (saleAllowed) {
       <button class="rail-link" [class.active]="ui.view === 'sale-status'" [disabled]="ui.busy"
@@ -134,6 +139,7 @@
       @case ('checklist') { <app-check-list /> }
       @case ('inventory-count') { <app-inventory-count /> }
       @case ('sale-status') { <app-sale-status /> }
+      @case ('recipes') { @if (canViewRecipes) { <app-recipes /> } }
       }
       }
     </main>
