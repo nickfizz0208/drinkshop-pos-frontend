@@ -816,6 +816,52 @@
   .empty-cart p { margin-bottom: 4px; }
 }
 
+@media (min-width: 761px) and (min-height: 640px) {
+  .cart-panel {
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100dvh - 116px);
+  }
+
+  .cart-panel > :not(.cart-lines) { flex-shrink: 0; }
+  .cart-panel .cart-lines { min-height: 0; }
+}
+
+// 單欄或矮視窗：有品項才浮出原本的結帳按鈕。
+@media (max-width: 760px), (max-height: 639px) {
+  :host:has(.cart-line) {
+    --checkout-inset: max(12px, env(safe-area-inset-bottom));
+    padding-bottom: calc(56px + var(--checkout-inset));
+  }
+
+  .cart-panel:has(.cart-line) {
+    position: static;
+    backdrop-filter: none;
+  }
+
+  .cart-panel:has(.cart-line) .checkout-button {
+    position: fixed;
+    z-index: 10;
+    inset-inline: 16px;
+    bottom: var(--checkout-inset);
+    width: calc(100% - 32px);
+    max-width: 380px;
+    min-height: 52px;
+    margin-inline: auto;
+    box-shadow: 0 6px 22px #203c3040;
+  }
+
+  .cart-panel:has(.cart-line) .cart-hint { display: none; }
+}
+
+@media (min-width: 761px) and (max-height: 639px) {
+  .cart-panel:has(.cart-line) .checkout-button {
+    inset-inline-end: 24px;
+    max-width: 300px;
+    margin-inline-end: 0;
+  }
+}
+
 .member-card {
   display: flex;
   align-items: center;
