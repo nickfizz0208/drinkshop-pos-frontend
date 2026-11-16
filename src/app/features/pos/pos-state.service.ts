@@ -70,6 +70,10 @@ export class PosStateService {
   /** 飲品卡片上列出有賣的容量（不顯示價格），例如「大杯・瓶」。 */
   sizesText(product: Product): string { return sizesOf(product).map(size => SIZE_LABELS[size]).join('・'); }
   get selectedUnitCents(): number { return this.product ? unitCents(this.product, this.selection, this.menu.toppings) : 0; }
+  get validCustomizerQuantity(): boolean {
+    const { qty } = this.selection;
+    return Number.isInteger(qty) && qty >= 1 && qty <= 100;
+  }
   get changeCents(): number { return Math.max(0, cents(this.received ?? 0) - this.totalCents); }
   openProduct(product: Product, line?: CartLine): void {
     if (this.pending || this.ui.busy) return;
@@ -104,7 +108,7 @@ export class PosStateService {
   // 相同商品、杯型、冰甜、加料及備註才可合併杯數；不同客製必須保留不同列。
   addToCart(): void {
     if (!this.product || this.pending) return;
-    if (!Number.isInteger(this.selection.qty) || this.selection.qty < 1 || this.selection.qty > 100) { this.ui.modalError = '杯數請輸入 1～100 的整數。'; return; }
+    if (!this.validCustomizerQuantity) { this.ui.modalError = '杯數請輸入 1～100 的整數。'; return; }
     if (this.cart.length >= 100 && !this.editingKey) { this.ui.modalError = '每張訂單最多 100 筆明細。'; return; }
     const next: CartLine = { ...this.selection, toppingIds: [...this.selection.toppingIds], note: this.selection.note.trim(), key: this.editingKey ?? crypto.randomUUID(), product: this.product, unitCents: this.selectedUnitCents };
     const same = (a: CartLine, b: CartLine) => a.product.product_id === b.product.product_id && a.size === b.size && a.temperature === b.temperature && a.sugar === b.sugar && a.ice === b.ice && a.note === b.note && [...a.toppingIds].sort().join(',') === [...b.toppingIds].sort().join(',');

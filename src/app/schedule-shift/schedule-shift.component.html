@@ -180,6 +180,19 @@
         @for (s of staff; track s.staffId) { <option [ngValue]="s.staffId">{{ s.name }}</option> }
       </select>
     </label>
+    <label>班別範本
+      <select name="templateId" [ngModel]="f.templateId" (ngModelChange)="applyTemplate(f, $event)"
+        [disabled]="busy || templatesLoading">
+        <option [ngValue]="null">自訂時間</option>
+        @if (f.templateId !== null && !hasTemplate(f.templateId)) {
+          <option [ngValue]="f.templateId">{{ f.templateName || '原班別範本' }}</option>
+        }
+        @for (template of templates; track template.templateId) {
+          <option [ngValue]="template.templateId">{{ template.name }} {{ hm(template.startTime) }}–{{ hm(template.endTime) }}</option>
+        }
+      </select>
+    </label>
+    @if (templatesError) { <p class="muted" role="status">班別範本暫時無法載入，仍可手動填寫時間。</p> }
     <div class="time-row">
       <label>上班<input type="time" name="startTime" [(ngModel)]="f.startTime" required [disabled]="busy"></label>
       <label>下班<input type="time" name="endTime" [(ngModel)]="f.endTime" required [disabled]="busy"></label>

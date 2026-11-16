@@ -70,11 +70,13 @@
       <!-- 物料消耗：統計每月原物料消耗多線折線圖，所有帳號皆可查看 -->
       <button class="rail-link" [class.active]="ui.view === 'material-consumption'" [disabled]="ui.busy"
         (click)="switchView('material-consumption')"><app-icon name="clipboard-list" />物料消耗</button>
+      <!-- 配方：登入的帳號都能看；店長、總部可編輯 -->
+      @if (canViewRecipes) {
+      <button type="button" class="rail-link" [class.active]="ui.view === 'recipes'"
+        [attr.aria-current]="ui.view === 'recipes' ? 'page' : null" [disabled]="ui.busy"
+        (click)="switchView('recipes')"><app-icon name="receipt-text" />配方</button>
+      }
     </nav>
-    <div class="rail-bottom">
-      <app-icon class="leaf-mark" name="leaf" />
-      <p>好茶，慢慢來。<br><span>每一杯，都用心。</span></p>
-    </div>
   </aside>
 
   <div class="main-shell">
@@ -138,6 +140,7 @@
       @case ('inventory-count') { <app-inventory-count /> }
       @case ('sale-status') { <app-sale-status /> }
       @case ('material-consumption') { <app-material-consumption /> }
+      @case ('recipes') { @if (canViewRecipes) { <app-recipes /> } }
       }
       }
     </main>

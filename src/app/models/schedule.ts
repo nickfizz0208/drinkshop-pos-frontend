@@ -7,7 +7,7 @@ export interface ScheduleTag { tagId: number; name: string; description: string 
 export interface TagSave { name: string; description: string | null; }
 export interface TagUpdate extends TagSave { active: boolean; }
 
-/** 舊的班別（已改用標籤，保留型別供舊資料相容）。 */
+/** 班別範本提供預設時間，排班仍可另外選擇標籤。 */
 export interface ShiftTemplate { templateId: number; name: string; startTime: string; endTime: string; active: boolean; }
 export interface TemplateSave { name: string; startTime: string; endTime: string; }
 export interface TemplateUpdate extends TemplateSave { active: boolean; }
@@ -22,6 +22,7 @@ export interface ScheduleEntry {
 /** 時間必填；tagIds 可以是空陣列。 */
 export interface EntrySave {
   workDate: string; staffId: number;
+  templateId?: number;
   startTime: string; endTime: string; note: string | null; tagIds: number[];
 }
 export interface SaveResult { entry: ScheduleEntry; warnings: string[]; }

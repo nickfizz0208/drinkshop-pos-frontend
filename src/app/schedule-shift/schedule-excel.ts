@@ -1,4 +1,4 @@
-import type { Borders, Cell, Fill } from 'exceljs';
+import ExcelJS, { type Borders, type Cell, type Fill } from 'exceljs';
 import { ScheduleEntry, ScheduleWeek, StaffOption } from '../models/schedule';
 import { HOLIDAYS, isOffDay } from './holidays';
 
@@ -8,11 +8,10 @@ import { HOLIDAYS, isOffDay } from './holidays';
  * - 每位在職員工一列，沒排班顯示紅色「休」；隔列灰底
  * - 時間簡寫：8:30 → 8.5、整點不寫分、其他寫 9:15；有備註的班加「#」，備註列在表格下方
  * - 週末與國定假日整欄斜線
- * exceljs 體積大，按下匯出才載入（dynamic import）。
+ * 呼叫端按下匯出時才載入本模組與 ExcelJS。
  */
 export async function downloadScheduleExcel(week: ScheduleWeek, staff: StaffOption[], shopName = '青日茶所'): Promise<void> {
-  const { Workbook } = await import('exceljs');
-  const wb = new Workbook();
+  const wb = new ExcelJS.Workbook();
   wb.creator = shopName;
   const ws = wb.addWorksheet('班表', { views: [{ state: 'frozen', xSplit: 1, ySplit: 4, showGridLines: false }] });
 

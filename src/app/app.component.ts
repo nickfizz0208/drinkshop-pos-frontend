@@ -20,6 +20,7 @@ import { InventoryCountComponent } from './features/inventory-count/inventory-co
 import { SaleStatusComponent } from './features/sale-status/sale-status.component';
 import { SALE_EDIT_LEVELS } from './features/sale-status/sale-status-state.service';
 import { MaterialConsumptionComponent } from './features/material-consumption/material-consumption.component';
+import { RecipesComponent } from './features/recipes/recipes.component';
 
 /**
  * 工作台外框：登入、登出、切頁，以及上方工具列的開班／關班。
@@ -28,7 +29,8 @@ import { MaterialConsumptionComponent } from './features/material-consumption/ma
 @Component({
   selector: 'app-root',
   imports: [IconComponent, FormsModule, ModalComponent, PosComponent, OrdersComponent, StoreOpsComponent,
-    TimeTrackerComponent, ScheduleShiftComponent, CheckListComponent, InventoryCountComponent, SaleStatusComponent, MaterialConsumptionComponent],
+    TimeTrackerComponent, ScheduleShiftComponent, CheckListComponent, InventoryCountComponent, SaleStatusComponent, MaterialConsumptionComponent,
+    RecipesComponent],
   templateUrl: './app.component.html',
   styleUrl: './app.component.scss'
 })
@@ -50,6 +52,8 @@ export class AppComponent {
   get storeAllowed(): boolean { return STORE_LEVELS.includes(this.api.staff()?.level ?? ''); }
   /** 停售管理只限門市 POS、店長；其他帳號選單不顯示、也切不過去。 */
   get saleAllowed(): boolean { return SALE_EDIT_LEVELS.includes(this.api.staff()?.level ?? ''); }
+  /** 配方：登入的帳號都能看（店長、總部可編輯，頁面內與後端控制）。 */
+  get canViewRecipes(): boolean { return !this.ui.preview && !!this.api.staff(); }
   /** 點餐、訂單、日結頁可不可以用：未登入的介面預覽可以看；登入後只有 POS 帳號可以，個人帳號不行。 */
   get counterAllowed(): boolean { const staff = this.api.staff(); return this.ui.preview || !staff || staff.level === 'POS'; }
 
@@ -182,7 +186,10 @@ export class AppComponent {
   }
   private async resumeSession(): Promise<void> {
     this.ui.busy = true;
-    try { await this.enterSession(); }
+    try {
+      await this.api.refreshStaff();
+      await this.enterSession();
+    }
     // 恢復失敗會回到登入畫面，錯誤顯示在登入表單上
     catch (error) { this.resetSession(); this.ui.modalError = errorMessage(error); }
     finally { this.ui.busy = false; }
@@ -223,6 +230,7 @@ export class AppComponent {
     this.shiftStatus = null; this.businessDate = ''; this.staffOptions = []; this.shiftModal = null; this.closeSummary = null;
   }
   async switchView(view: WorkspaceView): Promise<void> {
+    if (view === 'recipes' && !this.canViewRecipes) return;
     if (COUNTER_VIEWS.includes(view) && !this.counterAllowed) return;
     if (PERSONAL_VIEWS.includes(view) && this.isPos) return;
     if (view === 'sale-status' && !this.saleAllowed) return;
