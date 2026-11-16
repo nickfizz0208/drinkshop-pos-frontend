@@ -184,6 +184,26 @@
   <div class="modal-body">@if (ui.modalError) { <p class="alert ui.error" role="alert">{{ ui.modalError }}</p> }@if (state.pending) {
     <p class="alert warning">本次送單內容已保留，可以繼續確認送單結果。</p> }<div class="checkout-summary"><span>{{ state.sources[state.source] }} / {{
         state.cups }} 杯</span><strong>{{ state.money(state.totalCents / 100) }}</strong></div>
+    <section class="checkout-items" aria-labelledby="checkout-items-title">
+      <h3 id="checkout-items-title">點餐明細</h3>
+      <ul class="checkout-list" role="list">
+        @for (line of state.cart; track line.key) {
+          <li>
+            <div class="checkout-item-heading">
+              <strong>{{ line.product.name }} × {{ line.qty }} 杯</strong>
+              <span>{{ state.money(line.unitCents * line.qty / 100) }}</span>
+            </div>
+            <div class="checkout-item-options">
+              {{ state.sizes[line.size] }} ／ {{ state.temperatures[line.temperature] }} ／
+              {{ state.sugars[line.sugar] }} ／ {{ state.ices[line.ice] }}
+              @if (line.toppingIds.length) { <span>＋{{ state.toppingsText(line.toppingIds) }}</span> }
+            </div>
+            @if (line.note) { <p class="checkout-note">品項備註：{{ line.note }}</p> }
+          </li>
+        }
+      </ul>
+      @if (state.orderNote) { <p class="checkout-note">訂單備註：{{ state.orderNote }}</p> }
+    </section>
     <fieldset>
       <legend>收款時間</legend>
       <div class="choice-row"><button [class.selected]="!state.unpaid" [disabled]="ui.busy || !!state.pending"
