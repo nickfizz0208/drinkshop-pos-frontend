@@ -1,0 +1,45 @@
+<!-- 數字小鍵盤：全畫面，上方預覽、下方按鍵 -->
+<dialog #dialog class="numpad" (cancel)="onCancel($event)" (keydown)="onKeydown($event)" [attr.aria-label]="(request?.label ?? '') + ' 數字小鍵盤'">
+  @if (request; as r) {
+  <div class="numpad-inner">
+    <div class="numpad-head">
+      <div><p class="numpad-context">數字小鍵盤</p><h2>{{ r.label }}</h2></div>
+      <button type="button" class="button secondary" (click)="cancel()">取消</button>
+    </div>
+
+    <!-- 預覽：按確定前都不會改到欄位 -->
+    <div class="numpad-preview" [class.has-error]="!!error" role="status" aria-live="polite">
+      <output class="numpad-value" [class.empty]="value === ''">{{ value === '' ? (r.mode === 'phone' ? '尚未輸入' : '0') : value }}</output>
+      <p class="numpad-hint">{{ error || rangeHint }}</p>
+      @if (r.quickCash && r.exact !== null) {
+      <p class="numpad-cash">應收 {{ money(r.exact) }}@if (change !== null) { ・{{ change >= 0 ? '找零 ' + money(change) : '還差 ' + money(-change) }} }</p>
+      }
+    </div>
+
+    @if (r.quickCash) {
+    <div class="numpad-quick">
+      <button type="button" (click)="addCash(100)">＋100</button>
+      <button type="button" (click)="addCash(500)">＋500</button>
+      <button type="button" (click)="addCash(1000)">＋1000</button>
+      @if (r.exact !== null) { <button type="button" class="exact" (click)="exact()">剛好</button> }
+    </div>
+    }
+    @if (r.steppers) {
+    <div class="numpad-quick">
+      <button type="button" (click)="step(-1)" aria-label="減 1">－1</button>
+      <button type="button" (click)="step(1)" aria-label="加 1">＋1</button>
+    </div>
+    }
+
+    <div class="numpad-keys">
+      @for (d of digits; track d) { <button type="button" class="key" (click)="press(d)">{{ d }}</button> }
+      <button type="button" class="key" (click)="press('00')">00</button>
+      <button type="button" class="key" (click)="press('0')">0</button>
+      <button type="button" class="key" [disabled]="r.decimals === 0" (click)="press('.')" aria-label="小數點">.</button>
+      <button type="button" class="key side" style="grid-area: back" (click)="backspace()" aria-label="退格">⌫</button>
+      <button type="button" class="key side" style="grid-area: clear" (click)="clear()">清除</button>
+      <button type="button" class="key ok" style="grid-area: ok" (click)="confirm()">確定</button>
+    </div>
+  </div>
+  }
+</dialog>

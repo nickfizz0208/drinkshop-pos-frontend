@@ -1,3 +1,4 @@
+import { NumpadButtonComponent } from '../../shared/numpad-button.component';
 import { Component, OnDestroy, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ModalComponent } from '../../shared/modal.component';
@@ -9,7 +10,7 @@ import { PackInfo, formatDiff, formatQty } from '../../shared/pack-format';
 /** 原料盤點頁：填實點數量（幾包＋零散），確認後送出；下方可查歷次盤點。 */
 @Component({
   selector: 'app-inventory-count',
-  imports: [FormsModule, ModalComponent],
+  imports: [NumpadButtonComponent, FormsModule, ModalComponent],
   templateUrl: './inventory-count.component.html',
   styleUrl: './inventory-count.component.scss'
 })

@@ -35,7 +35,7 @@
         <form (ngSubmit)="state.prepareRaw()">
           <fieldset [disabled]="ui.busy || !state.canRaw">
             <label class="field">原料<select name="rawId" [(ngModel)]="state.rawId" required><option [ngValue]="null">選擇原料</option>@for (item of state.inventory; track item.inventoryId) { <option [ngValue]="item.inventoryId">{{ item.name }}</option> }</select></label>
-            <label class="field">報廢數量{{ state.selectedMaterial ? '（' + state.selectedMaterial.baseUnit + '）' : '' }}<input name="rawQty" type="number" [(ngModel)]="state.rawQty" min="0.01" max="9999999999.99" step="0.01" required></label>
+            <label class="field">報廢數量{{ state.selectedMaterial ? '（' + state.selectedMaterial.baseUnit + '）' : '' }}<span class="numpad-field"><input #rawQtyInput name="rawQty" type="number" [(ngModel)]="state.rawQty" min="0.01" max="9999999999.99" step="0.01" required><app-numpad-button [for]="rawQtyInput" label="報廢數量" /></span></label>
             <label class="field">報廢原因<textarea name="rawReason" [(ngModel)]="state.rawReason" rows="3" maxlength="255" required placeholder="例如：珍珠煮壞、茶湯打翻"></textarea></label>
             <button type="submit" class="button danger-outline">確認報廢內容</button>
           </fieldset>

@@ -1,3 +1,4 @@
+import { NumpadButtonComponent } from '../../shared/numpad-button.component';
 import { Component, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RecipeDetail, RecipeMaterial, RecipeSummary } from '../../models/recipe';
@@ -8,7 +9,7 @@ import { RecipeContentComponent } from './recipe-content.component';
 
 @Component({
   selector: 'app-recipes',
-  imports: [FormsModule, IconComponent, ModalComponent, RecipeContentComponent],
+  imports: [NumpadButtonComponent, FormsModule, IconComponent, ModalComponent, RecipeContentComponent],
   templateUrl: './recipes.component.html',
   styleUrl: './recipes.component.scss'
 })

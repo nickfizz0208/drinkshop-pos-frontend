@@ -427,7 +427,7 @@ describe('POS 工作台', () => {
     expect(fixture.nativeElement.querySelector('app-orders')).not.toBeNull();
     await app.switchView('pos'); fixture.detectChanges();
     expect(fixture.nativeElement.querySelectorAll('.cart-line').length).toBe(1);
-    expect(fixture.nativeElement.querySelector('.member-card').textContent).toContain('測試會員');
+    expect(fixture.nativeElement.querySelector('.member-card').textContent).toContain('1.2 公里');
     expect(pos.delivery?.distanceM).toBe(1200);
   });
 
@@ -468,7 +468,8 @@ describe('POS 工作台', () => {
     expect(fixture.nativeElement.querySelector('.detail-heading').textContent).toContain('#8');
     await app.switchView('pos'); fixture.detectChanges();
     expect(pos.product).toBeNull(); expect(pos.checkoutOpen).toBeFalse();
-    expect(fixture.nativeElement.querySelector('dialog')).toBeNull();
+    // 小鍵盤的 dialog 一直在頁面上（關著），這裡只確認沒有開著的彈窗
+    expect(fixture.nativeElement.querySelector('dialog[open]')).toBeNull();
   });
 
   it('點餐結帳與既有訂單補收款不互相覆寫付款表單', () => {

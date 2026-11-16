@@ -89,16 +89,16 @@
           <td class="input" data-label="實點">
             <div class="qty-inputs">
               @if (state.hasPack(item)) {
-              <label><input type="number" min="0" step="1" inputmode="numeric" [name]="'packs-' + item.inventoryId"
+              <label><input #packsInput type="number" min="0" step="1" inputmode="numeric" [name]="'packs-' + item.inventoryId"
                   [(ngModel)]="state.entry(item.inventoryId).packs" [disabled]="ui.busy"
-                  [attr.aria-label]="item.name + ' 包數'"><span>{{ item.packUnit }}</span></label>
+                  [attr.aria-label]="item.name + ' 包數'"><app-numpad-button [for]="packsInput" [label]="item.name + ' 包數'" steppers /><span>{{ item.packUnit }}</span></label>
               @if (!state.packOnly) { <span class="plus" aria-hidden="true">＋</span> }
               }
               @if (!state.packOnlyFor(item)) {
               <!-- 盤點一律整數：上下箭頭一次加減 1 -->
-              <label><input type="number" min="0" step="1" inputmode="numeric" [name]="'loose-' + item.inventoryId"
+              <label><input #looseInput type="number" min="0" step="1" inputmode="numeric" [name]="'loose-' + item.inventoryId"
                   [(ngModel)]="state.entry(item.inventoryId).loose" [disabled]="ui.busy"
-                  [attr.aria-label]="item.name + (state.hasPack(item) ? ' 零散數量' : ' 數量')"><span>{{ item.baseUnit
+                  [attr.aria-label]="item.name + (state.hasPack(item) ? ' 零散數量' : ' 數量')"><app-numpad-button [for]="looseInput" [label]="item.name + (state.hasPack(item) ? ' 零散數量' : ' 數量')" steppers /><span>{{ item.baseUnit
                   }}</span></label>
               }
             </div>

@@ -1,3 +1,4 @@
+import { NumpadButtonComponent } from '../shared/numpad-button.component';
 import { Component, EventEmitter, OnDestroy, Output, inject } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
@@ -10,7 +11,7 @@ import { DestinationPickerComponent, PickedLocation } from '../delivery-map/dest
 
 @Component({
   selector: 'app-member-selector',
-  imports: [FormsModule, ModalComponent, RoutePreviewComponent, DestinationPickerComponent],
+  imports: [NumpadButtonComponent, FormsModule, ModalComponent, RoutePreviewComponent, DestinationPickerComponent],
   templateUrl: './member-selector.component.html',
   styleUrl: './member-selector.component.scss'
 })

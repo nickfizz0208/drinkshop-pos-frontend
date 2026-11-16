@@ -135,9 +135,9 @@
       <div class="choice-row"><button [class.selected]="state.wantsRefund" [disabled]="ui.busy || state.refundAmount <= 0"
           (click)="state.wantsRefund = true; state.refundConfirmed = false">需要退款</button><button [class.selected]="!state.wantsRefund"
           [disabled]="ui.busy" (click)="state.wantsRefund = false; state.refundConfirmed = false">不退款</button></div>@if (state.wantsRefund &&
-      state.refundAmount > 0) { <label class="field">本次退款金額（上限 {{ state.money(state.refundAmount) }}）<input type="number"
+      state.refundAmount > 0) { <label class="field">本次退款金額（上限 {{ state.money(state.refundAmount) }}）<span class="numpad-field"><input #refundField type="number"
           [(ngModel)]="state.refundInput" (ngModelChange)="state.refundConfirmed = false" min="0.01" [max]="state.refundAmount"
-          step="0.01" [disabled]="ui.busy"></label><label class="confirmation"><input type="checkbox"
+          step="0.01" [disabled]="ui.busy"><app-numpad-button [for]="refundField" label="本次退款金額" /></span></label><label class="confirmation"><input type="checkbox"
           [(ngModel)]="state.refundConfirmed" [disabled]="ui.busy"><span>已完成 {{ state.money(state.actualRefund) }}
           的人工退款，確認後記錄。</span></label> } @else { <p>本次退款 {{ state.money(0) }}，保留原收款紀錄。</p> } } @else { <p>
         <strong>尚未收款，本次不需退款。</strong></p>
@@ -180,8 +180,8 @@
       <div class="choice-row">@for (method of state.paymentOptions; track method) { <button
           [class.selected]="state.payment === method" [disabled]="ui.busy" (click)="state.payment = method; state.received = null">{{
           state.payments[method] }}</button> }</div>
-    </fieldset>@if (state.payment === 'CASH') { <label class="field">實收現金<input type="number" [(ngModel)]="state.received" min="0"
-        step="0.01" [disabled]="ui.busy"></label>
+    </fieldset>@if (state.payment === 'CASH') { <label class="field">實收現金<span class="numpad-field"><input #collectCash type="number" [(ngModel)]="state.received" min="0"
+        step="0.01" [disabled]="ui.busy"><app-numpad-button [for]="collectCash" label="實收現金" quickCash [exact]="order.total" /></span></label>
     <p>預計找零 {{ state.money(state.collectionChange(state.received, order.total)) }}</p> }<p>請確認已收到款項；信用卡與 LINE Pay 由店員確認，系統只記錄收款。</p>
   </div>
   <div class="modal-footer"><button class="button secondary" [disabled]="ui.busy"

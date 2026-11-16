@@ -3,8 +3,8 @@
   @if (step === 'search') {
   <div class="modal-body">
     <label class="field">會員電話
-      <input type="tel" inputmode="numeric" autocomplete="off" maxlength="10" autofocus placeholder="輸入電話（只輸入數字），至少 3 碼"
-        [value]="phone" (input)="onPhoneInput($any($event.target))" (keydown.enter)="pickOnlyResult()">
+      <span class="numpad-field"><input #phoneInput type="tel" inputmode="numeric" autocomplete="off" maxlength="10" autofocus placeholder="輸入電話（只輸入數字），至少 3 碼"
+        [value]="phone" (input)="onPhoneInput($any($event.target))" (keydown.enter)="pickOnlyResult()"><app-numpad-button [for]="phoneInput" label="會員電話" /></span>
     </label>
     @if (error) { <p class="alert error" role="alert">{{ error }}</p> }
     <div class="member-results" aria-live="polite">
@@ -41,8 +41,8 @@
   } @else if (step === 'create') {
   <form id="create-member" class="modal-body create-step" (ngSubmit)="create()">
     <label class="field">電話
-      <input type="tel" inputmode="numeric" autocomplete="off" maxlength="20" required placeholder="完整電話，只輸入數字"
-        [value]="newMember.phone" (input)="onNewPhoneInput($any($event.target))" [disabled]="creating">
+      <span class="numpad-field"><input #newPhoneInput type="tel" inputmode="numeric" autocomplete="off" maxlength="20" required placeholder="完整電話，只輸入數字"
+        [value]="newMember.phone" (input)="onNewPhoneInput($any($event.target))" [disabled]="creating"><app-numpad-button [for]="newPhoneInput" label="新會員電話" /></span>
     </label>
     <label class="field">姓名
       <input type="text" name="name" autocomplete="off" maxlength="50" required [(ngModel)]="newMember.name" [disabled]="creating">

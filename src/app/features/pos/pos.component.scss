@@ -3,14 +3,14 @@
 :host { display: block; min-width: 0; }
 
 // 長名稱與窄螢幕不撐開 grid；常用 POS 操作維持至少 44px。
-.menu-section, .line-content { min-width: 0; }
+.menu-section { min-width: 0; }
 .pending-notice { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .pending-notice .text-button { flex-shrink: 0; min-height: 44px; }
 
 
 .pos-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 326px;
+  grid-template-columns: minmax(0, 1fr) 390px;
   gap: 24px;
   align-items: start;
 }
@@ -475,74 +475,84 @@
 }
 
 .cart-line {
-  display: flex;
-  gap: 10px;
-  padding: 17px 20px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto auto;
+  align-items: center;
+  column-gap: 8px;
+  padding: 9px 12px 9px 16px;
   border-bottom: 1px solid #eff2eb;
 }
 
 .line-number {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--text-muted);
-  padding-top: 4px;
+  font-variant-numeric: tabular-nums;
 }
 
-.line-content {
+/* 名稱＋規格：名稱太長時省略，規格保持完整 */
+.line-main {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
   min-width: 0;
-  flex: 1;
-}
-
-.line-content p {
-  font-size: 12px;
-  color: var(--text-muted);
-  margin: 5px 0;
-  word-break: break-word;
-}
-
-.line-content .topping-note {
-  color: var(--text-muted);
-}
-
-.line-content .line-price {
+  padding: 4px 0;
+  border: 0;
+  background: none;
+  text-align: start;
   color: var(--text-main);
+  cursor: pointer;
+}
+.line-main:hover:not(:disabled) .line-name { text-decoration: underline; }
+.line-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
   font-weight: 600;
 }
-
-.line-actions {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: 11px;
-}
-
-.quantity-stepper {
-  display: flex;
-  border: 1px solid #dfe7d7;
-  border-radius: 6px;
-  align-items: center;
-}
-
-.quantity-stepper button {
-  background: white;
-  border: 0;
-  width: 29px;
-  height: 28px;
-  border-radius: 6px;
-}
-
-.quantity-stepper span {
+.line-spec {
+  flex: none;
   font-size: 12px;
-  min-width: 24px;
-  text-align: center;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.line-qty {
+  font-size: 13px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.line-price {
+  min-width: 42px;
+  text-align: end;
+  font-size: 14px;
+}
+
+/* 加料、備註有才顯示，排在第二行，對齊名稱 */
+.line-extra {
+  grid-column: 2 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 10px;
+  margin: 0 0 2px;
+  font-size: 12px;
+  color: var(--text-muted);
+  word-break: break-word;
 }
 
 .remove-button {
   color: var(--danger-color);
-  font-size: 12px;
+  font-size: 13px;
+  line-height: 1;
   background: none;
   border: 0;
-  padding: 7px;
+  border-radius: 6px;
+  width: 28px;
+  height: 28px;
 }
+.remove-button:hover:not(:disabled) { background: #fbeaea; }
 
 .cart-footer {
   border-top: 1px dashed #dce3d5;
@@ -752,7 +762,7 @@
 
 @media (min-width: 1600px) {
   .pos-layout {
-    grid-template-columns: minmax(0, 1fr) 370px;
+    grid-template-columns: minmax(0, 1fr) 444px;
     gap: 35px;
   }
   .product-art {
@@ -769,7 +779,7 @@
 
 @media (max-width: 1190px) {
   .pos-layout {
-    grid-template-columns: minmax(0, 1fr) 300px;
+    grid-template-columns: minmax(0, 1fr) 360px;
     gap: 20px;
   }
   .product-grid {
@@ -854,15 +864,9 @@
   font-size: 12px;
 }
 
-.line-content p,
 .subtotal,
 .note-input > span {
   font-size: 12px;
-}
-
-.quantity-stepper button {
-  width: 44px;
-  height: 44px;
 }
 
 .source-tabs button,
@@ -880,9 +884,9 @@
   .search-box input[type='search'], .note-input textarea { font-size: 16px; }
   .category-tabs button, .source-tabs button, .choice-row button,
   .customizer .choice-row button, .customizer .topping-choices button,
-  .checkout-button, .quantity-stepper button { min-height: 48px; }
-  .quantity-stepper button { width: 48px; }
-  .remove-button { min-height: 44px; }
+  .checkout-button { min-height: 48px; }
+  .remove-button { width: 44px; height: 44px; }
+  .line-main { min-height: 44px; }
   .product-art { height: 100px; }
   .art-circle { width: 93px; height: 93px; top: 4px; left: calc(50% - 46px); }
   .tea-cup { bottom: 6px; scale: .74; transform-origin: center bottom; }
@@ -896,7 +900,7 @@
   align-items: center;
   gap: 12px;
   margin: 0 20px 7px;
-  padding: 11px 12px 11px 14px;
+  padding: 0px 10px 0px 10px;
   background: var(--bg-card-sub);
   border: 1px solid var(--border-color);
   border-radius: 9px;
@@ -904,7 +908,7 @@
 
 .member-card-info {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   gap: 2px;
   min-width: 0;
   flex: 1;
@@ -938,7 +942,6 @@
 }
 
 .member-card-info .member-card-route {
-  margin-top: 2px;
   font-size: 12px;
   color: var(--primary-accent);
   font-weight: 600;
@@ -950,3 +953,18 @@
 .menu-section .page-heading h1 { font-size: 30px; letter-spacing: 0; font-weight: 650; line-height: 1.4; margin: 0 0 9px; }
 .menu-section .heading-description { color: var(--text-muted); font-size: 14px; margin: 0; }
 @media (max-width: 760px) { .menu-section .page-heading h1 { font-size: 27px; } }
+
+/* 標題右邊：訂單來源、外送會員地址 */
+.menu-section .page-heading { align-items: flex-start; gap: 16px; }
+.heading-order {
+  display: grid;
+  gap: 7px;
+  width: min(100%, 360px);
+  margin-inline-start: auto;
+}
+.heading-order .source-tabs,
+.heading-order .member-card { margin: 0; }
+.heading-order .source-tabs button { font-size: 13px; padding-block: 9px; }
+@media (max-width: 760px) {
+  .heading-order { width: 100%; order: 3; }
+}

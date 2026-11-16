@@ -1,3 +1,4 @@
+import { NumpadButtonComponent } from '../shared/numpad-button.component';
 import { Component, OnDestroy, effect, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ModalComponent } from '../shared/modal.component';
@@ -20,7 +21,7 @@ const MANAGER_LEVELS = ['MANAGER', 'HQ'];
  */
 @Component({
   selector: 'app-check-list',
-  imports: [FormsModule, ModalComponent],
+  imports: [NumpadButtonComponent, FormsModule, ModalComponent],
   templateUrl: './check-list.component.html',
   styleUrl: './check-list.component.scss'
 })

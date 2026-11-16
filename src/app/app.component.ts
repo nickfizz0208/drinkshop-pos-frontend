@@ -1,3 +1,5 @@
+import { NumpadButtonComponent } from './shared/numpad-button.component';
+import { NumpadComponent } from './shared/numpad.component';
 import { IconComponent } from './shared/icon.component';
 import { Component, effect, inject, untracked } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -28,7 +30,7 @@ import { RecipesComponent } from './features/recipes/recipes.component';
  */
 @Component({
   selector: 'app-root',
-  imports: [IconComponent, FormsModule, ModalComponent, PosComponent, OrdersComponent, StoreOpsComponent,
+  imports: [NumpadButtonComponent, NumpadComponent, IconComponent, FormsModule, ModalComponent, PosComponent, OrdersComponent, StoreOpsComponent,
     TimeTrackerComponent, ScheduleShiftComponent, CheckListComponent, InventoryCountComponent, SaleStatusComponent, MaterialConsumptionComponent,
     RecipesComponent],
   templateUrl: './app.component.html',

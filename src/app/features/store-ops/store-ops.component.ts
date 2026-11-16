@@ -1,3 +1,4 @@
+import { NumpadButtonComponent } from '../../shared/numpad-button.component';
 import { Component, OnDestroy, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ModalComponent } from '../../shared/modal.component';
@@ -7,7 +8,7 @@ import { taipeiDate } from '../../models/pos';
 
 @Component({
   selector: 'app-store-ops',
-  imports: [FormsModule, ModalComponent],
+  imports: [NumpadButtonComponent, FormsModule, ModalComponent],
   templateUrl: './store-ops.component.html',
   styleUrl: './store-ops.component.scss'
 })

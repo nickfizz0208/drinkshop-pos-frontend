@@ -163,8 +163,8 @@
           @for (s of staffOptions; track s.staffId) { <option [ngValue]="s.staffId">{{ s.name }}</option> }
         </select></label>
       <label class="field">零用金（開班備用現金）
-        <input name="pettyCash" type="number" min="0" step="1" inputmode="numeric" [(ngModel)]="pettyCash" required
-          [disabled]="ui.busy"></label>
+        <span class="numpad-field"><input #pettyInput name="pettyCash" type="number" min="0" step="1" inputmode="numeric" [(ngModel)]="pettyCash" required
+          [disabled]="ui.busy"><app-numpad-button [for]="pettyInput" label="零用金" /></span></label>
     </div>
     <div class="modal-footer"><button type="button" class="button secondary" [disabled]="ui.busy"
         (click)="closeShiftModal()">取消</button><button type="submit" class="button primary"
@@ -228,8 +228,8 @@
           @for (s of staffOptions; track s.staffId) { <option [ngValue]="s.staffId">{{ s.name }}</option> }
         </select></label>
       <label class="field">實際清點現金
-        <input name="countedCash" type="number" min="0" step="1" inputmode="numeric" [(ngModel)]="countedCash" required
-          [disabled]="ui.busy"></label>
+        <span class="numpad-field"><input #countedInput name="countedCash" type="number" min="0" step="1" inputmode="numeric" [(ngModel)]="countedCash" required
+          [disabled]="ui.busy"><app-numpad-button [for]="countedInput" label="實際清點現金" /></span></label>
       <label class="field">差異原因 <small>現金有差額時必填</small>
         <input name="diffReason" maxlength="255" [(ngModel)]="diffReason" placeholder="例如：找錯零錢"
           [disabled]="ui.busy"></label>
@@ -241,3 +241,6 @@
   }
 </app-modal>
 }
+
+<!-- 數字小鍵盤：全畫面，由各數字欄位旁的按鈕打開（shared/numpad） -->
+<app-numpad />

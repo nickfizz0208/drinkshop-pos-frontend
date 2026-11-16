@@ -114,3 +114,7 @@ legend small { color: var(--text-muted); font-size: 11px; font-weight: 400; marg
 
 .reason-preview { padding: 12px 14px; background: #f0f5eb; border: 1px solid #dce7d4; border-radius: 10px; font-size: 13px; overflow-wrap: anywhere; }
 .reason-preview small { display: block; margin-top: 5px; color: var(--text-muted); font-size: 11px; }
+
+/* 數字欄位＋右邊的小鍵盤按鈕（NumpadButtonComponent） */
+.numpad-field { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.numpad-field > input { flex: 1; min-width: 0; }

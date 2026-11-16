@@ -55,8 +55,9 @@
                 @for (material of form.materials; track material.kind + material.id) {
                   <label class="portion-field">
                     <span>{{ material.name }}</span>
-                    <input type="number" inputmode="decimal" min="0.01" max="999999.99" step="0.01"
-                      [name]="material.kind + material.id" [(ngModel)]="material.portions" placeholder="未設定">
+                    <input #portionInput type="number" inputmode="decimal" min="0.01" max="999999.99" step="0.01"
+                      [name]="material.kind + material.id" [(ngModel)]="material.portions" placeholder="未設定"><app-numpad-button
+                      [for]="portionInput" [label]="material.name + ' 份數'" />
                     <span aria-hidden="true">份</span>
                   </label>
                 }

@@ -1,3 +1,4 @@
+import { NumpadButtonComponent } from '../../shared/numpad-button.component';
 import { IconComponent } from '../../shared/icon.component';
 import { Component, OnDestroy, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -8,7 +9,7 @@ import { MemberSelectorComponent } from '../../member-selector/member-selector.c
 
 @Component({
   selector: 'app-pos',
-  imports: [IconComponent, FormsModule, ModalComponent, MemberSelectorComponent],
+  imports: [NumpadButtonComponent, IconComponent, FormsModule, ModalComponent, MemberSelectorComponent],
   templateUrl: './pos.component.html',
   styleUrl: './pos.component.scss'
 })

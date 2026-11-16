@@ -1,3 +1,4 @@
+import { NumpadButtonComponent } from '../../shared/numpad-button.component';
 import { IconComponent } from '../../shared/icon.component';
 import { Component, OnDestroy, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -12,7 +13,7 @@ import { RecipeContentComponent } from '../recipes/recipe-content.component';
 
 @Component({
   selector: 'app-orders',
-  imports: [IconComponent, FormsModule, ModalComponent, RecipeContentComponent, ShiftCashComponent],
+  imports: [NumpadButtonComponent, IconComponent, FormsModule, ModalComponent, RecipeContentComponent, ShiftCashComponent],
   templateUrl: './orders.component.html',
   styleUrl: './orders.component.scss'
 })

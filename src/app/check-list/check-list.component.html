@@ -169,7 +169,7 @@
         </select>
       </label>
       <label>每期次數
-        <input type="number" name="target" [(ngModel)]="f.targetCount" min="1" max="99" required [disabled]="busy">
+        <span class="numpad-field"><input #targetInput type="number" name="target" [(ngModel)]="f.targetCount" min="1" max="99" required [disabled]="busy"><app-numpad-button [for]="targetInput" label="每期次數" steppers /></span>
       </label>
     </div>
     @if (f.itemId !== null) {
