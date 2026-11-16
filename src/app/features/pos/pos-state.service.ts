@@ -184,7 +184,7 @@ export class PosStateService {
   }
   async showLastOrder(): Promise<void> {
     if (!this.lastOrder) return;
-    const id = this.lastOrder.order_id; this.orders.orderDate = this.lastOrder.business_date; this.orders.orderTab = 'history';
+    const id = this.lastOrder.order_id; this.orders.orderDate = this.lastOrder.business_date;
     await this.orders.showOrder(id); await this.orders.loadOrders();
   }
   selectSource(next: Source): void {

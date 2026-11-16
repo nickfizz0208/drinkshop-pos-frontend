@@ -270,18 +270,21 @@ describe('POS 工作台', () => {
     await orders.confirmCancel();
     expect(api.cancel.calls.mostRecent().args[2]).toEqual({ reason: '顧客未取餐', refundAmount: 0 });
   });
-  it('待處理與待取餐依整單狀態篩選，當日紀錄保留所有狀態並顯示筆數', () => {
-    const fixture = TestBed.createComponent(AppComponent); const page = fixture.componentInstance;
+  it('依序顯示待處理、待取餐、當日紀錄，各分頁只計入符合狀態的訂單', () => {
+    const fixture = TestBed.createComponent(AppComponent);
     ui.preview = false; ui.view = 'orders';
     orders.orderList = ['PENDING', 'MAKING', 'DONE', 'PICKED_UP', 'CANCELLED'].map((status, i) => ({ ...ORDER, order_id: i + 1, status }));
     fixture.detectChanges();
     expect(orders.visibleOrders.map(o => o.status)).toEqual(['PENDING', 'MAKING']);
-    expect(orders.orderCount('active')).toBe(2); expect(orders.orderCount('ready')).toBe(1); expect(orders.orderCount('history')).toBe(5);
+    expect(orders.orderCount('active')).toBe(2); expect(orders.orderCount('ready')).toBe(1); expect(orders.orderCount('history')).toBe(2);
     expect(fixture.nativeElement.querySelectorAll('.order-row').length).toBe(2);
     const tabs = fixture.nativeElement.querySelectorAll('.order-tabs button') as NodeListOf<HTMLButtonElement>;
+    expect([...tabs].map(tab => tab.textContent?.trim())).toEqual(['待處理 2', '待取餐 1', '當日紀錄 2']);
     tabs[1].click(); fixture.detectChanges(); expect(orders.visibleOrders[0].status).toBe('DONE');
     expect(tabs[1].getAttribute('aria-pressed')).toBe('true');
-    tabs[2].click(); fixture.detectChanges(); expect(fixture.nativeElement.querySelectorAll('.order-row').length).toBe(5);
+    tabs[2].click(); fixture.detectChanges();
+    expect(orders.visibleOrders.map(o => o.status)).toEqual(['PICKED_UP', 'CANCELLED']);
+    expect(fixture.nativeElement.querySelectorAll('.order-row').length).toBe(2);
   });
   it('完成製作及取餐會移出目前頁籤並清空明細，紀錄仍存在', async () => {
     await signIn(); const ready: Order = { ...ORDER, status: 'DONE' };
@@ -306,7 +309,7 @@ describe('POS 工作台', () => {
     expect(orders.visibleOrders.length).toBe(0); expect(orders.selectedOrder).toBeNull();
     orders.selectOrderTab('history'); expect(orders.visibleOrders[0].status).toBe('CANCELLED');
   });
-  it('切換營業日及查看剛建立的訂單會進入完整紀錄', async () => {
+  it('切換營業日會進入當日紀錄，查看已取餐訂單會留在當日紀錄', async () => {
     await signIn(); orders.selectedOrder = ORDER; orders.orderDate = '2026-10-27'; orders.changeOrderDate();
     expect(orders.orderTab).toBe('history'); expect(orders.selectedOrder).toBeNull(); expect(api.orders).toHaveBeenCalledWith('2026-10-27');
     orders.orderTab = 'active'; pos.lastOrder = { ...ORDER, status: 'PICKED_UP' };
@@ -433,6 +436,7 @@ describe('POS 工作台', () => {
     orders.orderTab = 'history'; api.order.and.resolveTo(ORDER); api.orders.and.resolveTo([ORDER]);
     await pos.showLastOrder(); fixture.detectChanges();
     expect(ui.view).toBe('orders');
+    expect(orders.orderTab).toBe('active');
     expect(fixture.nativeElement.querySelector('.detail-heading').textContent).toContain('#8');
     await app.switchView('pos'); fixture.detectChanges();
     expect(pos.product).toBeNull(); expect(pos.checkoutOpen).toBeFalse();

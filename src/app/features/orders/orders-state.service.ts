@@ -29,9 +29,9 @@ export class OrdersStateService {
   orderList: OrderSummary[] = [];
   orderTab: 'active' | 'ready' | 'history' = 'active';
   readonly orderTabs = [
-    { key: 'history', label: '當日紀錄' },
     { key: 'active', label: '待處理' },
     { key: 'ready', label: '待取餐' },
+    { key: 'history', label: '當日紀錄' },
   ] as const;
   orderLoading = false;
   selectedOrder: Order | null = null;
@@ -46,9 +46,13 @@ export class OrdersStateService {
   // 每次讀列表累加版本號，讓比較晚回來的舊請求不會覆寫新日期或登出後的畫面。
   private orderLoad = 0;
 
-  // 這裡只篩選顯示，沒有刪訂單：待處理看 PENDING／MAKING，待取看 DONE，紀錄看全部。
+  private tabForOrder(order: OrderSummary): typeof this.orderTab {
+    if (order.status === 'PENDING' || order.status === 'MAKING') return 'active';
+    return order.status === 'DONE' ? 'ready' : 'history';
+  }
+
   matchesOrderTab(order: OrderSummary, tab = this.orderTab): boolean {
-    return tab === 'history' || (tab === 'active' ? ['PENDING', 'MAKING'].includes(order.status) : order.status === 'DONE');
+    return this.tabForOrder(order) === tab;
   }
   get visibleOrders(): OrderSummary[] { return this.orderList.filter(order => this.matchesOrderTab(order)); }
   orderCount(tab: typeof this.orderTab): number { return this.orderList.filter(order => this.matchesOrderTab(order, tab)).length; }
@@ -60,7 +64,7 @@ export class OrdersStateService {
     this.orderTab = 'history'; this.selectedOrder = null; void this.loadOrders();
   }
   get emptyOrdersTitle(): string {
-    return this.orderTab === 'active' ? '目前沒有待處理訂單。' : this.orderTab === 'ready' ? '目前沒有待取餐訂單。' : '這一天還沒有訂單。';
+    return this.orderTab === 'active' ? '目前沒有待處理訂單。' : this.orderTab === 'ready' ? '目前沒有待取餐訂單。' : '這一天沒有已結束的訂單。';
   }
   get hasMadeItems(): boolean {
     if (!this.cancelTarget) return false;
@@ -95,7 +99,8 @@ export class OrdersStateService {
     if (this.ui.preview) return;
     if (this.selectedOrder && !this.matchesOrderTab(this.selectedOrder)) {
       const order = this.selectedOrder;
-      this.ui.notice = `訂單 #${order.order_id} 已移至「${order.status === 'DONE' ? '待取餐' : '當日紀錄'}」。`;
+      const tab = this.orderTabs.find(entry => entry.key === this.tabForOrder(order));
+      this.ui.notice = `訂單 #${order.order_id} 已移至「${tab?.label}」。`;
       this.selectedOrder = null;
     }
     const token = ++this.orderLoad; this.orderLoading = true; this.ui.error = '';
@@ -112,7 +117,10 @@ export class OrdersStateService {
   async showOrder(id: number): Promise<void> {
     if (this.ui.busy || this.ui.preview) return;
     this.ui.busy = true; this.ui.error = '';
-    try { this.selectedOrder = await this.api.order(id); }
+    try {
+      this.selectedOrder = await this.api.order(id);
+      this.orderTab = this.tabForOrder(this.selectedOrder);
+    }
     catch (error) { this.ui.error = errorMessage(error); }
     finally { this.ui.busy = false; }
     if (this.selectedOrder?.order_id === id && !this.ui.error) this.ui.navigate('orders');

@@ -17,7 +17,7 @@
           (click)="state.selectOrderTab(tab.key)">{{ tab.label }} <span>{{ state.orderLoading ? '…' : state.orderCount(tab.key)
             }}</span></button> }</nav>
       <p class="order-filter-note">{{ state.orderDate }} / {{ state.orderTab === 'active' ? '顯示待製作與製作中的訂單。' : state.orderTab === 'ready' ?
-        '顯示已做好、尚未全部取餐的訂單。' : '保留當天全部訂單，包含已取餐、取消及棄單；可切換營業日查詢。' }}</p>
+        '顯示已做好、尚未全部取餐的訂單。' : '顯示該營業日已取餐、取消及棄單的紀錄。' }}</p>
       <div class="orders-layout">
         <section class="order-list" aria-label="訂單列表">@if (state.orderLoading) { <p class="loading-state" role="status">
             正在讀取訂單…</p> } @else { @for (order of state.visibleOrders; track order.order_id) { <button class="order-row"
@@ -30,7 +30,7 @@
               state.money(state.netReceived(order)) }}</p> }
           </button> } @empty { <div class="empty-state">
             <h3>{{ state.emptyOrdersTitle }}</h3>
-            <p>{{ state.orderTab === 'history' ? '可以切換營業日，或回點餐頁建立訂單。' : '可切換上方頁籤查看其他進度或完整紀錄。' }}</p>
+            <p>{{ state.orderTab === 'history' ? '可切換營業日查詢其他日期。' : '可切換上方頁籤查看其他進度。' }}</p>
           </div> } }</section>
         <section class="order-detail" aria-label="訂單明細">@if (state.selectedOrder; as order) { <div class="detail-heading">
             <div>
