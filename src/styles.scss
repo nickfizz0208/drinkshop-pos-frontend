@@ -114,3 +114,15 @@ legend small { color: var(--text-muted); font-size: 11px; font-weight: 400; marg
 
 .reason-preview { padding: 12px 14px; background: #f0f5eb; border: 1px solid #dce7d4; border-radius: 10px; font-size: 13px; overflow-wrap: anywhere; }
 .reason-preview small { display: block; margin-top: 5px; color: var(--text-muted); font-size: 11px; }
+
+app-pos dialog:has(> .customizer)[open] {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  width: min(760px, calc(100% - 32px));
+}
+
+app-pos dialog:has(> .customizer) .modal-head {
+  position: static;
+  gap: 12px;
+  padding: 12px clamp(14px, 3vw, 24px);
+}
