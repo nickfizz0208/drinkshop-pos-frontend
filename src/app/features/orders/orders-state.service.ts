@@ -29,9 +29,9 @@ export class OrdersStateService {
   orderList: OrderSummary[] = [];
   orderTab: 'active' | 'ready' | 'history' = 'active';
   readonly orderTabs = [
+    { key: 'history', label: '當日紀錄' },
     { key: 'active', label: '待處理' },
     { key: 'ready', label: '待取餐' },
-    { key: 'history', label: '當日紀錄' }
   ] as const;
   orderLoading = false;
   selectedOrder: Order | null = null;

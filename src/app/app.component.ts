@@ -2,7 +2,7 @@ import { IconComponent } from './shared/icon.component';
 import { Component, effect, inject, untracked } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ModalComponent } from './shared/modal.component';
-import { COUNTER_VIEWS, PERSONAL_VIEWS, UiStateService, VIEW_TITLES, WorkspaceView } from './shared/ui-state.service';
+import { COUNTER_VIEWS, PERSONAL_VIEWS, STORE_LEVELS, UiStateService, VIEW_TITLES, WorkspaceView } from './shared/ui-state.service';
 import { PosApiService, errorMessage } from './services/pos-api.service';
 import { money } from './models/pos';
 import { ShiftClosingSummary, ShiftStatus } from './models/time-clock';
@@ -18,10 +18,11 @@ import { ScheduleShiftComponent } from './schedule-shift/schedule-shift.componen
 import { CheckListComponent } from './check-list/check-list.component';
 import { InventoryCountComponent } from './features/inventory-count/inventory-count.component';
 import { SaleStatusComponent } from './features/sale-status/sale-status.component';
+import { SALE_EDIT_LEVELS } from './features/sale-status/sale-status-state.service';
 
 /**
  * 工作台外框：登入、登出、切頁，以及上方工具列的開班／關班。
- * 點餐、訂單、日結與報廢依 feature 分開維護；打卡、班表、檢核表是獨立元件。
+ * 點餐、訂單、原料報廢回報依 feature 分開維護；打卡、班表、檢核表是獨立元件。
  */
 @Component({
   selector: 'app-root',
@@ -42,8 +43,12 @@ export class AppComponent {
   get pageTitle(): string { return VIEW_TITLES[this.ui.view]; }
   get todayLabel(): string { return new Intl.DateTimeFormat('zh-TW', { timeZone: 'Asia/Taipei', month: 'long', day: 'numeric', weekday: 'long' }).format(new Date()); }
 
-  /** 門市 POS 機的共用帳號。點餐收銀、訂單管理、日結與報廢只限這個帳號（後端也會擋）。 */
+  /** 門市 POS 機的共用帳號。點餐收銀、訂單管理只限這個帳號（後端也會擋）。 */
   get isPos(): boolean { return this.api.staff()?.level === 'POS'; }
+  /** 原料報廢回報只限店員、店長的個人帳號；其他帳號選單不顯示、也切不過去。 */
+  get storeAllowed(): boolean { return STORE_LEVELS.includes(this.api.staff()?.level ?? ''); }
+  /** 停售管理只限門市 POS、店長；其他帳號選單不顯示、也切不過去。 */
+  get saleAllowed(): boolean { return SALE_EDIT_LEVELS.includes(this.api.staff()?.level ?? ''); }
   /** 點餐、訂單、日結頁可不可以用：未登入的介面預覽可以看；登入後只有 POS 帳號可以，個人帳號不行。 */
   get counterAllowed(): boolean { const staff = this.api.staff(); return this.ui.preview || !staff || staff.level === 'POS'; }
 
@@ -60,8 +65,8 @@ export class AppComponent {
   countedCash: number | null = null;
   diffReason = '';
   closeSummary: ShiftClosingSummary | null = null;   // 關班後在彈窗顯示日結結果
-  /** POS 帳號在開班前（或已關班）鎖住點餐收銀與訂單管理；日結與報廢、工時、排班、檢核表照常使用。 */
-  get shiftLocked(): boolean { return this.isPos && this.shiftStatus !== 'OPEN' && (this.ui.view === 'pos' || this.ui.view === 'orders'); }
+  /** POS 帳號在開班前（或已關班）鎖住點餐收銀與訂單管理；工時、排班、檢核表照常使用。 */
+  get shiftLocked(): boolean { return this.isPos && this.shiftStatus !== 'OPEN' && (this.ui.view === 'pos' || this.ui.view === 'time-tracker'); }
   staffNameOf(id: number | null | undefined): string { return this.staffOptions.find(s => s.staffId === id)?.name ?? ''; }
   /** 工具列顯示的班次狀態。 */
   get shiftLabel(): string {
@@ -158,7 +163,6 @@ export class AppComponent {
   /** 開班、關班後，正在看的頁面重新讀取，避免顯示舊的班次狀態。 */
   private async refreshAfterShiftChange(): Promise<void> {
     if (this.ui.view === 'orders' && !this.shiftLocked) await this.orders.loadOrders();
-    if (this.ui.view === 'store') await this.store.load();
   }
 
   // 先驗證員工，再同時取菜單與規則；其中任一步失敗，就清除登入狀態。
@@ -195,16 +199,16 @@ export class AppComponent {
     this.ui.loginOpen = false; this.ui.password = ''; this.ui.error = '';
     if (this.isPos) {
       // POS 共用帳號不能盤點（要記在員工本人名下）
-      if (PERSONAL_VIEWS.includes(this.ui.view)) this.ui.view = 'pos';
+      if (PERSONAL_VIEWS.includes(this.ui.view) || this.ui.view === 'store') this.ui.view = 'pos';
       await this.loadShift();
       if (this.shiftLocked) this.ui.notice = this.shiftStatus === 'NONE' ? '登入成功。點餐與訂單需要先開班。' : '';
       else this.ui.notice = this.pos.pending ? '找到前次待確認訂單，請繼續確認送單結果。' : '登入成功，已載入門市菜單。';
       if (this.ui.view === 'orders' && !this.shiftLocked) await this.orders.loadOrders();
-      if (this.ui.view === 'store') await this.store.load();
     } else {
       // 個人帳號不能點餐、看訂單與日結，直接進工時管理
-      if (COUNTER_VIEWS.includes(this.ui.view)) this.ui.view = 'time-tracker';
-      this.ui.notice = '登入成功。點餐收銀、訂單管理與日結請使用門市 POS 帳號。';
+      if (COUNTER_VIEWS.includes(this.ui.view) || (this.ui.view === 'sale-status' && !this.saleAllowed)
+        || (this.ui.view === 'store' && !this.storeAllowed)) this.ui.view = 'time-tracker';
+      this.ui.notice = '登入成功。點餐收銀與訂單管理請使用門市 POS 帳號。';
     }
   }
   logout(): void {
@@ -220,6 +224,8 @@ export class AppComponent {
   async switchView(view: WorkspaceView): Promise<void> {
     if (COUNTER_VIEWS.includes(view) && !this.counterAllowed) return;
     if (PERSONAL_VIEWS.includes(view) && this.isPos) return;
+    if (view === 'sale-status' && !this.saleAllowed) return;
+    if (view === 'store' && !this.storeAllowed) return;
     if (!this.ui.navigate(view)) return;
     if (view === 'pos') void this.refreshMenu();
     if (view === 'orders' && !this.ui.preview && !this.shiftLocked) await this.orders.loadOrders();

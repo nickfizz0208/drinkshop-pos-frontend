@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { ModalComponent } from '../../shared/modal.component';
 import { StoreOpsStateService } from './store-ops-state.service';
 import { formatQty } from '../../shared/pack-format';
+import { taipeiDate } from '../../models/pos';
 
 @Component({
   selector: 'app-store-ops',
@@ -16,6 +17,9 @@ export class StoreOpsComponent implements OnInit, OnDestroy {
   ngOnInit(): void { void this.state.load(); }
   ngOnDestroy(): void { this.state.closeTransient(); }
   changeDate(): void { void this.state.load(); }
+  get today(): string { return taipeiDate(); }
+  /** 原料名稱；找不到時顯示編號。 */
+  nameOf(inventoryId: number): string { return this.state.inventory.find(i => i.inventoryId === inventoryId)?.name ?? '#' + inventoryId; }
   /** 原料數量：芒果這類原料顯示成「5 籃 3 顆」；找不到原料時照數字顯示。 */
   qtyOf(inventoryId: number, qty: number, unit = ''): string {
     const item = this.state.inventory.find(i => i.inventoryId === inventoryId);

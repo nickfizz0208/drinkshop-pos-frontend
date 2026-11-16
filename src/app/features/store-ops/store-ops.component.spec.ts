@@ -6,10 +6,11 @@ import { PosApiService } from '../../services/pos-api.service';
 import { UiStateService } from '../../shared/ui-state.service';
 import { StoreOpsStateService } from './store-ops-state.service';
 import { DailyShift, Inventory, WastageSummary } from '../../models/store-ops';
+import { ClockToday } from '../../models/time-clock';
 import { PREVIEW_MENU, PREVIEW_RULES } from '../../services/preview-menu';
-import { OrderSummary, Staff, taipeiDate } from '../../models/pos';
+import { Staff, taipeiDate } from '../../models/pos';
 
-describe('日結與報廢操作（隔離 API，不連共用庫）', () => {
+describe('原料報廢回報（隔離 API，不連共用庫）', () => {
   let api: jasmine.SpyObj<PosApiService>;
   let state: StoreOpsStateService;
   let ui: UiStateService;
@@ -18,7 +19,7 @@ describe('日結與報廢操作（隔離 API，不連共用庫）', () => {
   let shift: DailyShift;
   let waste: WastageSummary;
   beforeEach(async () => {
-    sessionStorage.clear(); staff.set({ staffId: 5, name: '門市 POS', username: 'test-only', level: 'POS' });
+    sessionStorage.clear(); staff.set({ staffId: 5, name: '店員小華', username: 'test-only', level: 'STAFF' });
     const date = taipeiDate();
     shift = { businessDate: date, status: 'OPEN', pettyCash: 1000, openedBy: 5, openedAt: date + 'T09:00:00', closedBy: null, closedAt: null, expectedCash: null, countedCash: null, diffReason: null, revenueByPayment: null, cups: null, rolesJson: '[]' };
     waste = { date, totalWastedCount: 0, totalWastageCost: 0, wastedItems: [], costComplete: true, rawWastageEnabled: true, rawMaterialWastages: [] };
@@ -33,28 +34,13 @@ describe('日結與報廢操作（隔離 API，不連共用庫）', () => {
     state = TestBed.inject(StoreOpsStateService); ui = TestBed.inject(UiStateService); ui.preview = false;
   });
   afterEach(() => sessionStorage.clear());
-  function order(overrides: Partial<OrderSummary> = {}): OrderSummary {
-    return { order_id: 1, order_no: 'test', business_date: state.date, source: 'TAKE_OUT', payment: 'CASH', payment_status: 'PAID', paid_amount: 25, refunded_amount: 10, total: 25, status: 'PENDING', created_at: state.date, ...overrides };
-  }
   function fillRaw(): void { state.rawId = 1; state.rawQty = 2; state.rawReason = '打翻'; state.prepareRaw(); }
 
-  it('現金預估扣退款但不扣損耗、不加非現金或未付款，並保留整數分精度', async () => {
-    api.orders.and.resolveTo([order(), order({ payment: 'LINE_PAY', paid_amount: 99 }), order({ payment: null, payment_status: 'UNPAID', paid_amount: 0 }), order({ paid_amount: .3, refunded_amount: .1 })]);
-    waste.totalWastageCost = 999; await state.load();
-    expect(state.expectedCash).toBe(1015.2); expect(state.unpaid).toBe(1);
-    expect(state.receipts.find(row => row.label === 'LINE Pay')?.value).toBe(89);
-  });
-  it('缺少帳務欄位時不以售價猜測現金', async () => {
-    api.orders.and.resolveTo([order({ paid_amount: undefined })]); await state.load(); expect(state.expectedCash).toBeNull();
-  });
-  it('已關班的現金與付款彙總使用保存值', async () => {
-    shift = { ...shift, status: 'CLOSED', expectedCash: 1200, countedCash: 1190, revenueByPayment: '{"CASH":200}' };
-    api.orders.and.resolveTo([order({ paid_amount: 999 })]); await state.load();
-    expect(state.expectedCash).toBe(1200); expect(state.receipts).toEqual([{ label: '現金', value: 200 }]); expect(state.canRaw).toBeFalse();
-  });
-  it('只有班次 404 是未開班，其他錯誤禁止寫入', async () => {
-    api.shift.and.rejectWith(new HttpErrorResponse({ status: 404 })); await state.load(); expect(state.ready).toBeTrue(); expect(state.shift).toBeNull();
-    api.shift.and.rejectWith(new HttpErrorResponse({ status: 503 })); await state.load(); expect(state.ready).toBeFalse();
+  it('今天還沒開班或已關班都不能登記；只看今天的班次，不讀 POS 專用的班次與訂單 API', async () => {
+    shift.status = 'OPEN'; await state.load(); expect(state.canRaw).toBeTrue();
+    api.shiftToday.and.resolveTo({ businessDate: taipeiDate(), shiftStatus: 'NONE', records: [], canViewAll: false });
+    await state.load(); expect(state.canRaw).toBeFalse(); fillRaw(); expect(state.rawConfirm).toBeNull();
+    expect(api.shift).not.toHaveBeenCalled(); expect(api.orders).not.toHaveBeenCalled();
   });
   it('原料功能未啟用、歷史日期或關班都禁止報廢', async () => {
     waste.rawWastageEnabled = false; await state.load(); fillRaw(); expect(state.rawConfirm).toBeNull();
@@ -130,18 +116,19 @@ describe('日結與報廢操作（隔離 API，不連共用庫）', () => {
       expect(state.rawReview).not.toBeNull(); expect(state.reviewLoaded).toBeFalse();
     } finally { jasmine.clock().uninstall(); }
   });
-  it('日結頁不能開班或關班，統一由上方工具列處理', async () => {
-    const fixture = TestBed.createComponent(AppComponent); await fixture.whenStable();
+  it('日結頁不能開班或關班，也沒有班次與現金（移到訂單管理）', async () => {
+    // 在原料報廢回報頁重新整理：恢復登入後留在這一頁
+    ui.view = 'store'; const fixture = TestBed.createComponent(AppComponent); await fixture.whenStable();
     await fixture.componentInstance.switchView('store'); fixture.detectChanges(); await fixture.whenStable(); fixture.detectChanges();
     const page = fixture.nativeElement.querySelector('app-store-ops') as HTMLElement;
     expect(page.querySelector('input[name="countedCash"]')).toBeNull(); expect(page.querySelector('input[name="pettyCash"]')).toBeNull();
-    expect(page.textContent).toContain('右上角'); expect(api.openShift).not.toHaveBeenCalled(); expect(api.closeShift).not.toHaveBeenCalled();
+    expect(page.textContent).not.toContain('班次與現金'); expect(api.openShift).not.toHaveBeenCalled(); expect(api.closeShift).not.toHaveBeenCalled();
   });
   it('所有寫入遵守共用 busy，查詢版本使離頁與登出後的回應失效', async () => {
     await state.load(); fillRaw(); ui.busy = true; await state.submitRaw(); expect(api.rawWastage).not.toHaveBeenCalled(); ui.busy = false;
-    let resolve!: (value: DailyShift) => void; api.shift.and.returnValue(new Promise<DailyShift>(r => resolve = r));
-    const loading = state.load(); state.reset(); resolve(shift); await loading;
-    expect(state.shift).toBeNull(); expect(state.ready).toBeFalse(); expect(state.loading).toBeFalse();
+    let resolve!: (value: ClockToday) => void; api.shiftToday.and.returnValue(new Promise<ClockToday>(r => resolve = r));
+    const loading = state.load(); state.reset(); resolve({ businessDate: taipeiDate(), shiftStatus: 'OPEN', records: [], canViewAll: false }); await loading;
+    expect(state.shiftStatus).toBeNull(); expect(state.ready).toBeFalse(); expect(state.loading).toBeFalse();
   });
   it('不同員工不會繼承另一位的原料待核對內容', async () => {
     await state.load(); fillRaw(); api.rawWastage.and.rejectWith(new HttpErrorResponse({ status: 0 })); await state.submitRaw();
@@ -150,13 +137,22 @@ describe('日結與報廢操作（隔離 API，不連共用庫）', () => {
   });
   it('真實選單可切到營運頁，未知成本不顯示零元，未啟用原料時表單停用', async () => {
     waste.costComplete = false; waste.totalWastageCost = null; waste.rawWastageEnabled = false;
-    const fixture = TestBed.createComponent(AppComponent); await fixture.whenStable(); fixture.detectChanges();
+    ui.view = 'store'; const fixture = TestBed.createComponent(AppComponent); await fixture.whenStable(); fixture.detectChanges();
     const menu = [...fixture.nativeElement.querySelectorAll('.rail-link')] as HTMLButtonElement[];
-    menu.find(button => button.textContent!.includes('日結與報廢'))!.click(); fixture.detectChanges(); await fixture.whenStable(); fixture.detectChanges();
+    menu.find(button => button.textContent!.includes('原料報廢回報'))!.click(); fixture.detectChanges(); await fixture.whenStable(); fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('app-store-ops')).not.toBeNull();
     expect(fixture.nativeElement.textContent).toContain('成本未建檔'); expect(fixture.nativeElement.querySelector('fieldset').disabled).toBeTrue();
     expect(api.rawWastage).not.toHaveBeenCalled(); expect(api.closeShift).not.toHaveBeenCalled();
-    fixture.componentInstance.logout(); fixture.detectChanges(); expect(state.shift).toBeNull(); expect(fixture.nativeElement.querySelector('app-store-ops')).toBeNull();
+    fixture.componentInstance.logout(); fixture.detectChanges(); expect(state.shiftStatus).toBeNull(); expect(fixture.nativeElement.querySelector('app-store-ops')).toBeNull();
+  });
+  it('POS 共用帳號看不到原料報廢回報；店長看得到', async () => {
+    staff.set({ staffId: 9, name: '門市 POS', username: 'pos', level: 'POS' });
+    const fixture = TestBed.createComponent(AppComponent); await fixture.whenStable(); fixture.detectChanges();
+    const labels = () => ([...fixture.nativeElement.querySelectorAll('.rail-link')] as HTMLElement[]).map(b => b.textContent!.trim()).join(' ');
+    expect(labels()).not.toContain('原料報廢回報');
+    await fixture.componentInstance.switchView('store'); expect(ui.view).not.toBe('store');
+    staff.set({ staffId: 8, name: '店長', username: 'boss', level: 'MANAGER' }); fixture.detectChanges();
+    expect(labels()).toContain('原料報廢回報');
   });
   it('沒有登入只顯示登入畫面，不呼叫受保護 API', async () => {
     staff.set(null); ui.preview = true; ui.view = 'store'; const fixture = TestBed.createComponent(AppComponent); fixture.detectChanges();

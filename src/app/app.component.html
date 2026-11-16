@@ -23,7 +23,8 @@
       <label class="field">密碼<input name="password" type="password" [(ngModel)]="ui.password"
           autocomplete="current-password" placeholder="請輸入密碼" required [disabled]="ui.busy"></label>
       <button type="submit" class="button primary login-submit"
-        [disabled]="ui.busy || !ui.username.trim() || !ui.password">{{ ui.busy ? '登入中…' : '登入工作台' }}<app-icon name="log-in" /></button>
+        [disabled]="ui.busy || !ui.username.trim() || !ui.password">{{ ui.busy ? '登入中…' : '登入工作台' }}<app-icon
+          name="log-in" /></button>
     </form>
     <p class="muted small-copy">帳號由門市管理人員建立。離職或停用帳號無法登入。</p>
     }
@@ -38,13 +39,12 @@
       (click)="switchView(counterAllowed ? 'pos' : 'time-tracker')"><span>青</span><i></i></button>
     <div class="rail-caption">門市工作台</div>
     <nav>
-      <!-- 點餐收銀、訂單管理、日結與報廢只限門市 POS 帳號；未登入的預覽仍顯示 -->
+      <!-- 點餐收銀、訂單管理只限門市 POS 帳號 -->
       @if (counterAllowed) {
-      <button class="rail-link" [class.active]="ui.view === 'pos'" [disabled]="ui.busy" (click)="switchView('pos')"><app-icon name="layout-grid" />點餐收銀</button>
+      <button class="rail-link" [class.active]="ui.view === 'pos'" [disabled]="ui.busy"
+        (click)="switchView('pos')"><app-icon name="layout-grid" />點餐收銀</button>
       <button class="rail-link" [class.active]="ui.view === 'orders'" [disabled]="ui.busy"
         (click)="switchView('orders')"><app-icon name="receipt-text" />訂單管理</button>
-      <button class="rail-link" [class.active]="ui.view === 'store'" [disabled]="ui.busy"
-        (click)="switchView('store')"><app-icon name="clipboard-list" />日結與報廢</button>
       }
       <button class="rail-link" [class.active]="ui.view === 'time-tracker'" [disabled]="ui.busy"
         (click)="switchView('time-tracker')"><app-icon name="clock" />打卡</button>
@@ -57,9 +57,16 @@
       <button class="rail-link" [class.active]="ui.view === 'inventory-count'" [disabled]="ui.busy"
         (click)="switchView('inventory-count')"><app-icon name="package" />盤點</button>
       }
-      <!-- 停售管理：登入帳號都能看；POS、店長、總部才能修改（頁面內控制，後端也會擋） -->
+      <!-- 原料報廢回報：只有店員、店長的個人帳號（報廢記在員工本人名下；POS 帳號看不到） -->
+      @if (storeAllowed) {
+      <button class="rail-link" [class.active]="ui.view === 'store'" [disabled]="ui.busy"
+        (click)="switchView('store')"><app-icon name="clipboard-list" />原料報廢回報</button>
+      }
+      <!-- 停售管理：只有門市 POS、店長帳號看得到（後端也會擋） -->
+      @if (saleAllowed) {
       <button class="rail-link" [class.active]="ui.view === 'sale-status'" [disabled]="ui.busy"
         (click)="switchView('sale-status')"><app-icon name="ban" />停售管理</button>
+      }
     </nav>
     <div class="rail-bottom">
       <app-icon class="leaf-mark" name="leaf" />
@@ -70,11 +77,12 @@
   <div class="main-shell">
     <header class="topbar">
       <!-- 頁面標題放在橫幅，依目前的頁面切換；各頁內容區不再放大標題 -->
-      <div class="brand-word"><strong>青日茶所<span>Qingri Tea</span></strong><span
-          class="top-divider"></span><h1 class="page-title">{{ pageTitle }}</h1>
+      <div class="brand-word"><strong>青日茶所<span>Qingri Tea</span></strong><span class="top-divider"></span>
+        <h1 class="page-title">{{ pageTitle }}</h1>
         <!-- 操作成功的提示：幾秒後自動消失，點一下也可以關掉 -->
         @if (ui.notice) { <button type="button" class="top-notice" role="status" [title]="ui.notice + '（點一下關閉）'"
-          (click)="ui.notice = ''"><span aria-hidden="true">✓</span>{{ ui.notice }}</button> }</div>
+          (click)="ui.notice = ''"><span aria-hidden="true">✓</span>{{ ui.notice }}</button> }
+      </div>
       <div class="top-right"><span class="date-label">{{ todayLabel }}</span>
         <!-- 開班／關班：只有門市 POS 帳號 -->
         @if (isPos) {
@@ -99,18 +107,18 @@
     </header>
 
     <main id="main-content">
-      @if (ui.error) { <div class="alert error" role="alert">{{ ui.error }}<button class="text-button" (click)="ui.error = ''"
-          aria-label="關閉錯誤訊息">×</button></div> }
+      @if (ui.error) { <div class="alert error" role="alert">{{ ui.error }}<button class="text-button"
+          (click)="ui.error = ''" aria-label="關閉錯誤訊息">×</button></div> }
       @if (shiftLocked) {
-      <!-- 開班前、關班後：POS 帳號的點餐收銀與訂單管理只顯示這裡（日結與報廢、打卡、班表、檢核表不受影響） -->
+      <!-- 開班前、關班後：POS 帳號的點餐收銀與訂單管理只顯示這裡（打卡、班表、檢核表不受影響） -->
       <section class="signin-prompt shift-gate" aria-labelledby="shift-gate-title">
         <app-icon class="leaf-mark" name="leaf" />
         @if (shiftStatus === 'NONE') {
-        <h2 id="shift-gate-title">今天還沒開班</h2>
-        <p>請按右上角的「開班」，開班後才能點餐與處理訂單。</p>
+        <h2 id="shift-gate-title">目前尚未營業</h2>
+        <p>請按右上角的「開店」，開始營業後才能操作頁面。</p>
         } @else if (shiftStatus === 'CLOSED') {
-        <h2 id="shift-gate-title">今天已經關班</h2>
-        <p>今日營業已結束。需要繼續營業，請按右上角的「重新開班」。</p>
+        <h2 id="shift-gate-title">目前已經結束營業</h2>
+        <p>如要繼續營業，請按右上角的「重新開班」。</p>
         } @else {
         <h2 id="shift-gate-title">{{ shiftLoading ? '正在確認開班狀態…' : '無法確認開班狀態' }}</h2>
         <p>請按右上角的「重新確認」。</p>
@@ -118,17 +126,16 @@
       </section>
       } @else {
       @switch (ui.view) {
-        @case ('pos') { <app-pos /> }
-        @case ('orders') { <app-orders /> }
-        @case ('store') { <app-store-ops /> }
-        @case ('time-tracker') { <app-time-tracker /> }
-        @case ('schedule') { <app-schedule-shift /> }
-        @case ('checklist') { <app-check-list /> }
-        @case ('inventory-count') { <app-inventory-count /> }
-        @case ('sale-status') { <app-sale-status /> }
+      @case ('pos') { <app-pos /> }
+      @case ('orders') { <app-orders /> }
+      @case ('store') { <app-store-ops /> }
+      @case ('time-tracker') { <app-time-tracker /> }
+      @case ('schedule') { <app-schedule-shift /> }
+      @case ('checklist') { <app-check-list /> }
+      @case ('inventory-count') { <app-inventory-count /> }
+      @case ('sale-status') { <app-sale-status /> }
       }
       }
-      <footer class="page-footer"><span>青日茶所 / 門市工作台</span><span>用心做好每一杯。</span></footer>
     </main>
   </div>
 </div>
@@ -160,15 +167,16 @@
 }
 <!-- 重新開班：取消關班、接續營業 -->
 @if (shiftModal === 'reopen') {
-<app-modal title="重新開班" subtitle="REOPEN SHIFT / 重新開班" [busy]="ui.busy" (dismissed)="closeShiftModal()">
+<app-modal title="重新營業" subtitle="" [busy]="ui.busy" (dismissed)="closeShiftModal()" [closable]="false"
+  [subtitleHidden]="true">
   <div class="modal-body">
-    <p class="form-intro">取消營業日 {{ businessDate }} 的關班結果，接續今天的營業。</p>
+    <p class="muted">撤銷今日（{{ businessDate }}）打烊狀態，並恢復營業。</p>
     @if (shiftError) { <p class="alert error" role="alert">{{ shiftError }}</p> }
-    <p class="muted">開班人員與零用金維持原本的。之後再關班時，會重新計算整天的營收與現金。</p>
+    <p class="muted">原開班人員維持不變，當日帳務將於下次結束營業時一併結算。</p>
   </div>
   <div class="modal-footer"><button type="button" class="button secondary" [disabled]="ui.busy"
       (click)="closeShiftModal()">取消</button><button type="button" class="button primary" [disabled]="ui.busy"
-      (click)="reopenShift()">{{ ui.busy ? '處理中…' : '確認重新開班' }}</button></div>
+      (click)="reopenShift()">{{ ui.busy ? '處理中…' : '確認重新營業' }}</button></div>
 </app-modal>
 }
 <!-- 關班：選關班人員、填清點現金；完成後顯示日結結果 -->
@@ -178,19 +186,30 @@
   <div class="modal-body">
     <p class="form-intro">營業日 {{ s.businessDate }} 已關班。</p>
     <dl class="close-summary">
-      <dt>銷售杯數</dt><dd>{{ s.totalCups }} 杯</dd>
-      <dt>飲品營收</dt><dd>{{ money(s.totalRevenue) }}</dd>
-      <dt>原料報廢成本</dt><dd>{{ s.totalWastageCost === null ? '成本未建檔，無法完整估算' : money(s.totalWastageCost) }}</dd>
-      <dt>開班零用金</dt><dd>{{ money(s.pettyCash) }}</dd>
-      <dt>應有現金</dt><dd>{{ money(s.expectedCash) }}</dd>
-      <dt>實際清點</dt><dd>{{ money(s.countedCash) }}</dd>
-      <dt>短溢</dt><dd [class.short]="s.diffAmount < 0" [class.over]="s.diffAmount > 0">
-        {{ s.diffAmount === 0 ? '無差異' : (s.diffAmount > 0 ? '溢收 ' : '短少 ') + money(s.diffAmount < 0 ? -s.diffAmount : s.diffAmount) }}</dd>
-      @if (s.diffReason) { <dt>差異原因</dt><dd>{{ s.diffReason }}</dd> }
+      <dt>銷售杯數</dt>
+      <dd>{{ s.totalCups }} 杯</dd>
+      <dt>飲品營收</dt>
+      <dd>{{ money(s.totalRevenue) }}</dd>
+      <dt>原料報廢成本</dt>
+      <dd>{{ s.totalWastageCost === null ? '成本未建檔，無法完整估算' : money(s.totalWastageCost) }}</dd>
+      <dt>開班零用金</dt>
+      <dd>{{ money(s.pettyCash) }}</dd>
+      <dt>應有現金</dt>
+      <dd>{{ money(s.expectedCash) }}</dd>
+      <dt>實際清點</dt>
+      <dd>{{ money(s.countedCash) }}</dd>
+      <dt>短溢</dt>
+      <dd [class.short]="s.diffAmount < 0" [class.over]="s.diffAmount > 0">
+        {{ s.diffAmount === 0 ? '無差異' : (s.diffAmount > 0 ? '溢收 ' : '短少 ') + money(s.diffAmount < 0 ? -s.diffAmount :
+          s.diffAmount) }}</dd>
+          @if (s.diffReason) {
+      <dt>差異原因</dt>
+      <dd>{{ s.diffReason }}</dd> }
     </dl>
     <p class="muted small-copy">應有現金＝零用金＋現金淨收款（已扣找零與退款）；非現金收款與損耗成本不增減錢櫃。</p>
   </div>
-  <div class="modal-footer"><span></span><button type="button" class="button primary" (click)="closeShiftModal()">完成</button></div>
+  <div class="modal-footer"><span></span><button type="button" class="button primary"
+      (click)="closeShiftModal()">完成</button></div>
   } @else {
   <form (ngSubmit)="closeShift()">
     <div class="modal-body">

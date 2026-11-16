@@ -2,7 +2,9 @@
       <div class="page-heading order-heading">
         @if (!ui.preview) { <div class="date-filter"><label for="order-date">營業日</label><input id="order-date"
             type="date" [(ngModel)]="state.orderDate" [disabled]="ui.busy || state.orderLoading" (change)="state.changeOrderDate()"><button
-            class="button secondary small" [disabled]="state.orderLoading || ui.busy" (click)="state.loadOrders()">重新整理</button></div>
+            class="button secondary small" [disabled]="state.orderLoading || ui.busy" (click)="state.loadOrders()">重新整理</button>
+          <!-- 班次與現金：這個營業日的底金、各付款淨收款與應有現金（關班前核對用） -->
+          <button class="button secondary small" [disabled]="ui.busy" (click)="shiftCashOpen = true">班次與現金</button></div>
         }
       </div>
       @if (ui.preview) { <section class="signin-prompt"><app-icon class="leaf-mark" name="clipboard-list" />
@@ -159,3 +161,5 @@
       (click)="state.confirmCollect()">{{ ui.busy ? '確認中…' : '確認已收款' }}</button></div>
 </app-modal>
 }
+
+@if (shiftCashOpen) { <app-shift-cash [date]="state.orderDate" (dismissed)="shiftCashOpen = false" /> }

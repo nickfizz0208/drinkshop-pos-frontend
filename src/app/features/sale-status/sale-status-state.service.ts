@@ -4,10 +4,10 @@ import { SaleStatusApiService } from '../../services/sale-status-api.service';
 import { UiStateService } from '../../shared/ui-state.service';
 import { DEFAULT_CATEGORIES, SaleChange, SaleInventory, SaleKind, SalePrep, SaleProduct, SaleStatus, SaleTopping, SaleUpdate, UNCATEGORIZED } from '../../models/sale-status';
 
-/** 可以修改停售狀態的帳號等級（後端 SecurityConfig 也限制同樣的等級）。 */
-export const SALE_EDIT_LEVELS: readonly string[] = ['POS', 'MANAGER', 'HQ'];
-/** 可以改原料、半成品分類的帳號等級。 */
-export const CATEGORY_EDIT_LEVELS: readonly string[] = ['MANAGER', 'HQ'];
+/** 可以查看、設定停售的帳號等級：門市 POS、店長。其他帳號看不到這一頁（後端 SecurityConfig 也限制同樣的等級）。 */
+export const SALE_EDIT_LEVELS: readonly string[] = ['POS', 'MANAGER'];
+/** 可以改原料、半成品分類的帳號等級：店長。 */
+export const CATEGORY_EDIT_LEVELS: readonly string[] = ['MANAGER'];
 
 /** 畫面上的一列（飲品、加料、原料、半成品共用）。 */
 export interface SaleRow {

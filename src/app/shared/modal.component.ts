@@ -7,8 +7,16 @@ import { AfterViewInit, OnDestroy, Component, ElementRef, EventEmitter, Input, O
   standalone: true,
   template: `
     <dialog #dialog (cancel)="cancel($event)" (click)="backdrop($event)" [attr.aria-label]="title">
-      <div class="modal-head"><div><p class="modal-context">{{ subtitle }}</p><h2>{{ title }}</h2></div>
-        <button type="button" class="icon-button" aria-label="關閉視窗" [disabled]="busy" (click)="dismissed.emit()">×</button>
+      <div class="modal-head">
+        <div>
+          @if (!subtitleHidden) {
+            <p class="modal-context">{{ subtitle }}</p>
+          }
+          <h2>{{ title }}</h2>
+        </div>
+        @if (closable) {
+          <button type="button" class="icon-button" aria-label="關閉視窗" [disabled]="busy" (click)="dismissed.emit()">×</button>
+        }
       </div>
       <ng-content />
     </dialog>
@@ -25,6 +33,8 @@ export class ModalComponent implements AfterViewInit, OnDestroy {
   @Input({ required: true }) title = '';
   @Input() subtitle = 'QINGRI · 門市工作台';
   @Input() busy = false;
+  @Input() closable = true;
+  @Input() subtitleHidden = false;
   @Output() dismissed = new EventEmitter<void>();
   @ViewChild('dialog', { static: true }) dialog!: ElementRef<HTMLDialogElement>;
   private previousOverflow = '';

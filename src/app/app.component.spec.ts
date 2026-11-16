@@ -37,14 +37,14 @@ describe('POS 工作台', () => {
   async function signIn(): Promise<void> { ui.username = 'test'; ui.password = 'example'; await app.login(); }
 
   it('回到點餐收銀會重新讀菜單：停售的飲品、加料馬上消失；讀不到就沿用原菜單', async () => {
-    await signIn(); await app.switchView('store');
+    await signIn(); await app.switchView('time-tracker');
     const stopped = { products: PREVIEW_MENU.products.slice(1), toppings: [] };
     api.menu.and.resolveTo(stopped);
     await app.switchView('pos'); await Promise.resolve(); await Promise.resolve();
     expect(pos.menu).toBe(stopped);
     expect(pos.toppingsText([PREVIEW_MENU.toppings[0].topping_id])).toBe('（已停售的加料）');
     api.menu.and.rejectWith(new Error('offline'));
-    await app.switchView('store'); await app.switchView('pos'); await Promise.resolve(); await Promise.resolve();
+    await app.switchView('time-tracker'); await app.switchView('pos'); await Promise.resolve(); await Promise.resolve();
     expect(pos.menu).toBe(stopped); expect(ui.error).toBe('');
   });
   it('操作成功的提示幾秒後自動消失', () => {
@@ -132,10 +132,31 @@ describe('POS 工作台', () => {
     app.openShiftModal('close'); app.closerId = 7; app.countedCash = 2000; await app.closeShift();
     expect(api.closeShift).not.toHaveBeenCalled(); expect(app.shiftError).toContain('待確認');
   });
-  it('個人帳號不能切到日結與報廢', async () => {
-    api.login.and.callFake(async () => { staff.set({ staffId: 4, username: 'clerk', name: '一般員工', level: 'STAFF' }); });
+  it('停售管理只有門市 POS、店長看得到；其他帳號選單不顯示、也切不過去', async () => {
+    const fixture = TestBed.createComponent(AppComponent); app = fixture.componentInstance;
+    await signIn(); fixture.detectChanges();
+    const navText = [...fixture.nativeElement.querySelectorAll('.rail-link')].map((b: Element) => b.textContent?.trim()).join(' ');
+    expect(navText).toContain('停售管理'); expect(app.saleAllowed).toBeTrue();
+    for (const level of ['STAFF', 'TRAINEE', 'HQ']) {
+      staff.set({ staffId: 4, username: 'clerk', name: '員工', level });
+      expect(app.saleAllowed).toBeFalse();
+      ui.view = 'time-tracker'; await app.switchView('sale-status'); expect(ui.view).toBe('time-tracker');
+    }
+    staff.set({ staffId: 5, username: 'boss', name: '店長', level: 'MANAGER' });
+    expect(app.saleAllowed).toBeTrue();
+    await app.switchView('sale-status'); expect(ui.view).toBe('sale-status');
+  });
+  it('原料報廢回報只限店員、店長；POS、新進、總部切不過去', async () => {
     await signIn();
-    await app.switchView('store'); expect(ui.view).toBe('time-tracker');
+    await app.switchView('store'); expect(ui.view).toBe('pos'); expect(app.storeAllowed).toBeFalse();
+    for (const level of ['TRAINEE', 'HQ']) {
+      staff.set({ staffId: 4, username: 'clerk', name: '員工', level }); ui.view = 'time-tracker';
+      await app.switchView('store'); expect(ui.view).toBe('time-tracker');
+    }
+    for (const level of ['STAFF', 'MANAGER']) {
+      staff.set({ staffId: 4, username: 'clerk', name: '員工', level }); ui.view = 'time-tracker';
+      await app.switchView('store'); expect(ui.view).toBe('store');
+    }
   });
   it('開關班只鎖點餐與訂單，工時、排班、檢查表照常使用', async () => {
     api.shiftToday.and.resolveTo({ businessDate: '2026-11-06', shiftStatus: 'NONE', records: [], canViewAll: false });

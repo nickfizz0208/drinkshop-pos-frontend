@@ -2,26 +2,28 @@ import { Injectable, inject } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { PosApiService, errorMessage } from '../../services/pos-api.service';
 import { UiStateService } from '../../shared/ui-state.service';
-import { PosStateService } from '../pos/pos-state.service';
-import { OrdersStateService } from '../orders/orders-state.service';
-import { OrderSummary, cents, money, taipeiDate, PAYMENT_LABELS } from '../../models/pos';
-import { DailyShift, Inventory, RawReview, WastageSummary } from '../../models/store-ops';
+import { money, taipeiDate } from '../../models/pos';
+import { Inventory, RawReview, WastageSummary } from '../../models/store-ops';
+import { ShiftStatus } from '../../models/time-clock';
 
 const validNumber = (n: number | null, max = 99999999.99) => n !== null && Number.isFinite(n) && n >= 0 && n <= max && Math.abs(n * 100 - Math.round(n * 100)) < .00001;
 
-/** 唯讀對帳預估與原料報廢登記。開班／關班統一在上方工具列（AppComponent），由 POS 帳號選擇開關班人員。 */
+/**
+ * 原料報廢回報（店員、店長的個人帳號）：登記原料報廢，並查看每日的原料報廢紀錄。
+ * 飲品取消與報廢在門市 POS 的訂單管理處理。
+ * 班次與現金核對移到訂單管理的「班次與現金」彈窗（POS 帳號）；開班、關班統一在上方工具列。
+ */
 @Injectable({ providedIn: 'root' })
 export class StoreOpsStateService {
   readonly api = inject(PosApiService);
   readonly ui = inject(UiStateService);
-  readonly pos = inject(PosStateService);
-  private readonly ordersState = inject(OrdersStateService);
   readonly money = money;
   date = taipeiDate();
-  shift: DailyShift | null = null;
+  /** 今天的班次狀態（只用來判斷能不能登記原料報廢）；null＝還沒查到。 */
+  shiftStatus: ShiftStatus | null = null;
+  private shiftDate = '';
   wastage: WastageSummary | null = null;
   inventory: Inventory[] = [];
-  orders: OrderSummary[] = [];
   loading = false;
   loaded = false;
   error = '';
@@ -41,27 +43,11 @@ export class StoreOpsStateService {
 
   get ready(): boolean { return this.loaded && !this.loading && this.loadedDate === this.date && this.loadedStaff === this.api.staff()?.staffId && !this.ui.preview; }
   get selectedMaterial(): Inventory | undefined { return this.inventory.find(i => i.inventoryId === this.rawId); }
-  get canRaw(): boolean { return this.ready && this.storageReadable && this.date === taipeiDate() && this.shift?.status === 'OPEN' && this.wastage?.rawWastageEnabled === true && !this.rawReview; }
-  get expectedCash(): number | null {
-    if (!this.ready || !this.shift) return null;
-    if (this.shift.status === 'CLOSED') return this.shift.expectedCash;
-    const cash = this.orders.filter(o => o.payment === 'CASH');
-    if (cash.some(o => typeof o.paid_amount !== 'number' || typeof o.refunded_amount !== 'number' || !Number.isFinite(o.paid_amount) || !Number.isFinite(o.refunded_amount))) return null;
-    return (cents(this.shift.pettyCash) + cash.reduce((n, o) => n + cents(o.paid_amount!) - cents(o.refunded_amount!), 0)) / 100;
-  }
-  get unfinished(): number { return this.orders.filter(o => ['PENDING', 'MAKING', 'DONE'].includes(o.status)).length; }
-  get unpaid(): number { return this.orders.filter(o => o.payment_status === 'UNPAID' && !['CANCELLED', 'WASTED'].includes(o.status)).length; }
-  get receipts(): { label: string; value: number }[] {
-    if (this.shift?.status === 'CLOSED') {
-      try {
-        const saved = JSON.parse(this.shift.revenueByPayment ?? '{}');
-        return Object.entries(saved).filter(([, v]) => typeof v === 'number' && Number.isFinite(v)).map(([key, value]) => ({ label: PAYMENT_LABELS[key as keyof typeof PAYMENT_LABELS] ?? key, value: value as number }));
-      } catch { return []; }
-    }
-    return ['CASH', 'CREDIT_CARD', 'LINE_PAY', 'UBER_EATS'].flatMap(key => {
-      const rows = this.orders.filter(o => o.payment === key);
-      return rows.length && rows.every(o => typeof o.paid_amount === 'number' && typeof o.refunded_amount === 'number') ? [{ label: PAYMENT_LABELS[key as keyof typeof PAYMENT_LABELS], value: rows.reduce((n, o) => n + cents(o.paid_amount!) - cents(o.refunded_amount!), 0) / 100 }] : [];
-    });
+  /** 只能登記台北今日、而且今天開班中的原料報廢。 */
+  get canRaw(): boolean {
+    const today = taipeiDate();
+    return this.ready && this.storageReadable && this.date === today && this.shiftDate === today && this.shiftStatus === 'OPEN'
+      && this.wastage?.rawWastageEnabled === true && !this.rawReview;
   }
   async load(): Promise<void> {
     const token = ++this.version; const date = this.date; const staff = this.api.staff()?.staffId;
@@ -69,12 +55,10 @@ export class StoreOpsStateService {
     if (this.ui.preview || !staff) return;
     this.restoreReview(); this.loading = true;
     try {
-      const [shift, wastage, inventory, orders] = await Promise.all([
-        this.api.shift(date).catch(error => { if (error instanceof HttpErrorResponse && error.status === 404) return null; throw error; }),
-        this.api.wastages(date), this.api.inventories(), this.api.orders(date)
-      ]);
+      const [today, wastage, inventory] = await Promise.all([this.api.shiftToday(), this.api.wastages(date), this.api.inventories()]);
       if (token !== this.version || staff !== this.api.staff()?.staffId || date !== this.date) return;
-      this.shift = shift; this.wastage = wastage; this.inventory = inventory; this.orders = orders;
+      this.shiftStatus = today.shiftStatus; this.shiftDate = today.businessDate;
+      this.wastage = wastage; this.inventory = inventory;
       this.loadedDate = date; this.loadedStaff = staff; this.loaded = true;
     } catch (error) { if (token === this.version) this.error = errorMessage(error); }
     finally { if (token === this.version) this.loading = false; }
@@ -135,11 +119,6 @@ export class StoreOpsStateService {
     }
     this.clearReview(); await this.load();
   }
-  async showOrder(id?: number): Promise<void> {
-    if (this.ui.busy) return;
-    if (id) { this.ordersState.orderDate = this.date; this.ordersState.orderTab = 'history'; await this.ordersState.showOrder(id); await this.ordersState.loadOrders(); }
-    else if (this.ui.navigate('orders')) await this.ordersState.loadOrders();
-  }
   closeTransient(): void { this.version++; this.loading = false; this.loaded = false; this.rawConfirm = null; }
   reset(): void {
     this.closeTransient(); this.clearData(); this.date = taipeiDate(); this.error = '';
@@ -150,7 +129,7 @@ export class StoreOpsStateService {
     await this.load();
     if (this.error) this.error = '操作已完成，但資料重新讀取失敗。請重新整理，不要重複提交。' + this.error;
   }
-  private clearData(): void { this.loaded = false; this.loading = false; this.shift = null; this.wastage = null; this.inventory = []; this.orders = []; }
+  private clearData(): void { this.loaded = false; this.loading = false; this.shiftStatus = null; this.shiftDate = ''; this.wastage = null; this.inventory = []; }
   private reviewKey(): string { return 'qingri.raw-review.' + this.api.staff()?.staffId; }
   private reviewDates(from: string, through: string): string[] {
     const start = Date.parse(from + 'T00:00:00Z'); const end = Date.parse(through + 'T00:00:00Z');

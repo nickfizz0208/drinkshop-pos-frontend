@@ -1,14 +1,7 @@
-<div class="page-heading">
-  <div class="heading-actions">
-    <button class="button secondary" (click)="state.load()" [disabled]="ui.busy || state.loading || state.changeCount > 0">重新整理</button>
-  </div>
-</div>
-
 @if (state.error) { <p class="alert error" role="alert">{{ state.error }}</p> }
 @if (state.loading) { <p class="loading" role="status">正在讀取停售狀態…</p> }
 
 @if (state.data) {
-@if (!state.canEdit) { <p class="alert warning" role="status">你的帳號只能查看。要設定停售，請用門市 POS 或店長帳號。</p> }
 
 <!-- 第一層：種類 -->
 <div class="kind-tabs" role="tablist" aria-label="停售種類">
@@ -32,6 +25,7 @@
     @if (state.stoppedCount(state.kind, c)) { <span class="chip-badge" [attr.aria-label]="'停售 ' + state.stoppedCount(state.kind, c) + ' 項'">{{ state.stoppedCount(state.kind, c) }}</span> }
     @else { <span class="chip-count">{{ state.totalCount(state.kind, c) }}</span> }</button>
   }
+  <button class="button secondary" (click)="state.load()" [disabled]="ui.busy || state.loading || state.changeCount > 0">重新整理</button>
 </div>
 }
 
