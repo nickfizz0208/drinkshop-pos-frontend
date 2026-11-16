@@ -293,6 +293,21 @@
   margin: 1rem 0;
 }
 
+.bulk-actions > strong,
+.bulk-actions > small,
+.bulk-actions .button.secondary:not(:disabled) {
+  color: var(--text-main);
+}
+
+.bulk-actions > strong { font-weight: 700; }
+
+.bulk-actions .button:disabled {
+  opacity: 1;
+  color: var(--text-muted);
+  background: #e5ebe2;
+  border-color: #cbd7c7;
+}
+
 .order-tabs {
   display: flex;
   flex-wrap: wrap;
