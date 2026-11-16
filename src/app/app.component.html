@@ -66,13 +66,10 @@
       @if (saleAllowed) {
       <button class="rail-link" [class.active]="ui.view === 'sale-status'" [disabled]="ui.busy"
         (click)="switchView('sale-status')"><app-icon name="ban" />停售管理</button>
-<<<<<<< HEAD
       }
-=======
       <!-- 物料消耗：統計每月原物料消耗多線折線圖，所有帳號皆可查看 -->
       <button class="rail-link" [class.active]="ui.view === 'material-consumption'" [disabled]="ui.busy"
         (click)="switchView('material-consumption')"><app-icon name="clipboard-list" />物料消耗</button>
->>>>>>> origin/Analytics
     </nav>
     <div class="rail-bottom">
       <app-icon class="leaf-mark" name="leaf" />
@@ -132,7 +129,6 @@
       </section>
       } @else {
       @switch (ui.view) {
-<<<<<<< HEAD
       @case ('pos') { <app-pos /> }
       @case ('orders') { <app-orders /> }
       @case ('store') { <app-store-ops /> }
@@ -141,17 +137,7 @@
       @case ('checklist') { <app-check-list /> }
       @case ('inventory-count') { <app-inventory-count /> }
       @case ('sale-status') { <app-sale-status /> }
-=======
-        @case ('pos') { <app-pos /> }
-        @case ('orders') { <app-orders /> }
-        @case ('store') { <app-store-ops /> }
-        @case ('time-tracker') { <app-time-tracker /> }
-        @case ('schedule') { <app-schedule-shift /> }
-        @case ('checklist') { <app-check-list /> }
-        @case ('inventory-count') { <app-inventory-count /> }
-        @case ('sale-status') { <app-sale-status /> }
-        @case ('material-consumption') { <app-material-consumption /> }
->>>>>>> origin/Analytics
+      @case ('material-consumption') { <app-material-consumption /> }
       }
       }
     </main>
