@@ -18,7 +18,11 @@ import { ScheduleShiftComponent } from './schedule-shift/schedule-shift.componen
 import { CheckListComponent } from './check-list/check-list.component';
 import { InventoryCountComponent } from './features/inventory-count/inventory-count.component';
 import { SaleStatusComponent } from './features/sale-status/sale-status.component';
+<<<<<<< HEAD
 import { SALE_EDIT_LEVELS } from './features/sale-status/sale-status-state.service';
+=======
+import { MaterialConsumptionComponent } from './features/material-consumption/material-consumption.component';
+>>>>>>> origin/Analytics
 
 /**
  * 工作台外框：登入、登出、切頁，以及上方工具列的開班／關班。
@@ -27,7 +31,7 @@ import { SALE_EDIT_LEVELS } from './features/sale-status/sale-status-state.servi
 @Component({
   selector: 'app-root',
   imports: [IconComponent, FormsModule, ModalComponent, PosComponent, OrdersComponent, StoreOpsComponent,
-    TimeTrackerComponent, ScheduleShiftComponent, CheckListComponent, InventoryCountComponent, SaleStatusComponent],
+    TimeTrackerComponent, ScheduleShiftComponent, CheckListComponent, InventoryCountComponent, SaleStatusComponent, MaterialConsumptionComponent],
   templateUrl: './app.component.html',
   styleUrl: './app.component.scss'
 })
