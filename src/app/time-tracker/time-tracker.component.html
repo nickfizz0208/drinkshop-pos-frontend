@@ -75,16 +75,29 @@
   <section class="panel records" aria-labelledby="records-title" [class.loading]="loading">
     <header class="panel-head">
       <div>
-        <h2 id="records-title">{{ viewingToday ? '今日打卡紀錄' : dateLabel(viewDate) + ' 打卡紀錄' }}</h2>
+        <h2 id="records-title">{{ viewMode === 'month' ? viewMonth + ' 打卡紀錄' : (viewingToday ? '今日打卡紀錄' : dateLabel(viewDate) + ' 打卡紀錄') }}</h2>
         <p class="summary">
-          @if (viewingToday) { <span><b class="on-dot"></b>{{ onDutyCount }} 人在班</span> }
+          @if (viewMode === 'date' && viewingToday) { <span><b class="on-dot"></b>{{ onDutyCount }} 人在班</span> }
           <span>共 {{ viewRecords.length }} 筆・總工時 {{ formatMinutes(totalMinutes) }}</span>
         </p>
       </div>
       <div class="date-filter">
-        <input type="date" aria-label="查看日期" [(ngModel)]="viewDate" (change)="changeViewDate()" [disabled]="loading">
-        @if (!viewingToday) { <button class="text-button" (click)="backToToday()">回到今天</button> }
-        @else { <button class="text-button" [disabled]="loading" (click)="load()">重新整理</button> }
+        <div class="button-group" style="display:inline-flex; gap:4px; margin-right:8px;">
+          <button type="button" class="button small" [class.primary]="viewMode === 'date'" [class.secondary]="viewMode !== 'date'" (click)="switchViewMode('date')">日檢視</button>
+          <button type="button" class="button small" [class.primary]="viewMode === 'month'" [class.secondary]="viewMode !== 'month'" (click)="switchViewMode('month')">月檢視</button>
+        </div>
+        @if (viewMode === 'date') {
+          <input type="date" aria-label="查看日期" [(ngModel)]="viewDate" (change)="changeViewDate()" [disabled]="loading">
+          @if (!viewingToday) { <button class="text-button" (click)="backToToday()">回到今天</button> }
+          @else { <button class="text-button" [disabled]="loading" (click)="load()">重新整理</button> }
+        } @else {
+          <input type="month" aria-label="查看月份" [(ngModel)]="viewMonth" (change)="changeViewMonth()" [disabled]="loading">
+          <select aria-label="篩選員工" [(ngModel)]="managerFilterStaffId" (change)="changeManagerFilterStaff()" [disabled]="loading">
+            <option [ngValue]="null">全體員工</option>
+            @for (s of staff; track s.staffId) { <option [ngValue]="s.staffId">{{ s.name }}</option> }
+          </select>
+          <button class="text-button" [disabled]="loading" (click)="changeViewMonth()">重新整理</button>
+        }
       </div>
     </header>
 
@@ -96,13 +109,22 @@
         <span class="name">{{ r.staffName }}@if (r.staffId === pos.staff()?.staffId) { <small>（我）</small> }</span>
         <span class="times">{{ time(r.clockInAt) }} – {{ r.onDuty ? '在班中' : time(r.clockOutAt) }}</span>
         <span class="duration">{{ durationLabel(r) }}</span>
+        @if (r.scheduledStartTime && r.scheduledEndTime) {
+          <span class="muted" style="font-size:0.85em;">（排班 {{ time(r.scheduledStartTime) }}–{{ time(r.scheduledEndTime) }}）</span>
+        }
+        @if (overtimeMinutes(r)) {
+          <span class="badge warning" style="color:#d97706; font-size:0.85em; font-weight:600;">{{ overtimeLabel(r) }}</span>
+        }
+        @if (r.closeType) {
+          <span class="badge" [style.color]="r.closeType.startsWith('AUTO') ? '#dc2626' : '#4b5563'" style="font-size:0.8em;">[{{ closeTypeLabel(r.closeType) }}]</span>
+        }
         @if (r.updatedBy) { <span class="edited" title="店長修改過">已修改</span> }
         @if (isManager) { <button class="text-button" [disabled]="busy" (click)="openEdit(r)">修改</button> }
       </li>
       }
     </ul>
     } @else {
-    <div class="empty-state"><h3>{{ viewingToday ? '今天還沒有人打卡' : '這天沒有打卡紀錄' }}</h3></div>
+      <div class="empty-state"><h3>{{ viewMode === 'month' ? '這個月沒有打卡紀錄' : (viewingToday ? '今天還沒有人打卡' : '這天沒有打卡紀錄') }}</h3></div>
     }
   </section>
   } @else {
@@ -150,6 +172,15 @@
           <span class="name">{{ shortDate(r.businessDate) }}</span>
           <span class="times">{{ time(r.clockInAt) }} – {{ r.onDuty ? '在班中' : time(r.clockOutAt) }}</span>
           <span class="duration">{{ durationLabel(r) }}</span>
+          @if (r.scheduledStartTime && r.scheduledEndTime) {
+            <span class="muted" style="font-size:0.85em;">（排班 {{ time(r.scheduledStartTime) }}–{{ time(r.scheduledEndTime) }}）</span>
+          }
+          @if (overtimeMinutes(r)) {
+            <span class="badge warning" style="color:#d97706; font-size:0.85em; font-weight:600;">{{ overtimeLabel(r) }}</span>
+          }
+          @if (r.closeType) {
+            <span class="badge" [style.color]="r.closeType.startsWith('AUTO') ? '#dc2626' : '#4b5563'" style="font-size:0.8em;">[{{ closeTypeLabel(r.closeType) }}]</span>
+          }
           @if (r.updatedBy) { <span class="edited" title="店長修改過">已修改</span> }
         </li>
         }
