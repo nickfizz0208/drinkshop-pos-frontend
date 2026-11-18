@@ -2,6 +2,11 @@
 :host { display: block; min-width: 0; }
 .date-tools, .panel-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .date-tools input { width: 160px; }
+.mode-switch { display: inline-flex; gap: 4px; margin-right: 4px; }
+.filter-tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+.filter-tools select { width: 160px; min-height: 36px; padding: 4px 10px; }
+.filter-tools input[type="search"] { width: 210px; min-height: 36px; padding: 4px 10px; }
+.nowrap { white-space: nowrap; font-variant-numeric: tabular-nums; }
 .ops-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; align-items: start; }
 .ops-grid form { max-width: 560px; }
 .panel { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 14px; padding: 24px; margin-bottom: 24px; min-width: 0; }

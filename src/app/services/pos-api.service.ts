@@ -73,6 +73,9 @@ export class PosApiService {
   shift(date: string): Promise<DailyShift> { return this.wait(this.http.get<DailyShift>(`/api/daily-shifts/${date}`, { headers: this.headers })); }
   inventories(): Promise<Inventory[]> { return this.wait(this.http.get<Inventory[]>('/api/inventories', { headers: this.headers })); }
   wastages(date: string): Promise<WastageSummary> { return this.wait(this.http.get<WastageSummary>('/api/wastages/daily-summary', { headers: this.headers, params: { date } })); }
+  monthlyWastages(month: string): Promise<WastageSummary> {
+    return this.wait(this.http.get<WastageSummary>('/api/wastages/monthly-summary', { headers: this.headers, params: { month } }));
+  }
   rawWastage(request: RawWastageRequest): Promise<Inventory> {
     return this.wait(this.http.post<Inventory>('/api/wastages/raw-material', request, { headers: this.headers }));
   }
