@@ -152,15 +152,58 @@ export class ScheduleShiftComponent {
 
   // ---------- 週切換 ----------
 
+  /** 只重新讀取指定週的班表（員工與標籤已載入過時不重複請求）。 */
+  private async loadWeekOnly(): Promise<void> {
+    if (!this.staff.length) { await this.load(); return; }
+    this.loading = true; this.error = '';
+    try {
+      this.setWeek(await this.api.week(this.anchor));
+    } catch (e) { this.error = errorMessage(e); }
+    finally { this.loading = false; }
+  }
+
+  /** 快速選週下拉選單：列出本週前後各數週（前 8 週～後 4 週），若目前瀏覽更遠的週也一併納入。 */
+  get weekOptions(): { weekStart: string; label: string }[] {
+    const baseMonday = mondayOf(today());
+    const starts = new Set<string>();
+    for (let offset = -8; offset <= 4; offset++) {
+      starts.add(addDays(baseMonday, offset * 7));
+    }
+    if (this.week?.weekStart) starts.add(this.week.weekStart);
+    return [...starts].sort().map(start => {
+      const end = addDays(start, 6);
+      const s = parseDate(start), e = parseDate(end);
+      const range = `${s.getFullYear()}/${s.getMonth() + 1}/${s.getDate()} – ${e.getMonth() + 1}/${e.getDate()}`;
+      const diffWeeks = Math.round((s.getTime() - parseDate(baseMonday).getTime()) / (7 * 86400000));
+      const tag = diffWeeks === 0 ? '（本週）' : diffWeeks === -1 ? '（上週）' : diffWeeks === 1 ? '（下週）' : '';
+      return { weekStart: start, label: range + tag };
+    });
+  }
+
   async moveWeek(offset: number): Promise<void> {
     if (!this.week || this.loading) return;
     this.anchor = addDays(this.week.weekStart, offset * 7);
     this.flash('');
-    await this.load();
+    await this.loadWeekOnly();
+  }
+  async selectWeek(weekStart: string): Promise<void> {
+    if (!weekStart || this.loading || weekStart === this.week?.weekStart) return;
+    this.anchor = weekStart;
+    this.flash('');
+    await this.loadWeekOnly();
+  }
+  async jumpToDate(date: string): Promise<void> {
+    if (!date || this.loading) return;
+    this.selectedDate = date;
+    this.anchor = date;
+    this.flash('');
+    if (this.week && mondayOf(date) === this.week.weekStart) return;
+    await this.loadWeekOnly();
   }
   async thisWeek(): Promise<void> {
-    this.anchor = today(); this.selectedDate = today(); this.flash('');
-    await this.load();
+    const now = today();
+    this.anchor = now; this.selectedDate = now; this.flash('');
+    await this.loadWeekOnly();
   }
 
   // ---------- 週／日切換 ----------
@@ -177,7 +220,7 @@ export class ScheduleShiftComponent {
     this.selectedDate = target;
     if (!this.days.some(d => d.date === target)) {
       this.anchor = target; this.flash('');
-      await this.load();
+      await this.loadWeekOnly();
     }
   }
 
@@ -442,6 +485,12 @@ function format(d: Date): string { return `${d.getFullYear()}-${pad(d.getMonth()
 function parseDate(s: string): Date { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); }
 function today(): string { return format(new Date()); }
 function addDays(s: string, days: number): string { const d = parseDate(s); d.setDate(d.getDate() + days); return format(d); }
+function mondayOf(s: string): string {
+  const d = parseDate(s);
+  const day = d.getDay();
+  d.setDate(d.getDate() + (day === 0 ? -6 : 1 - day));
+  return format(d);
+}
 function minutes(time: string): number { const [h, m] = time.split(':').map(Number); return h * 60 + m; }
 /** 後端時間 09:30:00 → 09:30（input type=time 用） */
 function hm(time: string): string { return time.slice(0, 5); }
