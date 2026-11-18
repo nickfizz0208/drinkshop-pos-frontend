@@ -102,23 +102,23 @@
     </header>
 
     @if (sortedRecords.length) {
-    <ul class="record-list">
+    <ul class="record-list" [class.month-mode]="viewMode === 'month'">
       @for (r of sortedRecords; track r.shiftStaffId) {
       <li [class.on]="r.onDuty" [class.mine]="r.staffId === pos.staff()?.staffId">
         <span class="state" [attr.aria-label]="r.onDuty ? '在班' : '已下班'"></span>
+        @if (viewMode === 'month') { <span class="record-date">{{ shortDate(r.businessDate) }}</span> }
         <span class="name">{{ r.staffName }}@if (r.staffId === pos.staff()?.staffId) { <small>（我）</small> }</span>
-        <span class="times">{{ time(r.clockInAt) }} – {{ r.onDuty ? '在班中' : time(r.clockOutAt) }}</span>
+        <span class="times">{{ time(r.clockInAt) }} – {{ r.onDuty ? '在班中' : time(r.clockOutAt) }}@if (r.scheduledStartTime && r.scheduledEndTime) { <small class="sched-hint">（排班 {{ time(r.scheduledStartTime) }}–{{ time(r.scheduledEndTime) }}）</small> }</span>
         <span class="duration">{{ durationLabel(r) }}</span>
-        @if (r.scheduledStartTime && r.scheduledEndTime) {
-          <span class="muted" style="font-size:0.85em;">（排班 {{ time(r.scheduledStartTime) }}–{{ time(r.scheduledEndTime) }}）</span>
-        }
-        @if (overtimeMinutes(r)) {
-          <span class="badge warning" style="color:#d97706; font-size:0.85em; font-weight:600;">{{ overtimeLabel(r) }}</span>
-        }
-        @if (r.closeType) {
-          <span class="badge" [style.color]="r.closeType.startsWith('AUTO') ? '#dc2626' : '#4b5563'" style="font-size:0.8em;">[{{ closeTypeLabel(r.closeType) }}]</span>
-        }
-        @if (r.updatedBy) { <span class="edited" title="店長修改過">已修改</span> }
+        <span class="record-meta">
+          @if (overtimeMinutes(r)) {
+            <span class="tag overtime">{{ overtimeLabel(r) }}</span>
+          }
+          @if (r.closeType) {
+            <span class="tag" [class.auto]="r.closeType.startsWith('AUTO')">{{ closeTypeLabel(r.closeType) }}</span>
+          }
+          @if (r.updatedBy) { <span class="edited" title="店長修改過">已修改</span> }
+        </span>
         @if (isManager) { <button class="text-button" [disabled]="busy" (click)="openEdit(r)">修改</button> }
       </li>
       }
@@ -170,18 +170,17 @@
         <li [class.on]="r.onDuty">
           <span class="state"></span>
           <span class="name">{{ shortDate(r.businessDate) }}</span>
-          <span class="times">{{ time(r.clockInAt) }} – {{ r.onDuty ? '在班中' : time(r.clockOutAt) }}</span>
+          <span class="times">{{ time(r.clockInAt) }} – {{ r.onDuty ? '在班中' : time(r.clockOutAt) }}@if (r.scheduledStartTime && r.scheduledEndTime) { <small class="sched-hint">（排班 {{ time(r.scheduledStartTime) }}–{{ time(r.scheduledEndTime) }}）</small> }</span>
           <span class="duration">{{ durationLabel(r) }}</span>
-          @if (r.scheduledStartTime && r.scheduledEndTime) {
-            <span class="muted" style="font-size:0.85em;">（排班 {{ time(r.scheduledStartTime) }}–{{ time(r.scheduledEndTime) }}）</span>
-          }
-          @if (overtimeMinutes(r)) {
-            <span class="badge warning" style="color:#d97706; font-size:0.85em; font-weight:600;">{{ overtimeLabel(r) }}</span>
-          }
-          @if (r.closeType) {
-            <span class="badge" [style.color]="r.closeType.startsWith('AUTO') ? '#dc2626' : '#4b5563'" style="font-size:0.8em;">[{{ closeTypeLabel(r.closeType) }}]</span>
-          }
-          @if (r.updatedBy) { <span class="edited" title="店長修改過">已修改</span> }
+          <span class="record-meta">
+            @if (overtimeMinutes(r)) {
+              <span class="tag overtime">{{ overtimeLabel(r) }}</span>
+            }
+            @if (r.closeType) {
+              <span class="tag" [class.auto]="r.closeType.startsWith('AUTO')">{{ closeTypeLabel(r.closeType) }}</span>
+            }
+            @if (r.updatedBy) { <span class="edited" title="店長修改過">已修改</span> }
+          </span>
         </li>
         }
       </ul>

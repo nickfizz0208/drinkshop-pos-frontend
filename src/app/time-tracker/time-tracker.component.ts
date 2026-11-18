@@ -285,8 +285,8 @@ export class TimeTrackerComponent implements OnDestroy {
 
   closeTypeLabel(closeType?: string | null): string {
     switch (closeType) {
-      case 'AUTO_MIDNIGHT': return '系統逾午夜強制下班';
-      case 'AUTO_SHIFT_CLOSE': return '隨關班自動下班';
+      case 'AUTO_MIDNIGHT': return '逾午夜強制下班';
+      case 'AUTO_SHIFT_CLOSE': return '隨關班下班';
       case 'MANAGER': return '店長修改';
       case 'SELF': return '自行打卡';
       default: return '';
