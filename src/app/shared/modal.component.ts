@@ -13,7 +13,7 @@ import { AfterViewInit, OnDestroy, Component, ElementRef, EventEmitter, Input, O
           @if (!subtitleHidden) {
             <p class="modal-context">{{ subtitle }}</p>
           }
-          <h2>{{ title }}</h2>
+          <h2>{{ title }}@if (titleNote) { <small class="title-note">{{ titleNote }}</small> }</h2>
         </div>
         @if (closable) {
           <button type="button" class="icon-button" aria-label="關閉視窗" [disabled]="busy" (click)="dismissed.emit()">×</button>
@@ -24,10 +24,12 @@ import { AfterViewInit, OnDestroy, Component, ElementRef, EventEmitter, Input, O
   `,
   styles: [`
     dialog { border: 1px solid var(--border-color); border-radius: 22px; padding: 0; color: var(--text-main); background: white; width: min(590px, calc(100vw - 32px)); max-height: calc(100dvh - 40px); box-shadow: 0 24px 80px #253b3326; margin: auto; }
-    dialog::backdrop { background: #243c3459; backdrop-filter: blur(3px); }
+    /* 背景只用半透明遮罩，不加 backdrop-filter 模糊：平板模式（觸控、顯示縮放）下 Chrome 會把模糊的背景畫成鏡像錯亂 */
+    dialog::backdrop { background: #243c3470; }
     .modal-head { position: sticky; top: 0; z-index: 2; background: white; display: flex; justify-content: space-between; align-items: center; padding: 25px 28px 20px; border-bottom: 1px solid var(--border-color); }
     .modal-context { margin: 0 0 5px; font-size: 11px; letter-spacing: 0; color: var(--text-muted); }
     h2 { margin: 0; font-size: 23px; }
+    .title-note { margin-left: 10px; font-size: 13px; font-weight: 400; color: var(--text-muted); }
     .customizer-dialog[open] {
       display: grid;
       grid-template-rows: auto minmax(0, 1fr) auto;
@@ -47,6 +49,8 @@ export class ModalComponent implements AfterViewInit, OnDestroy {
   @Input() busy = false;
   @Input() closable = true;
   @Input() subtitleHidden = false;
+  /** 標題右邊的小字說明，例如「最多加5份料」。 */
+  @Input() titleNote = '';
   @Input() variant: 'default' | 'customizer' = 'default';
   @Output() dismissed = new EventEmitter<void>();
   @ViewChild('dialog', { static: true }) dialog!: ElementRef<HTMLDialogElement>;

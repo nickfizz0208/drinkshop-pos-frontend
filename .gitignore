@@ -43,3 +43,6 @@ Thumbs.db
 
 # Local Hallmark screenshots, source snapshots, and render inventories
 .hallmark/
+
+# Claude 同步用的暫存檔
+/build/claude-sync/

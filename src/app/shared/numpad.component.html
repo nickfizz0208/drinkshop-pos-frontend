@@ -1,10 +1,11 @@
-<!-- 數字小鍵盤：全畫面，上方預覽、下方按鍵 -->
-<dialog #dialog class="numpad" (cancel)="onCancel($event)" (keydown)="onKeydown($event)" [attr.aria-label]="(request?.label ?? '') + ' 數字小鍵盤'">
+<!-- 數字小鍵盤：跟其他彈出視窗一樣置中、背景加遮罩；上方預覽、下方按鍵。點視窗外面＝取消 -->
+<dialog #dialog class="numpad" (cancel)="onCancel($event)" (keydown)="onKeydown($event)" (click)="onBackdrop($event)"
+  [attr.aria-label]="(request?.label ?? '') + ' 數字小鍵盤'">
   @if (request; as r) {
   <div class="numpad-inner">
     <div class="numpad-head">
       <div><p class="numpad-context">數字小鍵盤</p><h2>{{ r.label }}</h2></div>
-      <button type="button" class="button secondary" (click)="cancel()">取消</button>
+      <button type="button" class="icon-button" aria-label="取消，關閉小鍵盤" (click)="cancel()">×</button>
     </div>
 
     <!-- 預覽：按確定前都不會改到欄位 -->

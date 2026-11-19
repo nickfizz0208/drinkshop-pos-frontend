@@ -6,10 +6,11 @@ import { ModalComponent } from '../../shared/modal.component';
 import { UiStateService } from '../../shared/ui-state.service';
 import { PosStateService } from './pos-state.service';
 import { MemberSelectorComponent } from '../../member-selector/member-selector.component';
+import { DrinkCardComponent } from '../../drink-card/drink-card.component';
 
 @Component({
   selector: 'app-pos',
-  imports: [NumpadButtonComponent, IconComponent, FormsModule, ModalComponent, MemberSelectorComponent],
+  imports: [NumpadButtonComponent, IconComponent, FormsModule, ModalComponent, MemberSelectorComponent, DrinkCardComponent],
   templateUrl: './pos.component.html',
   styleUrl: './pos.component.scss'
 })
@@ -31,14 +32,6 @@ export class PosComponent implements OnDestroy {
     const { qty } = this.state.selection;
     const next = this.state.validCustomizerQuantity ? qty + delta : 1;
     this.setCustomizerQuantity(next);
-  }
-
-  moveSpotlight(event: PointerEvent): void {
-    if (event.pointerType === 'touch') return;
-    const card = event.currentTarget as HTMLButtonElement;
-    const bounds = card.getBoundingClientRect();
-    card.style.setProperty('--spotlight-x', `${event.clientX - bounds.left}px`);
-    card.style.setProperty('--spotlight-y', `${event.clientY - bounds.top}px`);
   }
 
   ngOnDestroy(): void { this.state.closeTransient(); }

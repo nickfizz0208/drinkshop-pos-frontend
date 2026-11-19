@@ -32,7 +32,8 @@
 </main>
 } @else {
 <a class="skip-link" href="#main-content">跳至主要內容</a>
-<div class="workspace">
+<!-- fit-screen：點餐收銀整頁塞在畫面內、不上下捲動（只有飲品列表、本次點餐清單自己捲），見 app.component.scss -->
+<div class="workspace" [class.fit-screen]="ui.view === 'pos' && !shiftLocked">
   <!-- 主選單用 switchView 切換內容，不重新載入網頁，因此不會因點首頁而清除登入憑證。 -->
   <aside class="rail" aria-label="主選單">
     <button type="button" class="brand-symbol" aria-label="青日茶所首頁" [disabled]="ui.busy"

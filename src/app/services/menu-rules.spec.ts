@@ -3,13 +3,29 @@ import { applyRules, initialSelection, toppingLimit, unitCents } from './menu-ru
 import { cents, sizesOf } from '../models/pos';
 
 describe('點餐規則與金額', () => {
-  it('冰沙固定冷飲、正常冰與正常糖', () => {
+  it('預設 5 分糖、少冰', () => {
+    expect(initialSelection().sugar).toBe('S5'); expect(initialSelection().tempIce).toBe('LESS');
+  });
+  it('冰沙固定正常冰與 10 分糖（舊規則 temperature、ice、NORMAL 換算）', () => {
     const result = applyRules(PREVIEW_MENU.products[4], initialSelection(), PREVIEW_RULES);
-    expect(result.selection.temperature).toBe('COLD'); expect(result.selection.ice).toBe('NORMAL');
-    expect(result.selection.sugar).toBe('NORMAL'); expect(result.locked['ice']).toContain('固定');
+    expect(result.selection.tempIce).toBe('NORMAL'); expect(result.selection.sugar).toBe('S10');
+    expect(result.locked['tempIce']).toContain('固定'); expect(result.locked['sugar']).toContain('固定');
+  });
+  it('熱飲不會被舊的「溫熱飲不加冰塊」鎖住，可以再改回冰飲', () => {
+    const result = applyRules(PREVIEW_MENU.products[0], { ...initialSelection(), tempIce: 'HOT' }, PREVIEW_RULES);
+    expect(result.selection.tempIce).toBe('HOT'); expect(result.locked['tempIce']).toBeUndefined();
+  });
+  it('常溫不算溫熱飲，可以加茶凍', () => {
+    const result = applyRules(PREVIEW_MENU.products[0], { ...initialSelection(), tempIce: 'ROOM', toppingIds: [2] }, PREVIEW_RULES);
+    expect(result.selection.toppingIds).toEqual([2]); expect(result.blocked[2]).toBeUndefined();
+  });
+  it('新寫法的規則：tempIceIn、set.tempIce', () => {
+    const rule = { rule_id: 9, rule_type: 'AUTO_ADJUST' as const, condition_json: { tempIceIn: ['EXTRA' as const] }, action_json: { set: { sugar: 'S7' } }, message: '多冰固定 7 分糖' };
+    expect(applyRules(PREVIEW_MENU.products[0], { ...initialSelection(), tempIce: 'EXTRA' }, [rule]).selection.sugar).toBe('S7');
+    expect(applyRules(PREVIEW_MENU.products[0], initialSelection(), [rule]).selection.sugar).toBe('S5');
   });
   it('熱飲移除茶凍但保留可用的珍珠', () => {
-    const selection = { ...initialSelection(), temperature: 'HOT' as const, toppingIds: [1, 2] };
+    const selection = { ...initialSelection(), tempIce: 'HOT' as const, toppingIds: [1, 2] };
     const result = applyRules(PREVIEW_MENU.products[0], selection, PREVIEW_RULES);
     expect(result.selection.toppingIds).toEqual([1]); expect(selection.toppingIds).toEqual([1, 2]);
   });

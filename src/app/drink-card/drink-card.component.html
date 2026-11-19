@@ -1,0 +1,7 @@
+<!-- 一張飲品卡：點一下打開客製視窗（由點餐頁接 choose 事件）。背景配色在這裡，杯子在 drink-cup。 -->
+<button class="product-card" type="button" [class]="tone" [disabled]="disabled" (click)="choose.emit(drink)"
+  (pointermove)="moveSpotlight($event)" [attr.aria-label]="'客製 ' + drink.name">
+  <!-- 飲料杯先拿掉看看；要放回來：<app-drink-cup [drink]="drink" />，並在 drink-card.component.ts 的 imports 加回 DrinkCupComponent -->
+  <!-- 不顯示價格：價格依容量與加料不同，加入本次點餐後在右邊算出每杯的最終價格 -->
+  <h2 class="drink-name">{{ drink.name }}</h2>
+</button>

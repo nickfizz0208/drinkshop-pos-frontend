@@ -4,7 +4,7 @@ export type WorkspaceView = 'pos' | 'orders' | 'store' | 'time-tracker' | 'sched
 /** 各頁標題：顯示在最上面的橫幅（AppComponent），頁面內不再放大標題。 */
 export const VIEW_TITLES: Record<WorkspaceView, string> = {
   'pos': '點餐收銀', 'orders': '訂單管理', 'store': '原料報廢回報', 'time-tracker': '打卡', 'schedule': '班表',
-  'checklist': '檢核表', 'inventory-count': '原料盤點', 'sale-status': '停售管理', 'material-consumption': '物料消耗', 'recipes': '配方'
+  'checklist': '檢核表', 'inventory-count': '原料盤點', 'sale-status': '停售管理', 'material-consumption': '物料消耗', 'recipes': '飲品配方'
 };
 /** 只有門市 POS 共用帳號能用的頁面（後端 /api/orders、/api/daily-shifts 也只限 POS）。 */
 export const COUNTER_VIEWS: readonly WorkspaceView[] = ['pos', 'orders'];

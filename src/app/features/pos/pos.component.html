@@ -3,13 +3,8 @@
 </div>
 }
 <div class="pos-layout">
-  <section class="menu-section" aria-labelledby="menu-title">
+  <section class="menu-section" aria-label="飲品菜單">
     <div class="page-heading">
-      <div>
-        <h1 id="menu-title">今天，來杯好茶。</h1>
-        <p class="heading-description">選一杯喜歡的，調成剛剛好的味道。</p>
-      </div>
-      <!-- 訂單來源與外送會員地址：放在標題右邊，切換時不用看右邊的本次點餐 -->
       <div class="heading-order">
         <div class="source-tabs" role="group" aria-label="訂單來源">
           <button type="button" [class.selected]="state.source === 'DINE_IN'"
@@ -40,55 +35,24 @@
         <app-icon name="shopping-bag" /> 本次點餐 <span>{{ state.cups }}</span>
       </button>
     </div>
+    <!-- 用分類找飲品（不提供文字搜尋） -->
     <div class="menu-toolbar">
-      <div class="search-box">
-        <app-icon name="search" aria-hidden="true" />
-        <input #searchInput type="search" [(ngModel)]="state.search" placeholder="搜尋飲品名稱" aria-label="搜尋飲品名稱">
-        @if (state.search) {
-        <button class="search-clear" type="button" aria-label="清除搜尋"
-          (click)="state.search = ''; searchInput.focus()">×</button>
-        }
-      </div>
       <div class="category-tabs" role="group" aria-label="飲品分類">
         @for (item of state.categories; track item) {
-        <button type="button" [class.selected]="state.category === item" [attr.aria-pressed]="state.category === item"
-          (click)="state.category = item">
-          @if (state.category === item) { <app-icon name="check" /> }
+        <button type="button" [class.selected]="state.currentCategory === item"
+          [attr.aria-pressed]="state.currentCategory === item" (click)="state.category = item">
+          @if (state.currentCategory === item) { <app-icon name="check" /> }
           {{ item }}
         </button>
         }
       </div>
     </div>
-    <div class="menu-caption"><span role="status">{{ state.category }} <b>{{ state.products.length }}</b>
-        款</span><span>依杯型與加料計價</span>
-    </div>
     <div class="product-grid">
       @for (drink of state.products; track drink.product_id) {
-      <button class="product-card" [disabled]="!!state.pending || ui.busy" (click)="state.openProduct(drink)"
-        (pointermove)="moveSpotlight($event)" [attr.aria-label]="'客製 ' + drink.name">
-        <div aria-hidden="true" class="product-art" [class.milk]="drink.category === '奶茶'"
-          [class.fruit]="drink.category === '冰沙'" [class.green]="drink.name.includes('綠茶')">
-          <span class="art-circle"></span>
-          <div class="tea-cup" [class.pearls]="drink.name.includes('珍珠')"><span class="straw"></span>
-            <div class="cup-lid"></div>
-            <div class="cup-body"><span class="cup-logo">青日</span></div><span class="cup-shadow"></span>
-          </div>
-
-        </div>
-        <div class="product-info">
-          <div><span class="product-category">{{ drink.category }}</span>
-            <h2>{{ drink.name }}</h2>
-            <p>{{ drink.hot_allowed ? '冰飲 / 溫飲 / 熱飲' : '只有冰飲' }}</p>
-          </div>
-          <!-- 不顯示基本售價：價格依容量與加料不同，加入本次點餐後在右邊算出每杯的最終價格 -->
-          <div class="product-bottom"><span class="sizes">{{ state.sizesText(drink) }}</span><span class="add-circle"
-              aria-hidden="true"><app-icon name="plus" /></span></div>
-        </div>
-      </button>
-      } @empty { <div class="empty-search"><app-icon name="search" />
-        <h2>沒有找到這款飲品</h2>
-        <p>試試其他名稱，或切換飲品分類。</p><button class="text-button" type="button"
-          (click)="state.search = ''; state.category = '全部飲品'; searchInput.focus()">顯示全部飲品</button>
+      <app-drink-card [drink]="drink" [disabled]="!!state.pending || ui.busy" (choose)="state.openProduct($event)" />
+      } @empty { <div class="empty-menu">
+        <h2>目前沒有可以點的飲品</h2>
+        <p>可能都停售了，或還沒有建立飲品。</p>
       </div> }
     </div>
   </section>
@@ -98,7 +62,10 @@
     <div class="cart-header">
       <div>
         <h2 id="cart-title"><app-icon name="shopping-bag" /> 本次點餐 <span>{{ state.cups }}</span></h2>
-      </div><span class="cart-label">{{ ui.preview ? '預覽' : '新訂單' }}</span>
+      </div>
+      <!-- 合計金額放在標題列右邊（結帳區只留按鈕，品項清單多一點空間） -->
+      <div class="cart-summary"><strong class="cart-total" aria-label="合計金額">{{ state.money(state.totalCents / 100)
+          }}</strong><span class="cart-label">{{ ui.preview ? '預覽' : '新訂單' }}</span></div>
     </div>
     <div class="cart-lines">
       @for (line of state.cart; track line.key; let index = $index) {
@@ -106,16 +73,20 @@
       <article class="cart-line"><span class="line-number">{{ (index + 1).toString().padStart(2, '0') }}</span>
         <button class="line-main" type="button" [disabled]="!!state.pending || ui.busy"
           (click)="state.openProduct(line.product, line)"
-          [attr.aria-label]="'修改 ' + line.product.name + '，' + state.sizes[line.size] + ' ' + state.sugars[line.sugar] + ' ' + state.ices[line.ice] + '，' + line.qty + ' 杯'">
+          [attr.aria-label]="'修改 ' + line.product.name + '，' + state.sizes[line.size] + ' ' + state.sugars[line.sugar] + ' ' + state.tempIces[line.tempIce] + '，' + line.qty + ' 杯'">
           <span class="line-name">{{ line.product.name }}</span>
-          <span class="line-spec">{{ state.sizes[line.size] }}·{{ state.sugars[line.sugar] }}·{{ state.ices[line.ice] }}</span>
+          <span class="line-spec">{{ state.sizes[line.size] }}·{{ state.sugars[line.sugar] }}·{{ state.tempIces[line.tempIce]
+            }}</span>
         </button>
         <span class="line-qty">×{{ line.qty }}</span>
-        <strong class="line-price" [title]="'每杯 ' + state.money(line.unitCents / 100)">{{ state.money(line.unitCents * line.qty / 100) }}</strong>
+        <strong class="line-price" [title]="'每杯 ' + state.money(line.unitCents / 100)">{{ state.money(line.unitCents *
+          line.qty / 100) }}</strong>
         <button class="remove-button" type="button" [disabled]="!!state.pending || ui.busy" (click)="state.remove(line)"
           [attr.aria-label]="'移除 ' + line.product.name">✕</button>
-        @if (line.toppingIds.length || line.note) {
-        <p class="line-extra">@if (line.toppingIds.length) {<span>＋{{ state.toppingsText(line.toppingIds) }}</span>}@if (line.note) {<span>備註：{{ line.note }}</span>}</p>
+        @if (line.toppingIds.length || line.optionIds.length || line.note) {
+        <p class="line-extra">@if (line.toppingIds.length) {<span>＋{{ state.toppingsText(line.toppingIds) }}</span>}@if
+          (line.optionIds.length) {<span>{{ state.optionsText(line.optionIds) }}</span>}@if
+          (line.note) {<span>備註：{{ line.note }}</span>}</p>
         }
       </article>
       } @empty { <div class="empty-cart">
@@ -124,13 +95,9 @@
         <p>從菜單選擇飲品，客製後加入點餐。</p>
       </div> }
     </div>
-    <div class="cart-footer"><label class="note-input"><span>訂單備註 <small>選填</small></span><textarea rows="2"
-          [(ngModel)]="state.orderNote" maxlength="255" [disabled]="!!state.pending || ui.busy"
-          placeholder="例如：分開裝袋"></textarea></label>
-      <div class="subtotal"><span>品項小計 / {{ state.cups }} 杯</span><span>{{ state.money(state.totalCents / 100) }}</span>
-      </div>
-      <div class="grand-total"><span>合計金額</span><strong>{{ state.money(state.totalCents / 100) }}</strong></div><button
-        class="button primary checkout-button" [disabled]="!state.cart.length || ui.busy"
+    <!-- 合計與結帳按鈕固定在點餐區最下面；中間剩下的空間都給品項清單 -->
+    <div class="cart-footer">
+      <button class="button primary checkout-button" [disabled]="!state.cart.length || ui.busy"
         (click)="state.openCheckout()"><span>{{
           state.pending ? '繼續確認送單' : ui.preview ? '登入後結帳' : '前往結帳' }}</span><app-icon name="arrow-right" /></button>
       <p class="cart-hint">{{ ui.preview ? '預覽不會建立訂單' : '結帳時確認金額' }}</p>
@@ -149,27 +116,17 @@
 
 <!-- 飲品客製：選項受規則控制，加入購物車前仍可調整。 -->
 @if (state.product; as current) {
-<app-modal variant="customizer" [title]="current.name" subtitle="飲品客製" (dismissed)="state.product = null">
+<app-modal variant="customizer" [title]="current.name" subtitle="" [subtitleHidden]="false"
+  (dismissed)="state.product = null">
   <div class="modal-body customizer">@if
     (state.adjustment) { <p class="alert warning" role="status">{{ state.adjustment }}</p> }
-    <div class="customizer-basics">
+    <!-- 杯型；甜度、溫度冰量各自一整行（038：溫度與冰量合成一個選項） -->
       <fieldset>
         <legend>杯型</legend>
         <div class="choice-row">@for (value of state.sizeOptions; track value) { <button
             [class.selected]="state.selection.size === value" [attr.aria-pressed]="state.selection.size === value"
             (click)="state.choose('size', value)">{{ state.sizes[value] }}</button> }</div>
       </fieldset>
-      <fieldset>
-        <legend>溫度</legend>
-        <div class="choice-row">@for (value of state.temperatureOptions; track value) { <button
-            [class.selected]="state.selection.temperature === value"
-            [disabled]="!!state.locked['temperature'] || (!current.hot_allowed && value !== 'COLD')"
-            [attr.aria-pressed]="state.selection.temperature === value" (click)="state.choose('temperature', value)">{{
-            state.temperatures[value] }}</button> }</div>@if (state.locked['temperature']) { <p class="field-hint">{{
-          state.locked['temperature'] }}</p> }
-      </fieldset>
-    </div>
-    <div class="customizer-preferences">
       <fieldset>
         <legend>甜度</legend>
         <div class="choice-row">@for (value of state.sugarOptions; track value) { <button
@@ -179,27 +136,38 @@
           }</div>@if (state.locked['sugar']) { <p class="field-hint">{{ state.locked['sugar'] }}</p> }
       </fieldset>
       <fieldset>
-        <legend>冰量</legend>
-        <div class="choice-row">@for (value of state.iceOptions; track value) { <button
-            [class.selected]="state.selection.ice === value" [disabled]="!!state.locked['ice']"
-            [attr.aria-pressed]="state.selection.ice === value" (click)="state.choose('ice', value)">{{
-            state.ices[value] }}</button> }
-        </div>@if (state.locked['ice']) { <p class="field-hint">{{ state.locked['ice'] }}</p> }
+        <legend>溫度冰量</legend>
+        <div class="choice-row">@for (value of state.tempIceOptions; track value) { <button
+            [class.selected]="state.selection.tempIce === value"
+            [disabled]="!!state.locked['tempIce'] || (!current.hot_allowed && state.isHotOrWarm(value))"
+            [attr.aria-pressed]="state.selection.tempIce === value" (click)="state.choose('tempIce', value)">{{
+            state.tempIces[value] }}</button> }</div>@if (state.locked['tempIce']) { <p class="field-hint">{{
+          state.locked['tempIce'] }}</p> } @else if (!current.hot_allowed) { <p class="field-hint">這杯不提供熱、溫</p> }
       </fieldset>
+    <!-- 加料、客製同一行左右排列（手機改成上下） -->
+    <div class="extra-fields">
+      <!-- 加料收成一個按鈕：顯示目前選了什麼，按了開「選擇加料」視窗 -->
+      <div class="topping-field">
+        <span class="topping-field-label">額外加料 <small>可複選</small></span>
+        <button type="button" class="topping-open" aria-haspopup="dialog" (click)="state.toppingPickerOpen = true">
+          <span class="topping-open-text" [class.empty]="!state.selection.toppingIds.length">{{
+            state.selection.toppingIds.length ? state.toppingsText(state.selection.toppingIds) : '不加料' }}</span>
+          <span class="topping-open-side">@if (state.selection.toppingIds.length) { <b>＋{{
+              state.money(state.selectedToppingsPrice) }}</b> }選擇加料 ›</span>
+        </button>
+      </div>
+      <!-- 客製（041）：不用錢的選項（加酸、少料、加梅子…），跟加料一樣按了開視窗加入 -->
+      @if (state.options.length) {
+      <div class="topping-field">
+        <span class="topping-field-label">客製 <small>不加價</small></span>
+        <button type="button" class="topping-open" aria-haspopup="dialog" (click)="state.optionPickerOpen = true">
+          <span class="topping-open-text" [class.empty]="!state.selection.optionIds.length">{{
+            state.selection.optionIds.length ? state.optionsText(state.selection.optionIds) : '不需要' }}</span>
+          <span class="topping-open-side">選擇客製 ›</span>
+        </button>
+      </div>
+      }
     </div>
-    <fieldset>
-      <legend>額外加料 <small>可複選</small></legend>
-      <div class="topping-choices">@for (topping of state.menu.toppings; track topping.topping_id) { <div><button
-            [class.selected]="state.selection.toppingIds.includes(topping.topping_id)"
-            [disabled]="!!state.toppingReason(topping.topping_id)"
-            [attr.aria-pressed]="state.selection.toppingIds.includes(topping.topping_id)"
-            [attr.title]="state.toppingReason(topping.topping_id)"
-            (click)="state.toggleTopping(topping.topping_id)"><span>{{
-              topping.name }}</span><span>＋{{ state.money(topping.price) }}</span></button>@if
-          (state.toppingReason(topping.topping_id)) { <p class="field-hint">{{ state.toppingReason(topping.topping_id)
-            }}</p> }
-        </div> }</div>
-    </fieldset>
     <label class="field customizer-note">單品備註 <input [(ngModel)]="state.selection.note" maxlength="255"
         placeholder="例如：分開封膜"></label>
   </div>
@@ -228,6 +196,64 @@
       '儲存修改' : '加入本次點餐' }}</button>
   </div>
 </app-modal>
+<!-- 選擇加料：疊在客製視窗上面。左邊「已加入」清單（✕ 移除一份），右邊按「＋」加入；每種加料的上限在資料庫，一杯最多 5 份。
+     到上限、或點餐規則擋下（例如溫熱飲不可加茶凍）的按鈕都直接鎖住，不顯示原因。按「完成」或關掉回到客製視窗 -->
+@if (state.toppingPickerOpen) {
+<app-modal variant="customizer" title="選擇加料" [titleNote]="'最多加' + state.maxToppingsPerCup + '份料'" [subtitle]="current.name"
+  (dismissed)="state.toppingPickerOpen = false">
+  <div class="modal-body customizer topping-picker">
+    <section class="topping-added" aria-labelledby="topping-added-title">
+      <h3 id="topping-added-title">已加入 <small>{{ state.selection.toppingIds.length }}／{{ state.maxToppingsPerCup }} 份</small></h3>
+      @if (state.addedToppings.length) {
+      <ul role="list">
+        @for (added of state.addedToppings; track added.id) {
+        <li><span class="topping-added-name">{{ added.name }}@if (added.qty > 1) { <b>×{{ added.qty }}</b> }</span>
+          <span class="topping-added-price">＋{{ state.money(added.price) }}</span>
+          <button type="button" class="topping-remove" [attr.aria-label]="'移除一份 ' + added.name"
+            (click)="state.removeTopping(added.id)">✕</button></li>
+        }
+      </ul>
+      } @else { <p class="topping-added-empty">還沒加料，按右邊的加料加入。</p> }
+    </section>
+    <div class="topping-choices" role="group" aria-label="加料選單">@for (topping of state.menu.toppings; track topping.topping_id) { <div><button
+          type="button" class="topping-add" [disabled]="!!state.toppingReason(topping.topping_id)"
+          [attr.aria-label]="'加入 ' + topping.name"
+          (click)="state.addTopping(topping.topping_id)"><span>＋ {{ topping.name }}</span><span>{{
+            state.money(topping.price) }}</span></button></div> }</div>
+  </div>
+  <div class="modal-footer topping-picker-footer">
+    <span>加料合計 ＋{{ state.money(state.selectedToppingsPrice) }}</span>
+    <button class="button primary" type="button" (click)="state.toppingPickerOpen = false">完成</button>
+  </div>
+</app-modal>
+}
+<!-- 客製（041）：跟選擇加料一樣，左邊已加入、右邊選單；不用錢、沒有衝突 -->
+@if (state.optionPickerOpen) {
+<app-modal variant="customizer" title="客製" [subtitle]="current.name" (dismissed)="state.optionPickerOpen = false">
+  <div class="modal-body customizer topping-picker">
+    <section class="topping-added" aria-labelledby="option-added-title">
+      <h3 id="option-added-title">已加入</h3>
+      @if (state.addedOptions.length) {
+      <ul role="list">
+        @for (added of state.addedOptions; track added.id) {
+        <li><span class="topping-added-name">{{ added.name }}@if (added.qty > 1) { <b>×{{ added.qty }}</b> }</span>
+          <button type="button" class="topping-remove" [attr.aria-label]="'移除 ' + added.name"
+            (click)="state.removeOption(added.id)">✕</button></li>
+        }
+      </ul>
+      } @else { <p class="topping-added-empty">還沒有客製，按右邊的選項加入。</p> }
+    </section>
+    <div class="topping-choices" role="group" aria-label="客製選單">@for (option of state.options; track option.option_id) { <div><button
+          type="button" class="topping-add" [disabled]="!!state.optionReason(option.option_id)"
+          [attr.aria-label]="'加入 ' + option.name"
+          (click)="state.addOption(option.option_id)"><span>＋ {{ option.name }}</span><span>不加價</span></button></div> }</div>
+  </div>
+  <div class="modal-footer topping-picker-footer">
+    <span>已加入 {{ state.selection.optionIds.length }} 項</span>
+    <button class="button primary" type="button" (click)="state.optionPickerOpen = false">完成</button>
+  </div>
+</app-modal>
+}
 }
 <!-- 結帳：現在付款或先接未付款單；前端金額只是預估，後端重新計價與檢查庫存。 -->
 @if (state.checkoutOpen) {
@@ -237,6 +263,26 @@
     <p class="alert warning">本次送單內容已保留，可以繼續確認送單結果。</p> }<div class="checkout-summary"><span>{{
         state.sources[state.source] }} / {{
         state.cups }} 杯</span><strong>{{ state.money(state.totalCents / 100) }}</strong></div>
+    <section class="checkout-items" aria-labelledby="checkout-items-title">
+      <h3 id="checkout-items-title">點餐明細</h3>
+      <ul class="checkout-list" role="list">
+        @for (line of state.cart; track line.key) {
+        <li>
+          <div class="checkout-item-heading">
+            <strong>{{ line.product.name }} × {{ line.qty }} 杯</strong>
+            <span>{{ state.money(line.unitCents * line.qty / 100) }}</span>
+          </div>
+          <div class="checkout-item-options">
+            {{ state.sizes[line.size] }} ／ {{ state.sugars[line.sugar] }} ／ {{ state.tempIces[line.tempIce] }}
+            @if (line.toppingIds.length) { <span>＋{{ state.toppingsText(line.toppingIds) }}</span> }
+            @if (line.optionIds.length) { <span>・{{ state.optionsText(line.optionIds) }}</span> }
+          </div>
+          @if (line.note) { <p class="checkout-note">品項備註：{{ line.note }}</p> }
+        </li>
+        }
+      </ul>
+      @if (state.orderNote) { <p class="checkout-note">訂單備註：{{ state.orderNote }}</p> }
+    </section>
     <fieldset>
       <legend>收款時間</legend>
       <div class="choice-row"><button [class.selected]="!state.unpaid" [disabled]="ui.busy || !!state.pending"

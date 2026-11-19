@@ -20,9 +20,9 @@ import { ScheduleShiftComponent } from './schedule-shift/schedule-shift.componen
 import { CheckListComponent } from './check-list/check-list.component';
 import { InventoryCountComponent } from './features/inventory-count/inventory-count.component';
 import { SaleStatusComponent } from './features/sale-status/sale-status.component';
+import { RecipesComponent } from './features/recipes/recipes.component';
 import { SALE_EDIT_LEVELS } from './features/sale-status/sale-status-state.service';
 import { MaterialConsumptionComponent } from './features/material-consumption/material-consumption.component';
-import { RecipesComponent } from './features/recipes/recipes.component';
 
 /**
  * 工作台外框：登入、登出、切頁，以及上方工具列的開班／關班。
@@ -203,7 +203,7 @@ export class AppComponent {
   // 登入成功（或重新整理後恢復登入）：載入菜單與規則，依帳號種類進入對應畫面。
   private async enterSession(): Promise<void> {
     const [menu, rules] = await Promise.all([this.api.menu(), this.api.rules()]);
-    this.pos.menu = menu; this.pos.rules = rules; this.ui.preview = false; this.pos.category = '全部飲品';
+    this.pos.menu = menu; this.pos.rules = rules; this.ui.preview = false; this.pos.category = '';
     this.pos.cart = []; this.pos.pending = null; this.pos.lastOrder = null;
     this.pos.restorePending();
     this.ui.loginOpen = false; this.ui.password = ''; this.ui.error = '';
@@ -236,6 +236,7 @@ export class AppComponent {
     if (COUNTER_VIEWS.includes(view) && !this.counterAllowed) return;
     if (PERSONAL_VIEWS.includes(view) && this.isPos) return;
     if (view === 'sale-status' && !this.saleAllowed) return;
+    if (view === 'recipes' && !this.canViewRecipes) return;
     if (view === 'store' && !this.storeAllowed) return;
     if (!this.ui.navigate(view)) return;
     if (view === 'pos') void this.refreshMenu();

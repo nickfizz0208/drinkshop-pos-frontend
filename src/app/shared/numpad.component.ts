@@ -5,7 +5,7 @@ import { NumpadRequest, NumpadService } from './numpad.service';
 type Key = '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' | '00' | '.';
 
 /**
- * 數字小鍵盤（全畫面）：上方預覽輸入的值，下方按鍵。按「確定」才寫回欄位，「取消」不改。
+ * 數字小鍵盤（置中的彈出視窗）：上方預覽輸入的值，下方按鍵。按「確定」才寫回欄位，按 ×、點視窗外面或 Esc 都是取消、不改。
  * 用 <dialog> 的 showModal()，所以就算欄位在其他彈窗裡（例如結帳），小鍵盤也會蓋在最上面。
  * 有實體鍵盤時也可以直接打字：數字、小數點、Backspace、Delete（清除）、Enter（確定）、Esc（取消）。
  */
@@ -79,6 +79,8 @@ export class NumpadComponent {
     this.numpad.close(value);
   }
   cancel(): void { this.numpad.close(null); }
+  /** 點到視窗外面（dialog 本身，而不是裡面的內容）＝取消。 */
+  onBackdrop(event: MouseEvent): void { if (event.target === this.dialog.nativeElement) this.cancel(); }
 
   /** 實體鍵盤。 */
   onKeydown(event: KeyboardEvent): void {

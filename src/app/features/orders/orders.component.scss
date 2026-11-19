@@ -172,6 +172,12 @@
   margin: 4px 5px 5px 0;
 }
 
+// 客製選項（041，不用錢）：用虛線框跟加料分開
+.option-pill {
+  border: 1px dashed #c9d4c1;
+  background: transparent;
+}
+
 .detail-actions {
   display: flex;
   align-items: center;
@@ -291,6 +297,21 @@
 
 .payment-record .choice-row {
   margin: 1rem 0;
+}
+
+.bulk-actions > strong,
+.bulk-actions > small,
+.bulk-actions .button.secondary:not(:disabled) {
+  color: var(--text-main);
+}
+
+.bulk-actions > strong { font-weight: 700; }
+
+.bulk-actions .button:disabled {
+  opacity: 1;
+  color: var(--text-muted);
+  background: #e5ebe2;
+  border-color: #cbd7c7;
 }
 
 .order-tabs {

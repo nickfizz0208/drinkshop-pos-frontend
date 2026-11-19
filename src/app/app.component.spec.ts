@@ -9,6 +9,7 @@ import { UiStateService } from './shared/ui-state.service';
 import { PosApiService } from './services/pos-api.service';
 import { PREVIEW_MENU, PREVIEW_RULES } from './services/preview-menu';
 import { Order, Staff } from './models/pos';
+import { RecipeDetail } from './models/recipe';
 import { TimeoutError } from 'rxjs';
 
 const ORDER: Order = { order_id: 8, order_no: 'test', business_date: '2026-10-28', source: 'TAKE_OUT', payment: 'CASH', total: 25, status: 'PENDING', created_at: '2026-10-28T10:00:00', received_cash: 100, change_cash: 75, note: '', items: [] };
@@ -22,7 +23,7 @@ describe('POS 工作台', () => {
   const staff = signal<Staff | null>(null);
   beforeEach(async () => {
     sessionStorage.clear(); staff.set(null);
-    api = jasmine.createSpyObj<PosApiService>('PosApiService', ['login', 'logout', 'refreshStaff', 'menu', 'rules', 'orders', 'order', 'create', 'collect', 'status', 'statusAll', 'cancel', 'upload', 'photo', 'shiftToday', 'staffOptions', 'openShift', 'shift', 'closeShift', 'reopenShift', 'recipe'], { staff });
+    api = jasmine.createSpyObj<PosApiService>('PosApiService', ['login', 'logout', 'refreshStaff', 'menu', 'rules', 'orders', 'order', 'create', 'collect', 'status', 'statusAll', 'cancel', 'upload', 'photo', 'shiftToday', 'staffOptions', 'openShift', 'shift', 'closeShift', 'reopenShift', 'recipes', 'recipe', 'updateRecipe'], { staff });
     api.refreshStaff.and.resolveTo();
     api.menu.and.resolveTo(PREVIEW_MENU); api.rules.and.resolveTo(PREVIEW_RULES); api.orders.and.resolveTo([]);
     api.login.and.callFake(async () => { staff.set({ staffId: 3, username: 'test', name: '門市 POS', level: 'POS' }); });
@@ -159,12 +160,13 @@ describe('POS 工作台', () => {
       await app.switchView('store'); expect(ui.view).toBe('store');
     }
   });
-  it('開關班只鎖點餐與訂單，工時、排班、檢查表照常使用', async () => {
+  it('未開班只鎖點餐與打卡，訂單、排班、檢查表照常使用', async () => {
     api.shiftToday.and.resolveTo({ businessDate: '2026-11-06', shiftStatus: 'NONE', records: [], canViewAll: false });
     await signIn();
     expect(app.shiftLocked).toBeTrue();
-    for (const view of ['time-tracker', 'schedule', 'checklist'] as const) { await app.switchView(view); expect(app.shiftLocked).toBeFalse(); }
-    await app.switchView('orders'); expect(app.shiftLocked).toBeTrue(); expect(api.orders).not.toHaveBeenCalled();
+    for (const view of ['orders', 'schedule', 'checklist'] as const) { await app.switchView(view); expect(app.shiftLocked).toBeFalse(); }
+    expect(api.orders).toHaveBeenCalled();
+    await app.switchView('time-tracker'); expect(app.shiftLocked).toBeTrue();
   });
   it('關班後可以重新開班，接續營業', async () => {
     api.shiftToday.and.resolveTo({ businessDate: '2026-11-06', shiftStatus: 'CLOSED', records: [], canViewAll: false });
@@ -200,14 +202,44 @@ describe('POS 工作台', () => {
     expect(fixture.nativeElement.querySelector('app-pos')).not.toBeNull();
   });
   it('相同規格可合併多杯，包含加料計價並能修改杯數', () => {
-    pos.openProduct(PREVIEW_MENU.products[0]); pos.toggleTopping(1); pos.selection.qty = 2; pos.addToCart();
-    pos.openProduct(PREVIEW_MENU.products[0]); pos.toggleTopping(1); pos.addToCart();
+    pos.openProduct(PREVIEW_MENU.products[0]); pos.addTopping(1); pos.selection.qty = 2; pos.addToCart();
+    pos.openProduct(PREVIEW_MENU.products[0]); pos.addTopping(1); pos.addToCart();
     expect(pos.cart.length).toBe(1); expect(pos.cups).toBe(3); expect(pos.totalCents).toBe(10500);
     pos.quantity(pos.cart[0], -1); expect(pos.totalCents).toBe(7000);
   });
+  it('同一種加料可以加兩份（預設上限 2，每份都算錢、顯示×2），第三份擋下；✕ 一次移除一份', () => {
+    pos.openProduct(PREVIEW_MENU.products[0]);
+    pos.addTopping(1); pos.addTopping(2); pos.addTopping(1);
+    expect(pos.selection.toppingIds).toEqual([1, 2, 1]);
+    expect(pos.selectedToppingsPrice).toBe(30); expect(pos.selectedUnitCents).toBe(5500);   // 中杯 25 ＋ 珍珠 10×2 ＋ 茶凍 10
+    expect(pos.toppingsText(pos.selection.toppingIds)).toBe('珍珠×2、茶凍');
+    expect(pos.addedToppings).toEqual([{ id: 1, name: '珍珠', qty: 2, price: 20 }, { id: 2, name: '茶凍', qty: 1, price: 10 }]);
+    expect(pos.toppingReason(1)).toContain('最多加 2 份');
+    pos.addTopping(1); expect(pos.toppingCount(1)).toBe(2);
+    pos.removeTopping(1); expect(pos.selection.toppingIds).toEqual([1, 2]);
+  });
+  it('客製選項（不用錢）：加入、不能重複、移除；不同客製不會合併成同一列，送單帶 optionIds', () => {
+    pos.openProduct(PREVIEW_MENU.products[0]);
+    pos.addOption(3); pos.addOption(4); pos.addOption(3);
+    expect(pos.selection.optionIds).toEqual([3, 4]); expect(pos.optionReason(3)).toBe('已經加入');
+    expect(pos.optionsText(pos.selection.optionIds)).toBe('加梅子、不加梅子');
+    expect(pos.selectedUnitCents).toBe(2500);
+    pos.removeOption(4); expect(pos.addedOptions).toEqual([{ id: 3, name: '加梅子', qty: 1 }]);
+    pos.addToCart();
+    pos.openProduct(PREVIEW_MENU.products[0]); pos.addToCart();
+    expect(pos.cart.length).toBe(2); expect(pos.cart[0].optionIds).toEqual([3]); expect(pos.cart[1].optionIds).toEqual([]);
+  });
+  it('每種加料的上限照資料庫 max_qty，一杯最多 5 份', () => {
+    pos.menu = { ...PREVIEW_MENU, toppings: [{ topping_id: 1, name: '珍珠', price: 10, max_qty: 5 }, { topping_id: 2, name: '茶凍', price: 10, max_qty: 1 }] };
+    pos.openProduct(PREVIEW_MENU.products[0]);
+    pos.addTopping(2); expect(pos.toppingReason(2)).toContain('最多加 1 份');
+    for (let i = 0; i < 6; i++) pos.addTopping(1);
+    expect(pos.selection.toppingIds.length).toBe(5); expect(pos.toppingCount(1)).toBe(4);
+    expect(pos.toppingReason(1)).toContain('一杯最多加 5 份');
+  });
   it('茶凍切換熱飲會自動退選並顯示原因', () => {
-    pos.openProduct(PREVIEW_MENU.products[0]); pos.toggleTopping(2); pos.choose('temperature', 'HOT');
-    expect(pos.selection.toppingIds).toEqual([]); expect(pos.selection.ice).toBe('NONE');
+    pos.openProduct(PREVIEW_MENU.products[0]); pos.addTopping(2); pos.choose('tempIce', 'HOT');
+    expect(pos.selection.toppingIds).toEqual([]); expect(pos.selection.tempIce).toBe('HOT'); expect(pos.locked['tempIce']).toBeUndefined();
     expect(pos.adjustment).toContain('已移除'); expect(pos.toppingReason(2)).toContain('溫熱飲');
   });
   it('現金不足不送出訂單', async () => {
@@ -242,7 +274,7 @@ describe('POS 工作台', () => {
     expect(pos.pending).toBeNull(); expect(pos.cart.length).toBe(1); expect(ui.modalError).toBe('庫存不足');
   });
   it('未確認人工退款時，不送出取消操作', async () => {
-    const line = { item_id: 1, product_name: '紅茶', size: 'M', temperature: 'COLD', sugar: 'HALF', ice: 'LESS', qty: 2, unit_price: 25, status: 'PENDING', note: null, reason: null, approved_by: null, photo_url: null, toppings: [] } as const;
+    const line = { item_id: 1, product_name: '紅茶', size: 'M', temp_ice: 'LESS', sugar: 'S5', qty: 2, unit_price: 25, status: 'PENDING', note: null, reason: null, approved_by: null, photo_url: null, toppings: [] } as const;
     orders.selectedOrder = { ...ORDER, items: [{ ...line, toppings: [] }] }; orders.openCancel(orders.selectedOrder.items[0]);
     orders.cancelReason = '取消'; await orders.confirmCancel(); expect(api.cancel).not.toHaveBeenCalled();
   });
@@ -261,7 +293,7 @@ describe('POS 工作台', () => {
     expect(pos.cart).toEqual([]);
   });
   function prepareCancel(): void {
-    orders.selectedOrder = { ...ORDER, items: [{ item_id: 1, product_name: '紅茶', size: 'M', temperature: 'COLD', sugar: 'HALF', ice: 'LESS', qty: 1, unit_price: 25, status: 'PENDING', note: null, reason: null, approved_by: null, photo_url: null, toppings: [] }] };
+    orders.selectedOrder = { ...ORDER, items: [{ item_id: 1, product_name: '紅茶', size: 'M', temp_ice: 'LESS', sugar: 'S5', qty: 1, unit_price: 25, status: 'PENDING', note: null, reason: null, approved_by: null, photo_url: null, toppings: [] }] };
     orders.openCancel(orders.selectedOrder.items[0]); orders.refundConfirmed = true;
     api.cancel.and.resolveTo({ ...ORDER, status: 'CANCELLED' });
   }
@@ -288,7 +320,7 @@ describe('POS 工作台', () => {
     fixture.detectChanges();
     expect(api.recipe).toHaveBeenCalledOnceWith(1);
     const dialog = fixture.nativeElement.querySelector('dialog');
-    expect(dialog.textContent).toContain('半糖');
+    expect(dialog.textContent).toContain('5分糖');
     expect(dialog.textContent).toContain('加冰請確認');
     expect(dialog.textContent).toContain('1 份');
     dialog.querySelector('button[aria-label="關閉視窗"]').click();
@@ -302,18 +334,83 @@ describe('POS 工作台', () => {
     await orders.confirmCancel();
     expect(api.cancel.calls.mostRecent().args[2]).toEqual({ reason: '顧客未取餐', refundAmount: 0 });
   });
-  it('待處理與待取餐依整單狀態篩選，當日紀錄保留所有狀態並顯示筆數', () => {
-    const fixture = TestBed.createComponent(AppComponent); const page = fixture.componentInstance;
+  const recipe: RecipeDetail = {
+    productId: 1, name: '紅茶', category: '茶類', recipeStatus: 'OK', version: 'test',
+    steps: '先泡茶。', watermark: '',
+    materials: [{ kind: 'INVENTORY', id: 1, name: '紅茶包', madeFrom: [], portions: 1 }]
+  };
+
+  it('POS 從待製作品項查看配方和訂單備註', async () => {
+    const fixture = TestBed.createComponent(AppComponent);
+    app = fixture.componentInstance;
+    await signIn();
+    await app.switchView('orders');
+    prepareCancel();
+    orders.cancelTarget = null;
+    const item = orders.selectedOrder!.items[0];
+    item.product_id = 1;
+    item.note = '加冰請確認';
+    api.recipe.and.resolveTo(recipe);
+    fixture.detectChanges();
+    const buttons = fixture.nativeElement.querySelectorAll('.detail-actions button') as NodeListOf<HTMLButtonElement>;
+    [...buttons].find(button => button.textContent?.includes('看配方'))!.click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(api.recipe).toHaveBeenCalledOnceWith(item.product_id);
+    const dialog = fixture.nativeElement.querySelector('dialog');
+    expect(dialog.textContent).toContain('加冰請確認');
+    expect(dialog.textContent).toContain('1 份');
+    expect(dialog.textContent).not.toContain('編輯配方');
+  });
+
+  it('配方頁只對店長或總部顯示編輯入口，並以配方版本儲存材料份數', async () => {
+    const fixture = TestBed.createComponent(AppComponent);
+    app = fixture.componentInstance;
+    await signIn();
+    api.recipes.and.resolveTo([recipe]);
+    api.recipe.and.resolveTo(recipe);
+    api.updateRecipe.and.resolveTo({ ...recipe, materials: [{ ...recipe.materials[0], portions: 1.5 }] });
+    await app.switchView('recipes');
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    fixture.nativeElement.querySelector('.recipe-row').click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const dialog = fixture.nativeElement.querySelector('dialog') as HTMLDialogElement;
+    expect(dialog.textContent).not.toContain('編輯配方');
+    staff.set({ staffId: 5, username: 'boss', name: '店長', level: 'MANAGER' });
+    fixture.detectChanges();
+    dialog.querySelector<HTMLButtonElement>('.recipe-actions button')!.click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const portions = dialog.querySelector<HTMLInputElement>('input[type="number"]')!;
+    portions.value = '1.5';
+    portions.dispatchEvent(new Event('input', { bubbles: true }));
+    dialog.querySelector('form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(api.updateRecipe).toHaveBeenCalledOnceWith(1, {
+      version: 'test', steps: '先泡茶。', materials: [{ kind: 'INVENTORY', id: 1, portions: 1.5 }]
+    });
+    expect(dialog.textContent).toContain('1.5 份');
+  });
+
+  it('依序顯示待處理、待取餐、當日紀錄，各分頁只計入符合狀態的訂單', () => {
+    const fixture = TestBed.createComponent(AppComponent);
     ui.preview = false; ui.view = 'orders';
     orders.orderList = ['PENDING', 'MAKING', 'DONE', 'PICKED_UP', 'CANCELLED'].map((status, i) => ({ ...ORDER, order_id: i + 1, status }));
     fixture.detectChanges();
     expect(orders.visibleOrders.map(o => o.status)).toEqual(['PENDING', 'MAKING']);
-    expect(orders.orderCount('active')).toBe(2); expect(orders.orderCount('ready')).toBe(1); expect(orders.orderCount('history')).toBe(5);
+    expect(orders.orderCount('active')).toBe(2); expect(orders.orderCount('ready')).toBe(1); expect(orders.orderCount('history')).toBe(2);
     expect(fixture.nativeElement.querySelectorAll('.order-row').length).toBe(2);
     const tabs = fixture.nativeElement.querySelectorAll('.order-tabs button') as NodeListOf<HTMLButtonElement>;
+    expect([...tabs].map(tab => tab.textContent?.trim())).toEqual(['待處理 2', '待取餐 1', '當日紀錄 2']);
     tabs[1].click(); fixture.detectChanges(); expect(orders.visibleOrders[0].status).toBe('DONE');
     expect(tabs[1].getAttribute('aria-pressed')).toBe('true');
-    tabs[2].click(); fixture.detectChanges(); expect(fixture.nativeElement.querySelectorAll('.order-row').length).toBe(5);
+    tabs[2].click(); fixture.detectChanges();
+    expect(orders.visibleOrders.map(o => o.status)).toEqual(['PICKED_UP', 'CANCELLED']);
+    expect(fixture.nativeElement.querySelectorAll('.order-row').length).toBe(2);
   });
   it('完成製作及取餐會移出目前頁籤並清空明細，紀錄仍存在', async () => {
     await signIn(); const ready: Order = { ...ORDER, status: 'DONE' };
@@ -338,7 +435,7 @@ describe('POS 工作台', () => {
     expect(orders.visibleOrders.length).toBe(0); expect(orders.selectedOrder).toBeNull();
     orders.selectOrderTab('history'); expect(orders.visibleOrders[0].status).toBe('CANCELLED');
   });
-  it('切換營業日及查看剛建立的訂單會進入完整紀錄', async () => {
+  it('切換營業日會進入當日紀錄，查看已取餐訂單會留在當日紀錄', async () => {
     await signIn(); orders.selectedOrder = ORDER; orders.orderDate = '2026-10-27'; orders.changeOrderDate();
     expect(orders.orderTab).toBe('history'); expect(orders.selectedOrder).toBeNull(); expect(api.orders).toHaveBeenCalledWith('2026-10-27');
     orders.orderTab = 'active'; pos.lastOrder = { ...ORDER, status: 'PICKED_UP' };
@@ -443,7 +540,7 @@ describe('POS 工作台', () => {
     await app.switchView('pos'); fixture.detectChanges();
     const resume = fixture.nativeElement.querySelector('app-pos .alert.warning .text-button') as HTMLButtonElement;
     resume.click(); fixture.detectChanges();
-    expect(fixture.nativeElement.querySelector('dialog[aria-label="確認這一單。"]')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('dialog[aria-label="結帳"]')).not.toBeNull();
     expect(pos.pending).toEqual(original);
     api.create.and.resolveTo(ORDER); await pos.checkout();
     expect(api.create.calls.mostRecent().args[0]).toEqual(original);
@@ -465,6 +562,7 @@ describe('POS 工作台', () => {
     orders.orderTab = 'history'; api.order.and.resolveTo(ORDER); api.orders.and.resolveTo([ORDER]);
     await pos.showLastOrder(); fixture.detectChanges();
     expect(ui.view).toBe('orders');
+    expect(orders.orderTab).toBe('active');
     expect(fixture.nativeElement.querySelector('.detail-heading').textContent).toContain('#8');
     await app.switchView('pos'); fixture.detectChanges();
     expect(pos.product).toBeNull(); expect(pos.checkoutOpen).toBeFalse();

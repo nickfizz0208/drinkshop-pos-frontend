@@ -20,13 +20,14 @@ import { RecipeContentComponent } from '../recipes/recipe-content.component';
 export class OrdersComponent implements OnDestroy {
   readonly state = inject(OrdersStateService);
   readonly ui = inject(UiStateService);
-  /** 「班次與現金」彈窗。 */
-  shiftCashOpen = false;
   private readonly api = inject(PosApiService);
   private recipeRequest = 0;
   recipeItem: OrderItem | null = null;
   recipe: RecipeDetail | null = null;
   recipeError = '';
+
+  /** 「班次與現金」彈窗。 */
+  shiftCashOpen = false;
 
   async openRecipe(item: OrderItem): Promise<void> {
     if (!item.product_id || this.ui.busy) return;

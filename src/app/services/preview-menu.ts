@@ -10,7 +10,8 @@ export const PREVIEW_MENU: Menu = {
     { product_id: 4, name: '珍珠奶茶', category: '奶茶', price_m: 50, price_l: 60, price_bottle: null, hot_allowed: true },
     { product_id: 5, name: '芒果冰沙', category: '冰沙', price_m: 55, price_l: 65, price_bottle: null, hot_allowed: false }
   ],
-  toppings: [{ topping_id: 1, name: '珍珠', price: 10 }, { topping_id: 2, name: '茶凍', price: 10 }]
+  toppings: [{ topping_id: 1, name: '珍珠', price: 10 }, { topping_id: 2, name: '茶凍', price: 10 }],
+  options: [{ option_id: 1, name: '加酸', max_qty: 1 }, { option_id: 2, name: '少料', max_qty: 1 }, { option_id: 3, name: '加梅子', max_qty: 1 }, { option_id: 4, name: '不加梅子', max_qty: 1 }]
 };
 export const PREVIEW_RULES: Rule[] = [
   { rule_id: 1, rule_type: 'FORBID', condition_json: { temperatureIn: ['WARM', 'HOT'] }, action_json: { forbidToppingIds: [2] }, message: '溫熱飲不可加茶凍' },

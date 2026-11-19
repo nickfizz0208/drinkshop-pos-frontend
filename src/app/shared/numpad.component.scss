@@ -1,17 +1,26 @@
-// 全畫面小鍵盤
+// 置中的彈出視窗，外觀跟 app-modal 一樣（白底圓角、陰影、背景半透明遮罩）
 .numpad {
-  width: 100vw; height: 100dvh; max-width: none; max-height: none; margin: 0; padding: 0; border: 0;
-  background: var(--bg-main); color: var(--text-main);
+  width: min(400px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  margin: auto;
+  padding: 0;
+  border: 1px solid var(--border-color);
+  border-radius: 22px;
+  background: white;
+  color: var(--text-main);
+  box-shadow: 0 24px 80px #253b3326;
+  overflow: auto;
 }
-.numpad::backdrop { background: #243c3459; }
-.numpad-inner { box-sizing: border-box; height: 100%; max-width: 480px; margin: 0 auto; padding: 20px 16px 24px; display: flex; flex-direction: column; gap: 14px; }
-.numpad-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.numpad-head h2 { margin: 0; font-size: 22px; }
-.numpad-context { margin: 0 0 2px; font-size: 12px; color: var(--text-muted); }
+// 跟 app-modal 一樣的遮罩；不加 backdrop-filter 模糊（平板模式下 Chrome 會畫成鏡像錯亂）
+.numpad::backdrop { background: #243c3470; }
+.numpad-inner { box-sizing: border-box; padding: 0 18px 18px; display: flex; flex-direction: column; gap: 12px; }
+.numpad-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 -18px; padding: 16px 18px 14px; border-bottom: 1px solid var(--border-color); }
+.numpad-head h2 { margin: 0; font-size: 20px; }
+.numpad-context { margin: 0 0 2px; font-size: 11px; color: var(--text-muted); }
 
 .numpad-preview { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 16px; padding: 14px 18px; text-align: right; }
 .numpad-preview.has-error { border-color: #eccfc6; background: #fff7f4; }
-.numpad-value { display: block; font-size: 44px; font-weight: 650; line-height: 1.2; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.numpad-value { display: block; font-size: 38px; font-weight: 650; line-height: 1.2; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .numpad-value.empty { color: var(--text-muted); font-weight: 400; }
 .numpad-hint { margin: 4px 0 0; font-size: 13px; color: var(--text-muted); }
 .has-error .numpad-hint { color: #9b3e31; font-weight: 600; }
@@ -22,8 +31,8 @@
 .numpad-quick button.exact { border-color: #548568; background: #edf5e9; color: #24543c; }
 
 // 7 8 9 ⌫ / 4 5 6 清除 / 1 2 3 確定 / 00 0 . 確定
-.numpad-keys { flex: 1; min-height: 260px; display: grid; gap: 8px;
-  grid-template-columns: repeat(3, 1fr) 1.1fr; grid-template-rows: repeat(4, 1fr);
+.numpad-keys { display: grid; gap: 8px;
+  grid-template-columns: repeat(3, 1fr) 1.1fr; grid-template-rows: repeat(4, 60px);
   grid-template-areas: ". . . back" ". . . clear" ". . . ok" ". . . ok"; }
 .key { border: 1px solid #d5dfd0; border-radius: 14px; background: white; font-size: 26px; font-weight: 600; font-variant-numeric: tabular-nums; min-height: 56px; }
 .key:active:not(:disabled) { background: var(--bg-card-sub); }
