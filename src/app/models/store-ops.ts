@@ -19,7 +19,7 @@ export interface Inventory {
 export interface RawWastageRequest { inventoryId: number; wastageQty: number; reason: string; }
 export interface RawWastage extends Omit<RawWastageRequest, 'wastageQty'> {
   wastageId: number; businessDate: string; quantity: number; unitCost: number | null;
-  materialCost: number | null; reportedBy: number; reportedAt: string;
+  materialCost: number | null; reportedBy: number; reportedByName?: string | null; reportedAt: string;
 }
 export interface WastageSummary {
   date: string; totalWastedCount: number; totalWastageCost: number | null;

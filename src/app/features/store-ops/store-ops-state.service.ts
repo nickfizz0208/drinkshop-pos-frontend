@@ -5,7 +5,6 @@ import { UiStateService } from '../../shared/ui-state.service';
 import { money, taipeiDate } from '../../models/pos';
 import { Inventory, RawReview, RawWastage, WastageSummary } from '../../models/store-ops';
 import { ShiftStatus } from '../../models/time-clock';
-import { StaffOption } from '../../models/schedule';
 
 const validNumber = (n: number | null, max = 99999999.99) => n !== null && Number.isFinite(n) && n >= 0 && n <= max && Math.abs(n * 100 - Math.round(n * 100)) < .00001;
 
@@ -23,8 +22,8 @@ export class StoreOpsStateService {
   month = taipeiDate().slice(0, 7);
   viewMode: 'date' | 'month' = 'date';
   filterInventoryId: number | null = null;
+  filterReporterId: number | null = null;
   filterKeyword = '';
-  staffOptions: StaffOption[] = [];
   /** 今天的班次狀態（只用來判斷能不能登記原料報廢）；null＝還沒查到。 */
   shiftStatus: ShiftStatus | null = null;
   private shiftDate = '';
@@ -57,15 +56,29 @@ export class StoreOpsStateService {
     return this.viewMode === 'date' && this.ready && this.storageReadable && this.date === today && this.shiftDate === today && this.shiftStatus === 'OPEN'
       && this.wastage?.rawWastageEnabled === true && !this.rawReview;
   }
-  get hasFilter(): boolean { return this.filterInventoryId !== null || this.filterKeyword.trim().length > 0; }
-  get filteredRawWastages(): RawWastage[] {
+  get hasFilter(): boolean { return this.filterInventoryId !== null || this.filterReporterId !== null || this.filterKeyword.trim().length > 0; }
+  get reporterOptions(): { id: number; name: string }[] {
+    const map = new Map<number, string>();
+    for (const r of this.wastage?.rawMaterialWastages ?? []) {
+      if (!map.has(r.reportedBy)) map.set(r.reportedBy, this.reporterLabel(r));
+    }
+    return [...map.entries()].map(([id, name]) => ({ id, name }));
+  }
+  get visibleRawWastages(): RawWastage[] {
     const rows = this.wastage?.rawMaterialWastages ?? [];
+    if (this.isManager) return rows;
+    const myId = this.api.staff()?.staffId;
+    return myId ? rows.filter(r => r.reportedBy === myId) : [];
+  }
+  get filteredRawWastages(): RawWastage[] {
+    const rows = this.visibleRawWastages;
     const kw = this.filterKeyword.trim().toLocaleLowerCase();
     return rows.filter(item => {
       if (this.filterInventoryId !== null && item.inventoryId !== this.filterInventoryId) return false;
+      if (this.isManager && this.filterReporterId !== null && item.reportedBy !== this.filterReporterId) return false;
       if (!kw) return true;
       const matName = (this.inventory.find(i => i.inventoryId === item.inventoryId)?.name ?? '#' + item.inventoryId).toLocaleLowerCase();
-      const staffText = this.staffLabel(item.reportedBy).toLocaleLowerCase();
+      const staffText = this.reporterLabel(item).toLocaleLowerCase();
       return matName.includes(kw) || item.reason.toLocaleLowerCase().includes(kw)
         || (item.businessDate ?? '').toLocaleLowerCase().includes(kw)
         || item.reportedAt.toLocaleLowerCase().includes(kw) || staffText.includes(kw);
@@ -73,7 +86,8 @@ export class StoreOpsStateService {
   }
   get filteredCostLabel(): string {
     if (!this.wastage) return this.money(0);
-    if (!this.hasFilter) {
+    const hasHiddenOthers = !this.isManager && this.visibleRawWastages.length !== this.wastage.rawMaterialWastages.length;
+    if (!this.hasFilter && !hasHiddenOthers) {
       return this.wastage.costComplete && this.wastage.totalWastageCost !== null
         ? this.money(this.wastage.totalWastageCost) : '成本未建檔，無法完整估算';
     }
@@ -82,16 +96,16 @@ export class StoreOpsStateService {
     const totalCents = rows.reduce((sum, r) => sum + Math.round((r.materialCost ?? 0) * 100), 0);
     return this.money(totalCents / 100);
   }
-  staffLabel(staffId: number): string {
-    const found = this.staffOptions.find(s => s.staffId === staffId);
-    return found ? `${found.name} (#${staffId})` : String(staffId);
+  reporterLabel(item: RawWastage): string {
+    const name = item.reportedByName?.trim();
+    return name ? name : `員工 #${item.reportedBy}`;
   }
   clearFilters(): void {
     this.filterInventoryId = null;
+    this.filterReporterId = null;
     this.filterKeyword = '';
   }
   async switchViewMode(mode: 'date' | 'month'): Promise<void> {
-    if (mode === 'month' && !this.isManager) return;
     if (this.viewMode === mode && this.ready) return;
     this.viewMode = mode;
     if (!this.month) this.month = this.date.slice(0, 7) || taipeiDate().slice(0, 7);
@@ -99,7 +113,6 @@ export class StoreOpsStateService {
   }
   async load(): Promise<void> {
     const token = ++this.version;
-    if (!this.isManager && this.viewMode === 'month') this.viewMode = 'date';
     const target = this.currentTarget; const staff = this.api.staff()?.staffId;
     this.clearData(); this.rawConfirm = null; this.error = '';
     if (this.ui.preview || !staff) return;
@@ -111,9 +124,6 @@ export class StoreOpsStateService {
       this.shiftStatus = today.shiftStatus; this.shiftDate = today.businessDate;
       this.wastage = wastage; this.inventory = inventory;
       this.loadedDate = target; this.loadedStaff = staff; this.loaded = true;
-      if (typeof this.api.staffOptions === 'function') {
-        void this.api.staffOptions().then(list => { if (Array.isArray(list)) this.staffOptions = list; }).catch(() => {});
-      }
     } catch (error) { if (token === this.version) this.error = errorMessage(error); }
     finally { if (token === this.version) this.loading = false; }
   }
@@ -176,7 +186,7 @@ export class StoreOpsStateService {
   closeTransient(): void { this.version++; this.loading = false; this.loaded = false; this.rawConfirm = null; }
   reset(): void {
     this.closeTransient(); this.clearData(); this.date = taipeiDate(); this.month = taipeiDate().slice(0, 7);
-    this.viewMode = 'date'; this.filterInventoryId = null; this.filterKeyword = ''; this.error = '';
+    this.viewMode = 'date'; this.filterInventoryId = null; this.filterReporterId = null; this.filterKeyword = ''; this.error = '';
     this.rawId = null; this.rawQty = null; this.rawReason = '';
     this.rawReview = null; this.reviewRows = []; this.reviewLoaded = false; this.reviewChecked = false;
   }
