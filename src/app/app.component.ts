@@ -8,6 +8,7 @@ import { COUNTER_VIEWS, PERSONAL_VIEWS, STORE_LEVELS, UiStateService, VIEW_TITLE
 import { PosApiService, errorMessage } from './services/pos-api.service';
 import { money } from './models/pos';
 import { ShiftClosingSummary, ShiftStatus } from './models/time-clock';
+import { ClockRecord } from './models/time-clock';
 import { StaffOption } from './models/schedule';
 import { PosComponent } from './features/pos/pos.component';
 import { PosStateService } from './features/pos/pos-state.service';
@@ -63,7 +64,8 @@ export class AppComponent {
   shiftStatus: ShiftStatus | null = null;   // null＝還沒查到（載入中或查詢失敗）
   businessDate = '';                        // 今天的營業日（後端決定）
   shiftLoading = false;
-  staffOptions: StaffOption[] = [];         // 開班、關班人員候選（在職員工，不含 POS 帳號）
+  staffOptions: StaffOption[] = [];         // 開班人員候選（在職員工，不含 POS 帳號）
+  todayRecords: ClockRecord[] = [];         // 今日打卡紀錄（用來篩選目前在班的關班人員候選）
   shiftModal: 'open' | 'close' | 'reopen' | null = null;
   shiftError = '';
   openerId: number | null = null;
@@ -74,7 +76,22 @@ export class AppComponent {
   closeSummary: ShiftClosingSummary | null = null;   // 關班後在彈窗顯示日結結果
   /** POS 帳號在開班前（或已關班）鎖住點餐收銀與訂單管理；工時、排班、檢核表照常使用。 */
   get shiftLocked(): boolean { return this.isPos && this.shiftStatus !== 'OPEN' && (this.ui.view === 'pos' || this.ui.view === 'time-tracker'); }
-  staffNameOf(id: number | null | undefined): string { return this.staffOptions.find(s => s.staffId === id)?.name ?? ''; }
+  /** 目前在班中的員工清單（關班時只能選擇在班人員）。 */
+  get onDutyStaff(): StaffOption[] {
+    const seen = new Set<number>();
+    const list: StaffOption[] = [];
+    for (const r of this.todayRecords) {
+      if (!r.onDuty || seen.has(r.staffId)) continue;
+      seen.add(r.staffId);
+      const found = this.staffOptions.find(s => s.staffId === r.staffId);
+      list.push(found ?? { staffId: r.staffId, name: r.staffName ?? `員工 #${r.staffId}`, level: 'STAFF' });
+    }
+    return list;
+  }
+  staffNameOf(id: number | null | undefined): string {
+    return this.staffOptions.find(s => s.staffId === id)?.name
+      ?? this.todayRecords.find(r => r.staffId === id)?.staffName ?? '';
+  }
   /** 工具列顯示的班次狀態。 */
   get shiftLabel(): string {
     if (this.shiftStatus === 'OPEN') return '營業中';
@@ -98,7 +115,8 @@ export class AppComponent {
     this.shiftLoading = true;
     try {
       const [today, staff] = await Promise.all([this.api.shiftToday(), this.api.staffOptions()]);
-      this.shiftStatus = today.shiftStatus; this.businessDate = today.businessDate; this.staffOptions = staff;
+      this.shiftStatus = today.shiftStatus; this.businessDate = today.businessDate;
+      this.todayRecords = today.records ?? []; this.staffOptions = staff;
     } catch (error) { this.shiftStatus = null; this.ui.error = errorMessage(error); }
     finally { this.shiftLoading = false; }
   }
@@ -107,7 +125,10 @@ export class AppComponent {
     if (this.ui.busy) return;
     this.shiftError = ''; this.closeSummary = null; this.shiftModal = kind;
     if (kind === 'open') { this.openerId = null; this.pettyCash = 2000; }
-    else if (kind === 'close') { this.closerId = null; this.countedCash = null; this.diffReason = ''; }
+    else if (kind === 'close') {
+      this.closerId = null; this.countedCash = null; this.diffReason = '';
+      void this.loadShift();
+    }
   }
   closeShiftModal(): void { if (!this.ui.busy) { this.shiftModal = null; this.closeSummary = null; } }
 
@@ -150,6 +171,9 @@ export class AppComponent {
   async closeShift(): Promise<void> {
     if (this.ui.busy) return;
     if (this.closerId === null) { this.shiftError = '請選擇關班人員'; return; }
+    if (this.todayRecords.length > 0 && !this.onDutyStaff.some(s => s.staffId === this.closerId)) {
+      this.shiftError = '關班人員目前不在班，請選擇在班人員或先打卡上班'; return;
+    }
     if (this.countedCash === null || this.countedCash < 0) { this.shiftError = '請填寫實際清點的現金（0 以上）'; return; }
     // 本機還有送出但結果不明的訂單時不能關班，否則那筆訂單可能落在已日結的營業日
     if (this.pos.pending) { this.shiftError = '本機還有送單結果待確認，請先回點餐確認，不能關班。'; return; }
@@ -229,7 +253,7 @@ export class AppComponent {
     this.api.logout(); this.pos.reset(); this.orders.reset(); this.store.reset();
     this.ui.preview = true; this.ui.loginOpen = false; this.ui.password = '';
     this.ui.error = ''; this.ui.notice = ''; this.ui.view = 'pos';
-    this.shiftStatus = null; this.businessDate = ''; this.staffOptions = []; this.shiftModal = null; this.closeSummary = null;
+    this.shiftStatus = null; this.businessDate = ''; this.staffOptions = []; this.todayRecords = []; this.shiftModal = null; this.closeSummary = null;
   }
   async switchView(view: WorkspaceView): Promise<void> {
     if (view === 'recipes' && !this.canViewRecipes) return;

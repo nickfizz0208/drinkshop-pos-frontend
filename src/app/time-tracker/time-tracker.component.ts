@@ -38,7 +38,10 @@ export class TimeTrackerComponent implements OnDestroy {
   canViewAll = false;                // 店長、總部（後端決定）
 
   // 店長：所有人的紀錄
+  viewMode: 'date' | 'month' = 'date'; // 'date' 單日檢視，'month' 月份檢視
   viewDate = '';                     // 右側列表正在看的日期
+  viewMonth = '';                    // 店長月檢視月份 YYYY-MM
+  managerFilterStaffId: number | null = null; // 店長月檢視篩選員工
   viewRecords: ClockRecord[] = [];
 
   // 一般員工：我的紀錄
@@ -116,14 +119,18 @@ export class TimeTrackerComponent implements OnDestroy {
       this.canViewAll = today.canViewAll;
       if (first) {
         this.viewDate = today.businessDate;
+        this.viewMonth = today.businessDate.slice(0, 7);
         this.myMonth = today.businessDate.slice(0, 7);
         const me = this.myStaffId;
         this.selectedStaffId = staff.some(s => s.staffId === me) ? me! : null;
       }
       // POS 帳號沒有自己的紀錄，後端也不給看（只看目前在班）
       if (this.isPosAccount) this.myRecords = [];
-      else if (this.canViewAll) this.viewRecords = this.viewingToday ? today.records : await this.api.list(this.viewDate);
-      else this.myRecords = await this.api.mine(this.myMonth);
+      else if (this.canViewAll) {
+        this.viewRecords = this.viewMode === 'month'
+          ? await this.api.monthly(this.viewMonth, this.managerFilterStaffId)
+          : (this.viewingToday ? today.records : await this.api.list(this.viewDate));
+      } else this.myRecords = await this.api.mine(this.myMonth);
     } catch (e) { this.error = errorMessage(e); }
     finally { this.loading = false; }
   }
@@ -138,6 +145,24 @@ export class TimeTrackerComponent implements OnDestroy {
     try { this.viewRecords = this.viewingToday ? this.todayRecords : await this.api.list(this.viewDate); }
     catch (e) { this.error = errorMessage(e); }
     finally { this.loading = false; }
+  }
+
+  async changeViewMonth(): Promise<void> {
+    if (!this.viewMonth) this.viewMonth = this.businessDate.slice(0, 7);
+    this.loading = true; this.error = '';
+    try { this.viewRecords = await this.api.monthly(this.viewMonth, this.managerFilterStaffId); }
+    catch (e) { this.error = errorMessage(e); }
+    finally { this.loading = false; }
+  }
+
+  async switchViewMode(mode: 'date' | 'month'): Promise<void> {
+    this.viewMode = mode;
+    if (mode === 'date') await this.changeViewDate();
+    else await this.changeViewMonth();
+  }
+
+  async changeManagerFilterStaff(): Promise<void> {
+    if (this.viewMode === 'month') await this.changeViewMonth();
   }
 
   async changeMyMonth(): Promise<void> {
@@ -240,6 +265,33 @@ export class TimeTrackerComponent implements OnDestroy {
     return Math.max(0, Math.floor((end - start) / 60_000));
   }
   durationLabel(r: ClockRecord): string { return this.formatMinutes(this.minutesOf(r)); }
+
+  /** 計算超出的加班分鐘數（相對於店長排班下班時間）。 */
+  overtimeMinutes(r: ClockRecord): number | null {
+    if (!r.scheduledEndTime || !r.clockOutAt) return null;
+    const parts = r.scheduledEndTime.slice(0, 5).split(':').map(Number);
+    if (parts.length < 2) return null;
+    const [schedH, schedM] = parts;
+    const outDate = new Date(r.clockOutAt.slice(0, 19));
+    const schedDate = new Date(r.clockOutAt.slice(0, 19));
+    schedDate.setHours(schedH, schedM, 0, 0);
+    const diffMins = Math.floor((outDate.getTime() - schedDate.getTime()) / 60_000);
+    return diffMins > 0 ? diffMins : null;
+  }
+  overtimeLabel(r: ClockRecord): string {
+    const m = this.overtimeMinutes(r);
+    return m ? `加班 ${this.formatMinutes(m)}` : '';
+  }
+
+  closeTypeLabel(closeType?: string | null): string {
+    switch (closeType) {
+      case 'AUTO_MIDNIGHT': return '逾午夜強制下班';
+      case 'AUTO_SHIFT_CLOSE': return '隨關班下班';
+      case 'MANAGER': return '店長修改';
+      case 'SELF': return '自行打卡';
+      default: return '';
+    }
+  }
   formatMinutes(m: number): string {
     const h = Math.floor(m / 60), r = m % 60;
     return h ? (r ? `${h} 小時 ${r} 分` : `${h} 小時`) : `${r} 分`;

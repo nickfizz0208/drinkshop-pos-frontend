@@ -6,6 +6,9 @@ export interface ClockRecord {
   shiftStaffId: number; businessDate: string; staffId: number; staffName: string | null;
   clockInAt: string; clockOutAt: string | null; onDuty: boolean;
   updatedBy: number | null; updatedAt: string | null;
+  scheduledStartTime?: string | null;
+  scheduledEndTime?: string | null;
+  closeType?: 'SELF' | 'AUTO_MIDNIGHT' | 'AUTO_SHIFT_CLOSE' | 'MANAGER' | null;
 }
 
 /** canViewAll = 店長、總部：records 為全部；其他人只有「在班中的人」和自己的紀錄。 */

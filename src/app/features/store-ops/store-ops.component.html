@@ -1,7 +1,19 @@
 <div class="page-heading">
   @if (!ui.preview) {
-    <div class="date-tools"><label for="ops-date">營業日</label><input id="ops-date" type="date" [(ngModel)]="state.date" (change)="changeDate()" [disabled]="ui.busy || state.loading">
-      <button class="button secondary" (click)="state.load()" [disabled]="ui.busy || state.loading">重新整理</button></div>
+    <div class="date-tools">
+      <div class="mode-switch" role="group" aria-label="報廢紀錄檢視模式">
+        <button type="button" class="button small" [class.primary]="state.viewMode === 'date'" [class.secondary]="state.viewMode !== 'date'" (click)="state.switchViewMode('date')" [disabled]="ui.busy || state.loading">日檢視</button>
+        <button type="button" class="button small" [class.primary]="state.viewMode === 'month'" [class.secondary]="state.viewMode !== 'month'" (click)="state.switchViewMode('month')" [disabled]="ui.busy || state.loading">月檢視</button>
+      </div>
+      @if (state.viewMode === 'month') {
+        <label for="ops-month">查詢月份</label>
+        <input id="ops-month" type="month" [(ngModel)]="state.month" (change)="changeMonth()" [disabled]="ui.busy || state.loading">
+      } @else {
+        <label for="ops-date">營業日</label>
+        <input id="ops-date" type="date" [(ngModel)]="state.date" (change)="changeDate()" [disabled]="ui.busy || state.loading">
+      }
+      <button class="button secondary" (click)="state.load()" [disabled]="ui.busy || state.loading">重新整理</button>
+    </div>
   }
 </div>
 @if (ui.preview) {
@@ -31,6 +43,7 @@
       <section class="panel" aria-labelledby="raw-title">
         <h2 id="raw-title">回報原料報廢</h2><p>登記過期、打翻或製作失敗的原料。確認後保存數量、原因與成本；不會改動帳面庫存（帳面以盤點為準）。</p>
         @if (!state.wastage?.rawWastageEnabled) { <p class="alert warning">原料損耗紀錄尚未啟用。請由資料庫負責人確認啟用；這裡不會修改資料表。</p> }
+        @else if (state.viewMode === 'month') { <p class="alert warning">目前為「月檢視」查詢模式；如要登記今日原料報廢，請切回上方「日檢視」。</p> }
         @else if (!state.canRaw && !state.rawReview) { <p class="alert warning">{{ state.date !== today ? '只可登記台北今日的原料損耗；查看歷史日期不會回填當天庫存。' : state.shiftStatus === 'CLOSED' ? '今天已經關班，不能再登記原料報廢。' : '今天還沒開班，開班後才能登記原料報廢（開班請在門市 POS 操作）。' }}</p> }
         <form (ngSubmit)="state.prepareRaw()">
           <fieldset [disabled]="ui.busy || !state.canRaw">
@@ -44,10 +57,64 @@
     </div>
 
     @if (state.wastage; as waste) {
-      <section class="panel wastage-panel" aria-labelledby="waste-title"><div class="panel-heading"><h2 id="waste-title">{{ waste.date }} 原料報廢紀錄</h2></div>
-        <p>報廢成本：<strong>{{ waste.costComplete && waste.totalWastageCost !== null ? state.money(waste.totalWastageCost) : '成本未建檔，無法完整估算' }}</strong></p>
+      <section class="panel wastage-panel" aria-labelledby="waste-title">
+        <div class="panel-heading">
+          <h2 id="waste-title">{{ state.viewMode === 'month' ? state.month + ' 月份原料報廢紀錄' : waste.date + ' 原料報廢紀錄' }}</h2>
+          <div class="filter-tools">
+            <select aria-label="篩選原料" [(ngModel)]="state.filterInventoryId">
+              <option [ngValue]="null">全部原料</option>
+              @for (item of state.inventory; track item.inventoryId) {
+                <option [ngValue]="item.inventoryId">{{ item.name }}</option>
+              }
+            </select>
+            @if (state.isManager) {
+              <select aria-label="篩選回報者" [(ngModel)]="state.filterReporterId">
+                <option [ngValue]="null">全部回報者</option>
+                @for (reporter of state.reporterOptions; track reporter.id) {
+                  <option [ngValue]="reporter.id">{{ reporter.name }}</option>
+                }
+              </select>
+            }
+            <input type="search" aria-label="搜尋報廢原因或回報者" [(ngModel)]="state.filterKeyword" [placeholder]="state.isManager ? '搜尋原因、原料或回報者…' : '搜尋原因或原料…'">
+            @if (state.hasFilter) {
+              <button type="button" class="text-button" (click)="state.clearFilters()">清除篩選</button>
+            }
+          </div>
+        </div>
+        <p>
+          <span>共 <strong>{{ state.filteredRawWastages.length }}</strong> 筆{{ state.hasFilter ? '（已篩選，原 ' + state.visibleRawWastages.length + ' 筆）' : '' }}</span>
+          ・ 報廢成本：<strong>{{ state.filteredCostLabel }}</strong>
+        </p>
         <p class="hint">報廢不改動帳面庫存，帳面以盤點為準。報廢成本以原料成本估算，不是售價。</p>
-        <div class="table-scroll"><table><thead><tr><th>原料</th><th>數量</th><th>成本</th><th>原因</th><th>時間／員工</th></tr></thead><tbody>@for (item of waste.rawMaterialWastages; track item.wastageId) { <tr><td>{{ nameOf(item.inventoryId) }}</td><td>{{ qtyOf(item.inventoryId, item.quantity) }}</td><td>{{ item.materialCost === null ? '未建檔' : state.money(item.materialCost) }}</td><td>{{ item.reason }}</td><td>{{ item.reportedAt.replace('T', ' ').slice(0, 16) }} / {{ item.reportedBy }}</td></tr> } @empty { <tr><td colspan="5">{{ waste.rawWastageEnabled ? '這一天沒有原料報廢紀錄。' : '原料紀錄尚未啟用。' }}</td></tr> }</tbody></table></div>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                @if (state.viewMode === 'month') { <th>營業日</th> }
+                <th>原料</th><th>數量</th><th>成本</th><th>原因</th><th>回報時間</th><th>回報者</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (item of state.filteredRawWastages; track item.wastageId) {
+                <tr>
+                  @if (state.viewMode === 'month') { <td class="nowrap">{{ item.businessDate }}</td> }
+                  <td>{{ nameOf(item.inventoryId) }}</td>
+                  <td>{{ qtyOf(item.inventoryId, item.quantity) }}</td>
+                  <td>{{ item.materialCost === null ? '未建檔' : state.money(item.materialCost) }}</td>
+                  <td>{{ item.reason }}</td>
+                  <td class="nowrap">{{ item.reportedAt.replace('T', ' ').slice(0, 16) }}</td>
+                  <td class="nowrap">{{ state.reporterLabel(item) }}</td>
+                </tr>
+              } @empty {
+                <tr>
+                  <td [attr.colspan]="state.viewMode === 'month' ? 7 : 6">
+                    {{ !waste.rawWastageEnabled ? '原料紀錄尚未啟用。' : state.hasFilter ? '沒有符合篩選條件的原料報廢紀錄。' : (state.viewMode === 'month' ? '這一個月沒有原料報廢紀錄。' : '這一天沒有原料報廢紀錄。') }}
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
       </section>
     }
   }

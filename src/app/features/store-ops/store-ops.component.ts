@@ -18,6 +18,10 @@ export class StoreOpsComponent implements OnInit, OnDestroy {
   ngOnInit(): void { void this.state.load(); }
   ngOnDestroy(): void { this.state.closeTransient(); }
   changeDate(): void { void this.state.load(); }
+  changeMonth(): void {
+    if (!this.state.month) this.state.month = taipeiDate().slice(0, 7);
+    void this.state.load();
+  }
   get today(): string { return taipeiDate(); }
   /** 原料名稱；找不到時顯示編號。 */
   nameOf(inventoryId: number): string { return this.state.inventory.find(i => i.inventoryId === inventoryId)?.name ?? '#' + inventoryId; }

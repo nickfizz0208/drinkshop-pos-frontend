@@ -120,6 +120,23 @@ h1 {
   font-variant-numeric: tabular-nums;
 }
 
+.week-select {
+  width: auto;
+  min-width: 220px;
+  min-height: 36px;
+  padding: 5px 10px;
+  font-size: 14px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.week-date-picker {
+  width: 145px;
+  min-height: 36px;
+  padding: 5px 9px;
+  font-size: 13px;
+}
+
 .week-actions {
   display: flex;
   align-items: center;

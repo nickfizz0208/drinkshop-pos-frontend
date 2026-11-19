@@ -20,6 +20,12 @@ export class TimeClockApiService {
   mine(month: string): Promise<ClockRecord[]> {
     return this.wait(this.http.get<ClockRecord[]>('/api/shift-staff/mine', { ...this.options, params: { month } }));
   }
+  /** 店長查看某個月的紀錄（可指定 staffId 或未指定查全員）。 */
+  monthly(month: string, staffId?: number | null): Promise<ClockRecord[]> {
+    const params: Record<string, string> = { month };
+    if (staffId !== undefined && staffId !== null) params['staffId'] = String(staffId);
+    return this.wait(this.http.get<ClockRecord[]>('/api/shift-staff/monthly', { ...this.options, params }));
+  }
   /** 某營業日的紀錄：店長全部，其他人只有自己的。 */
   list(date: string): Promise<ClockRecord[]> {
     return this.wait(this.http.get<ClockRecord[]>('/api/shift-staff', { ...this.options, params: { date } }));

@@ -39,13 +39,23 @@
     </div>
     @if (mode === 'week') {
     <button class="button secondary small" [disabled]="loading || busy" (click)="moveWeek(-1)" aria-label="上一週">‹ 上週</button>
+    @if (week) {
+    <select class="week-select" aria-label="快速選擇週次" [ngModel]="week.weekStart" (ngModelChange)="selectWeek($event)" [disabled]="loading || busy">
+      @for (opt of weekOptions; track opt.weekStart) {
+        <option [ngValue]="opt.weekStart">{{ opt.label }}</option>
+      }
+    </select>
+    } @else {
     <strong class="week-range">{{ rangeLabel() }}</strong>
+    }
     <button class="button secondary small" [disabled]="loading || busy" (click)="moveWeek(1)" aria-label="下一週">下週 ›</button>
     } @else {
     <button class="button secondary small" [disabled]="loading || busy" (click)="moveDay(-1)" aria-label="前一天">‹ 前一天</button>
     <strong class="week-range">{{ dayTitle(selectedDate) }}</strong>
     <button class="button secondary small" [disabled]="loading || busy" (click)="moveDay(1)" aria-label="後一天">後一天 ›</button>
     }
+    <input type="date" class="week-date-picker" aria-label="選日期跳至該週" title="選擇任意日期，直接跳至該週"
+      [ngModel]="mode === 'day' ? selectedDate : (week?.weekStart ?? anchor)" (ngModelChange)="jumpToDate($event)" [disabled]="loading || busy">
     <button class="text-button" [disabled]="loading || busy" (click)="thisWeek()">回到今天</button>
     <!-- 匯出 Excel 只限店長、總部（canEdit 由後端依職級決定） -->
     @if (week && canEdit) {
