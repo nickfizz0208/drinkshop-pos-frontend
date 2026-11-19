@@ -222,10 +222,13 @@
     <div class="modal-body">
       <p class="form-intro">營業日 {{ businessDate }}。關班後就不能點餐、處理訂單與上班打卡；需要時可以重新開班。</p>
       @if (shiftError) { <p class="alert error" role="alert">{{ shiftError }}</p> }
-      <label class="field">關班人員
-        <select name="closer" [(ngModel)]="closerId" required [disabled]="ui.busy">
-          <option [ngValue]="null">請選擇關班人員</option>
-          @for (s of staffOptions; track s.staffId) { <option [ngValue]="s.staffId">{{ s.name }}</option> }
+      @if (!shiftLoading && onDutyStaff.length === 0) {
+      <p class="alert warning" role="status">目前沒有人員在班，請關班人員先至「打卡」頁打卡上班後再執行關班。</p>
+      }
+      <label class="field">關班人員（僅限目前在班人員）
+        <select name="closer" [(ngModel)]="closerId" required [disabled]="ui.busy || onDutyStaff.length === 0">
+          <option [ngValue]="null">{{ onDutyStaff.length === 0 ? '目前無在班人員' : '請選擇在班關班人員' }}</option>
+          @for (s of onDutyStaff; track s.staffId) { <option [ngValue]="s.staffId">{{ s.name }}</option> }
         </select></label>
       <label class="field">實際清點現金
         <span class="numpad-field"><input #countedInput name="countedCash" type="number" min="0" step="1" inputmode="numeric" [(ngModel)]="countedCash" required
