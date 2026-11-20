@@ -3,7 +3,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { PosApiService, errorMessage } from '../../services/pos-api.service';
 import { PREVIEW_MENU, PREVIEW_RULES } from '../../services/preview-menu';
 import { applyRules, initialSelection, toppingLimit, unitCents } from '../../services/menu-rules';
-import { CartLine, CreateOrder, CustomOption, MAX_TOPPINGS_PER_CUP, groupToppings, toppingMax, Size, sizesOf, Menu, Order, PAYMENT_LABELS, Payment, Product, Rule, SIZE_LABELS, SOURCE_LABELS, SUGAR_LABELS, Sugar, TEMP_ICE_LABELS, TempIce, isHotOrWarm, cents, money, Delivery, DeliverySelection, Member, Source, distanceText } from '../../models/pos';
+import { CartLine, CreateOrder, CustomOption, FREE_TOPPING_CATEGORIES, MAX_TOPPINGS_PER_CUP, MenuEntry, freeToppingId, groupToppings, toppingMax, Size, sizesOf, Menu, Order, PAYMENT_LABELS, Payment, Product, Rule, SIZE_LABELS, SOURCE_LABELS, SUGAR_LABELS, Sugar, TEMP_ICE_LABELS, TempIce, isHotOrWarm, cents, money, Delivery, DeliverySelection, Member, Source, distanceText } from '../../models/pos';
 import { HereMapService } from '../../services/here-map.service';
 import { UiStateService } from '../../shared/ui-state.service';
 import { OrdersStateService } from '../orders/orders-state.service';
@@ -68,6 +68,17 @@ export class PosStateService {
     const category = this.currentCategory;
     return sortByTone(this.menu.products.filter(p => p.category === category));
   }
+  /**
+   * 飲品列表的卡片：這個分類的飲品；奶茶、鮮奶頁在每杯 main 飲品後面接著排出「{加料}{飲料}」的組合（046），
+   * 每種 free 加料一張，顏色跟著 main 飲品。組合只是先幫你加好一份那個加料，規則照常鎖住不能選的。
+   */
+  get entries(): MenuEntry[] {
+    const combos = FREE_TOPPING_CATEGORIES.includes(this.currentCategory) ? this.menu.toppings.filter(t => t.free) : [];
+    return this.products.flatMap(p => [
+      { key: `${p.product_id}`, product: p, topping: null, name: p.name },
+      ...(p.main ? combos.map(t => ({ key: `${p.product_id}-${t.topping_id}`, product: p, topping: t, name: t.name + p.name })) : [])
+    ]);
+  }
   get cups(): number { return this.cart.reduce((sum, line) => sum + line.qty, 0); }
   // 前端先把金額乘 100 變整數「分」計算，顯示時除回 100；正式價格仍以後端重算為準。
   get totalCents(): number { return this.cart.reduce((sum, line) => sum + line.unitCents * line.qty, 0); }
@@ -81,7 +92,18 @@ export class PosStateService {
   optionPickerOpen = false;
   /** 這杯選的加料合計（元，一杯的）。 */
   get selectedToppingsPrice(): number {
-    return this.selection.toppingIds.reduce((sum, id) => sum + (this.menu.toppings.find(t => t.topping_id === id)?.price ?? 0), 0);
+    const free = this.freeToppingId;
+    return this.selection.toppingIds.reduce((sum, id) => sum + (this.menu.toppings.find(t => t.topping_id === id)?.price ?? 0), 0)
+      - (free === null ? 0 : this.menu.toppings.find(t => t.topping_id === free)?.price ?? 0);
+  }
+  /** 這杯免費的那一種加料（奶茶、鮮奶的第一份 free 加料，046）；沒有就是 null。 */
+  get freeToppingId(): number | null {
+    return this.product ? freeToppingId(this.product, this.selection.toppingIds, this.menu.toppings) : null;
+  }
+  /** 「波霸首份免費」；沒有就是空字串。 */
+  get freeToppingText(): string {
+    const free = this.freeToppingId;
+    return free === null ? '' : (this.menu.toppings.find(t => t.topping_id === free)?.name ?? '') + '首份免費';
   }
   get selectedUnitCents(): number { return this.product ? unitCents(this.product, this.selection, this.menu.toppings) : 0; }
   get validCustomizerQuantity(): boolean {
@@ -95,6 +117,11 @@ export class PosStateService {
     this.selection = line ? { size: line.size, tempIce: line.tempIce, sugar: line.sugar, qty: line.qty, toppingIds: [...line.toppingIds], optionIds: [...(line.optionIds ?? [])], note: line.note }
       : initialSelection(product);
     this.ui.modalError = ''; this.adjustment = ''; this.normalize();
+  }
+  /** 點了一張卡：組合就是 main 飲品先加好一份那個加料（規則不允許就不加，跟自己按加入一樣）。 */
+  openEntry(entry: MenuEntry): void {
+    this.openProduct(entry.product);
+    if (entry.topping && this.product === entry.product) this.addTopping(entry.topping.topping_id);
   }
   // 每次切換規格重新套規則：例如冰沙固定冰甜、切熱飲後移除不相容加料。
   private normalize(): void {
@@ -141,7 +168,8 @@ export class PosStateService {
   get addedToppings(): { id: number; name: string; qty: number; price: number }[] {
     return groupToppings(this.selection.toppingIds).map(g => {
       const topping = this.menu.toppings.find(t => t.topping_id === g.id);
-      return { id: g.id, name: topping?.name ?? '（已停售的加料）', qty: g.qty, price: (topping?.price ?? 0) * g.qty };
+      const charged = g.qty - (g.id === this.freeToppingId ? 1 : 0);
+      return { id: g.id, name: topping?.name ?? '（已停售的加料）', qty: g.qty, price: (topping?.price ?? 0) * charged };
     });
   }
   // 相同商品、杯型、冰甜、加料及備註才可合併杯數；不同客製必須保留不同列。

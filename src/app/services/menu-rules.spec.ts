@@ -3,6 +3,16 @@ import { applyRules, initialSelection, toppingLimit, unitCents } from './menu-ru
 import { cents, sizesOf } from '../models/pos';
 
 describe('點餐規則與金額', () => {
+  it('奶茶、鮮奶的第一份 free 加料不用錢（046）；其他分類、非 free 加料照原價', () => {
+    const toppings = [{ topping_id: 1, name: '珍珠', price: 10, free: true }, { topping_id: 2, name: '茶凍', price: 10 }];
+    const milkTea = PREVIEW_MENU.products[2];                     // 經典奶茶 40
+    const sel = (ids: number[]) => ({ ...initialSelection(), toppingIds: ids });
+    expect(unitCents(milkTea, sel([1]), toppings)).toBe(4000);
+    expect(unitCents(milkTea, sel([2, 1, 1]), toppings)).toBe(6000);   // 茶凍 10、珍珠第二份 10
+    expect(unitCents(milkTea, sel([2]), toppings)).toBe(5000);
+    expect(unitCents({ ...milkTea, category: '鮮奶' }, sel([1]), toppings)).toBe(4000);
+    expect(unitCents(PREVIEW_MENU.products[0], sel([1]), toppings)).toBe(3500); // 茶類照原價
+  });
   it('預設 5 分糖、少冰', () => {
     expect(initialSelection().sugar).toBe('S5'); expect(initialSelection().tempIce).toBe('LESS');
   });

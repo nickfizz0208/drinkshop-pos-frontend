@@ -2,7 +2,7 @@ import { Injectable, effect, inject, untracked } from '@angular/core';
 import { PosApiService, errorMessage } from '../../services/pos-api.service';
 import { SaleStatusApiService } from '../../services/sale-status-api.service';
 import { UiStateService } from '../../shared/ui-state.service';
-import { DEFAULT_CATEGORIES, SaleChange, SaleInventory, SaleKind, SalePrep, SaleProduct, SaleStatus, SaleTopping, SaleUpdate, UNCATEGORIZED } from '../../models/sale-status';
+import { DEFAULT_CATEGORIES, SaleChange, SaleInventory, SaleKind, SalePrep, SaleProduct, SaleStatus, SaleTopping, SaleUpdate, UNCATEGORIZED, MAX_SUB_PREP_LEVELS, SalePrepIngredient } from '../../models/sale-status';
 
 /** 可以查看、設定停售的帳號等級：門市 POS、店長。其他帳號看不到這一頁（後端 SecurityConfig 也限制同樣的等級）。 */
 export const SALE_EDIT_LEVELS: readonly string[] = ['POS', 'MANAGER'];
@@ -91,7 +91,7 @@ export class SaleStatusStateService {
 
   // ---- 連動：依目前勾選（含未儲存）計算 ----
   prepAvailable(prep: SalePrep): boolean {
-    return this.onSale('prep', prep.prepId) && prep.inventoryIds.every(id => this.onSale('inventory', id));
+    return this.onSale('prep', prep.prepId) && !this.prepPartBlockers(prep.prepId).length;
   }
   /** 讓這杯飲品不能賣的原料、半成品名稱（不含飲品自己停售）。 */
   productBlockers(p: SaleProduct): string[] { return this.blockers(p.inventoryIds, p.prepIds); }
@@ -111,11 +111,18 @@ export class SaleStatusStateService {
   usedBy(m: SaleInventory | SalePrep): string { return this.usedByNames(m).join('、'); }
   private usedByNames(m: SaleInventory | SalePrep): string[] {
     return [
-      ...m.usedByProducts.map(id => this.data?.products.find(p => p.productId === id)?.name),
-      ...m.usedByToppings.map(id => { const t = this.data?.toppings.find(x => x.toppingId === id); return t ? '加料' + t.name : undefined; })
+      ...m.usedByProducts.map(id => { const p = this.data?.products.find(x => x.productId === id); return p?.show !== false ? p?.name : undefined; }),
+      ...m.usedByToppings.map(id => { const t = this.data?.toppings.find(x => x.toppingId === id); return t && t.show !== false ? '加料' + t.name : undefined; })
     ].filter((n): n is string => !!n);
   }
-  madeFrom(x: SalePrep): string { return x.inventoryIds.map(id => this.inventoryName(id)).join('、'); }
+  /** 「珍珠、茶凍（不連動）」：不連動的材料標出來。 */
+  madeFrom(x: SalePrep): string {
+    if (!x.ingredients) {
+      return [...x.inventoryIds.map(id => this.inventoryName(id)), ...(x.subPrepIds ?? []).map(id => this.nameOf('prep', id))].join('、');
+    }
+    return x.ingredients.map(g => (g.inventoryId !== null ? this.inventoryName(g.inventoryId) : this.nameOf('prep', g.subPrepId!))
+      + (g.link ? '' : '（不連動）')).join('、');
+  }
 
   // ---- 種類 → 分類 → 品項 ----
   /** 目前選的種類（飲品、原料、半成品、加料）。 */
@@ -133,23 +140,23 @@ export class SaleStatusStateService {
   private rowsOf(kind: SaleKind): SaleRow[] {
     const d = this.data;
     if (!d) return [];
-    if (kind === 'product') return d.products.map(p => {
+    const shown = <T extends { show?: boolean }>(items: T[]): T[] => items.filter(x => x.show !== false);
+    if (kind === 'product') return shown(d.products).map(p => {
       const state = this.productState(p);
       return this.row(kind, p.productId, p.name, p.category, state,
         state === 'linked' ? this.productBlockers(p).join('、') + ' 停售' : '',
         !p.inventoryIds.length && !p.prepIds.length ? '尚未建立配方，不會跟著原料停售' : '', []);
     });
-    if (kind === 'topping') return d.toppings.map(t => {
+    if (kind === 'topping') return shown(d.toppings).map(t => {
       const state = this.toppingState(t);
       return this.row(kind, t.toppingId, t.name, null, state, state === 'linked' ? this.toppingBlockers(t).join('、') + ' 停售' : '', '', []);
     });
-    if (kind === 'inventory') return d.inventories.map(i =>
+    if (kind === 'inventory') return shown(d.inventories).map(i =>
       this.row(kind, i.inventoryId, i.name, i.category, this.onSale(kind, i.inventoryId) ? 'on' : 'stopped', '', '', this.usedByNames(i)));
-    return d.preps.map(x => {
+    return shown(d.preps).map(x => {
       const state = this.prepState(x);
-      const stoppedParts = x.inventoryIds.filter(id => !this.onSale('inventory', id)).map(id => this.inventoryName(id));
-      return this.row(kind, x.prepId, x.name, x.category, state, state === 'linked' ? stoppedParts.join('、') + ' 停售' : '',
-        x.inventoryIds.length ? '由 ' + this.madeFrom(x) + ' 做成' : '', this.usedByNames(x));
+      return this.row(kind, x.prepId, x.name, x.category, state, state === 'linked' ? this.prepPartBlockers(x.prepId).join('、') + ' 停售' : '',
+        x.inventoryIds.length || x.subPrepIds?.length ? '由 ' + this.madeFrom(x) + ' 做成' : '', this.usedByNames(x));
     });
   }
   private row(kind: SaleKind, id: number, name: string, category: string | null, state: SaleState,
@@ -186,7 +193,7 @@ export class SaleStatusStateService {
   /** 目前（含未儲存的勾選）停售中的數量。 */
   get counts(): { products: number; toppings: number; materials: number } {
     return { products: this.stoppedCount('product'), toppings: this.stoppedCount('topping'),
-      materials: this.stoppedCount('inventory') + (this.data?.preps.filter(x => !this.onSale('prep', x.prepId)).length ?? 0) };
+      materials: this.stoppedCount('inventory') + (this.data?.preps.filter(x => x.show !== false && !this.onSale('prep', x.prepId)).length ?? 0) };
   }
 
   /** 改分類（店長、總部）：馬上存，不影響還沒儲存的停售勾選。 */
@@ -212,10 +219,10 @@ export class SaleStatusStateService {
       for (const [id, onSale] of this.draft[kind]) (onSale ? result.resume : result.stop).push(`${label[kind]}「${this.nameOf(kind, id)}」`);
     }
     for (const p of d.products) {
-      if (!this.draft.product.has(p.productId)) this.linked(result, p.sellable, this.productState(p) === 'on', `飲品「${p.name}」`);
+      if (p.show !== false && !this.draft.product.has(p.productId)) this.linked(result, p.sellable, this.productState(p) === 'on', `飲品「${p.name}」`);
     }
     for (const t of d.toppings) {
-      if (!this.draft.topping.has(t.toppingId)) this.linked(result, t.sellable, this.toppingState(t) === 'on', `加料「${t.name}」`);
+      if (t.show !== false && !this.draft.topping.has(t.toppingId)) this.linked(result, t.sellable, this.toppingState(t) === 'on', `加料「${t.name}」`);
     }
     return result;
   }
@@ -260,9 +267,35 @@ export class SaleStatusStateService {
       const prep = this.data?.preps.find(x => x.prepId === id);
       if (!prep) continue;
       if (!this.onSale('prep', id)) names.add(prep.name);
-      for (const inv of prep.inventoryIds) if (!this.onSale('inventory', inv)) names.add(this.inventoryName(inv));
+      for (const name of this.prepPartBlockers(id)) names.add(name);
     }
     return [...names];
+  }
+  /**
+   * 讓半成品不能賣的材料名稱（不含它自己）：只看 link＝true 的材料（044），半成品材料再往下看，最多 MAX_SUB_PREP_LEVELS 層。
+   * link＝false 的材料停售不算，例如綠茶凍裡的綠茶。
+   */
+  private prepPartBlockers(prepId: number): string[] {
+    const names = new Set<string>();
+    const seen = new Set<number>();
+    const walk = (id: number, level: number): void => {
+      if (seen.has(id)) return;
+      seen.add(id);
+      const prep = this.data?.preps.find(x => x.prepId === id);
+      if (!prep) return;
+      if (level > 0 && !this.onSale('prep', id)) names.add(prep.name);
+      for (const g of this.ingredientsOf(prep)) {
+        if (!g.link) continue;
+        if (g.inventoryId !== null && !this.onSale('inventory', g.inventoryId)) names.add(this.inventoryName(g.inventoryId));
+        if (g.subPrepId !== null && level < MAX_SUB_PREP_LEVELS) walk(g.subPrepId, level + 1);
+      }
+    };
+    walk(prepId, 0);
+    return [...names];
+  }
+  /** 舊資料沒有 ingredients：當成原料全部連動。 */
+  private ingredientsOf(prep: SalePrep): SalePrepIngredient[] {
+    return prep.ingredients ?? prep.inventoryIds.map(id => ({ inventoryId: id, subPrepId: null, link: true }));
   }
   private inventoryName(id: number): string { return this.data?.inventories.find(i => i.inventoryId === id)?.name ?? `#${id}`; }
   private nameOf(kind: SaleKind, id: number): string {

@@ -56,7 +56,7 @@
             </div>
             <p>{{ state.sizes[item.size] }} / {{ state.sugars[item.sugar] }} / {{
               state.tempIces[item.temp_ice] }}</p>@for (topping of item.toppings; track topping.order_topping_id) { <span
-              class="topping-pill">＋{{ topping.topping_name }}@if ((topping.qty ?? 1) > 1) { ×{{ topping.qty }} }</span> }@for (option of item.options ?? []; track option.order_option_id) { <span
+              class="topping-pill">＋{{ topping.topping_name }}@if ((topping.qty ?? 1) > 1) { ×{{ topping.qty }} }@if (topping.free_qty) { <small>（首份免費）</small> }</span> }@for (option of item.options ?? []; track option.order_option_id) { <span
               class="topping-pill option-pill">{{ option.option_name }}@if (option.qty > 1) { ×{{ option.qty }} }</span> }@if (item.note) { <p>備註：{{ item.note }}</p> }<div
               class="detail-actions"><span class="status-tag" [attr.data-status]="item.status">{{ state.statuses[item.status]
                 }}</span>
@@ -98,7 +98,7 @@
         訂單：{{ state.sizes[item.size] }} / {{ state.sugars[item.sugar] }} /
         {{ state.tempIces[item.temp_ice] }} / {{ item.qty }} 杯
         @for (topping of item.toppings; track topping.order_topping_id) {
-          <span class="topping-pill">＋{{ topping.topping_name }}@if ((topping.qty ?? 1) > 1) { ×{{ topping.qty }} }</span>
+          <span class="topping-pill">＋{{ topping.topping_name }}@if ((topping.qty ?? 1) > 1) { ×{{ topping.qty }} }@if (topping.free_qty) { <small>（首份免費）</small> }</span>
         }
         @for (option of item.options ?? []; track option.order_option_id) {
           <span class="topping-pill option-pill">{{ option.option_name }}@if (option.qty > 1) { ×{{ option.qty }} }</span>
@@ -125,7 +125,7 @@
         訂單：{{ state.sizes[item.size] }} / {{ state.sugars[item.sugar] }} /
         {{ state.tempIces[item.temp_ice] }} / {{ item.qty }} 杯
         @for (topping of item.toppings; track topping.order_topping_id) {
-          <span class="topping-pill">＋{{ topping.topping_name }}@if ((topping.qty ?? 1) > 1) { ×{{ topping.qty }} }</span>
+          <span class="topping-pill">＋{{ topping.topping_name }}@if ((topping.qty ?? 1) > 1) { ×{{ topping.qty }} }@if (topping.free_qty) { <small>（首份免費）</small> }</span>
         }
         @for (option of item.options ?? []; track option.order_option_id) {
           <span class="topping-pill option-pill">{{ option.option_name }}@if (option.qty > 1) { ×{{ option.qty }} }</span>

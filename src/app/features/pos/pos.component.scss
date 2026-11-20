@@ -931,6 +931,11 @@
   gap: 12px;
 }
 
+.topping-picker-footer .free-note {
+  color: var(--primary-accent);
+  font-size: 0.85em;
+  font-weight: 600;
+}
 .topping-picker-footer .button {
   min-height: 48px;
   min-width: 120px;

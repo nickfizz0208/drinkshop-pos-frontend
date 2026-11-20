@@ -20,11 +20,26 @@ export interface Product {
   price_m: number | null; price_l: number | null; price_bottle: number | null; hot_allowed: boolean;
   /** 色系（032）：飲品卡背景、杯子插圖的配色。null 或沒有＝依名稱、分類自動判斷（見 drink-cup 的 drinkTone）。 */
   color_tone?: ColorTone | null;
+  /** 可以當組合底的飲品（046）：奶茶、鮮奶頁會在它後面排出「{加料}{飲料}」。 */
+  main?: boolean;
 }
 /** 資料庫 product.color_tone 的值：紅、橙、黃、綠、紫、白、奶、咖（BROWN，資料庫 036）。只存色系，色碼在前端 scss（drink-card、drink-cup）。 */
 export type ColorTone = 'RED' | 'ORANGE' | 'YELLOW' | 'GREEN' | 'PURPLE' | 'WHITE' | 'CREAM' | 'BROWN';
 /** 加料。max_qty：這種加料一杯最多幾份（資料庫 topping.max_qty，040；舊資料沒有就當 2）。 */
-export interface Topping { topping_id: number; name: string; price: number; max_qty?: number; }
+export interface Topping {
+  topping_id: number; name: string; price: number; max_qty?: number;
+  /** 可以組合、在奶茶鮮奶首份免費的加料（046，只放 10 元的料）。 */
+  free?: boolean;
+}
+/** 這些分類的飲品，第一份 free 加料不用錢；奶茶、鮮奶頁會排出組合（後端 OrderRequests.FREE_TOPPING_CATEGORIES 也一樣）。 */
+export const FREE_TOPPING_CATEGORIES: readonly string[] = ['奶茶', '鮮奶'];
+/** 這杯免費的那一種加料：奶茶、鮮奶分類的飲品，照加入順序第一份 free 加料；沒有就是 null。 */
+export function freeToppingId(product: Product, toppingIds: readonly number[], toppings: readonly Topping[]): number | null {
+  if (!FREE_TOPPING_CATEGORIES.includes(product.category)) return null;
+  return toppingIds.find(id => toppings.find(t => t.topping_id === id)?.free) ?? null;
+}
+/** 點餐頁飲品列表的一張卡：一杯飲品，或組合（main 飲品＋先加好一份 free 加料，046）。 */
+export interface MenuEntry { key: string; product: Product; topping: Topping | null; name: string; }
 /** 這種加料一杯最多幾份。 */
 export function toppingMax(topping: Topping | undefined): number { return topping?.max_qty ?? 2; }
 /** 一杯飲料的加料最多幾份（全部加料加起來，040；後端 OrderRequests.MAX_TOPPINGS_PER_CUP 也是 5）。 */
@@ -61,8 +76,8 @@ export interface OrderItem {
   product_id?: number | null;
   item_id: number; product_name: string; size: Size; temp_ice: TempIce; sugar: Sugar; qty: number; unit_price: number;
   material_cost?: number | null; refund_amount?: number; status: ItemStatus; note: string | null; reason: string | null; approved_by: number | null; photo_url: string | null;
-  /** qty：同一種加料的份數（039，舊資料沒有這欄就是 1）；price_at_order 是一份的價格。 */
-  toppings: { order_topping_id: number; topping_id: number; topping_name: string; qty?: number; price_at_order: number }[];
+  /** qty：同一種加料的份數（039，舊資料沒有這欄就是 1）；price_at_order 是一份的價格；free_qty：其中免費的份數（046）。 */
+  toppings: { order_topping_id: number; topping_id: number; topping_name: string; qty?: number; free_qty?: number; price_at_order: number }[];
   /** 客製選項（041，舊訂單沒有）。 */
   options?: { order_option_id: number; option_id: number; option_name: string; qty: number }[];
 }

@@ -49,6 +49,23 @@ describe('POS 工作台', () => {
     await app.switchView('time-tracker'); await app.switchView('pos'); await Promise.resolve(); await Promise.resolve();
     expect(pos.menu).toBe(stopped); expect(ui.error).toBe('');
   });
+  it('奶茶、鮮奶頁在 main 飲品後面排出組合（046）：點了就先加好一份料，第一份免費', () => {
+    pos.menu = { ...PREVIEW_MENU,
+      products: PREVIEW_MENU.products.map(p => p.product_id === 3 ? { ...p, main: true } : p),
+      toppings: PREVIEW_MENU.toppings.map(t => t.topping_id === 1 ? { ...t, free: true } : t) };
+    pos.category = '奶茶';
+    expect(pos.entries.map(e => e.name)).toEqual(['經典奶茶', '珍珠經典奶茶', '珍珠奶茶']);
+    pos.openEntry(pos.entries[1]);
+    expect(pos.product?.product_id).toBe(3);
+    expect(pos.selection.toppingIds).toEqual([1]);
+    expect(pos.selectedUnitCents).toBe(4000);
+    expect(pos.freeToppingText).toBe('珍珠首份免費');
+    pos.addTopping(1);
+    expect(pos.selectedToppingsPrice).toBe(10);
+    pos.category = '茶類';
+    expect(pos.entries.map(e => e.name)).toEqual(['茉香綠茶', '經典紅茶']);   // 茶類沒有組合
+  });
+
   it('操作成功的提示幾秒後自動消失', () => {
     jasmine.clock().install();
     try {

@@ -48,8 +48,8 @@
       </div>
     </div>
     <div class="product-grid">
-      @for (drink of state.products; track drink.product_id) {
-      <app-drink-card [drink]="drink" [disabled]="!!state.pending || ui.busy" (choose)="state.openProduct($event)" />
+      @for (entry of state.entries; track entry.key) {
+      <app-drink-card [drink]="entry.product" [name]="entry.name" [disabled]="!!state.pending || ui.busy" (choose)="state.openEntry(entry)" />
       } @empty { <div class="empty-menu">
         <h2>目前沒有可以點的飲品</h2>
         <p>可能都停售了，或還沒有建立飲品。</p>
@@ -142,7 +142,7 @@
             [disabled]="!!state.locked['tempIce'] || (!current.hot_allowed && state.isHotOrWarm(value))"
             [attr.aria-pressed]="state.selection.tempIce === value" (click)="state.choose('tempIce', value)">{{
             state.tempIces[value] }}</button> }</div>@if (state.locked['tempIce']) { <p class="field-hint">{{
-          state.locked['tempIce'] }}</p> } @else if (!current.hot_allowed) { <p class="field-hint">這杯不提供熱、溫</p> }
+          state.locked['tempIce'] }}</p> }
       </fieldset>
     <!-- 加料、客製同一行左右排列（手機改成上下） -->
     <div class="extra-fields">
@@ -222,7 +222,8 @@
             state.money(topping.price) }}</span></button></div> }</div>
   </div>
   <div class="modal-footer topping-picker-footer">
-    <span>加料合計 ＋{{ state.money(state.selectedToppingsPrice) }}</span>
+    <span>加料合計 ＋{{ state.money(state.selectedToppingsPrice) }}@if (state.freeToppingText) { <small class="free-note">（{{
+        state.freeToppingText }}）</small> }</span>
     <button class="button primary" type="button" (click)="state.toppingPickerOpen = false">完成</button>
   </div>
 </app-modal>

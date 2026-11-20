@@ -1,4 +1,4 @@
-import { LegacyTemperature, Product, Rule, Selection, Sugar, TEMP_ICE_LABELS, SUGAR_LABELS, TempIce, Topping, cents, isHotOrWarm, sizePrice, sizesOf } from '../models/pos';
+import { LegacyTemperature, Product, Rule, Selection, Sugar, TEMP_ICE_LABELS, SUGAR_LABELS, TempIce, Topping, cents, freeToppingId, isHotOrWarm, sizePrice, sizesOf } from '../models/pos';
 
 // 客製彈窗的預設值；容量選這杯有賣的最小容量。套規則後可能變成飲料限定的冰甜，例如冰沙。
 export function initialSelection(product?: Product): Selection {
@@ -85,7 +85,10 @@ export function toppingLimit(product: Product, selection: Selection, rules: Rule
 }
 // 顯示用單杯價格 = 這個容量的價格＋額外加料；不是整列總價，尚未乘 qty。
 export function unitCents(product: Product, selection: Selection, toppings: Topping[]): number {
+  const free = freeToppingId(product, selection.toppingIds, toppings);
   return cents(sizePrice(product, selection.size) ?? 0)
     // 同一種加料加兩份就算兩次錢（039）
-    + selection.toppingIds.reduce((sum, id) => sum + cents(toppings.find(t => t.topping_id === id)?.price ?? 0), 0);
+    + selection.toppingIds.reduce((sum, id) => sum + cents(toppings.find(t => t.topping_id === id)?.price ?? 0), 0)
+    // 奶茶、鮮奶的第一份 free 加料不用錢（046）
+    - (free === null ? 0 : cents(toppings.find(t => t.topping_id === free)?.price ?? 0));
 }

@@ -69,6 +69,57 @@ describe('停售管理：勾選原物料連動停售（隔離 API）', () => {
     expect(state.preview.linkedStop.length).toBe(4);
   });
 
+  async function loadNested(subLink: boolean): Promise<SaleStatus> {
+    const nested = sample();
+    nested.preps.push({ prepId: 2, name: '雙Q果', category: '底料', onSale: true, available: true, inventoryIds: [6], subPrepIds: [1],
+      ingredients: [{ inventoryId: 6, subPrepId: null, link: true }, { inventoryId: null, subPrepId: 1, link: subLink }],
+      usedByProducts: [], usedByToppings: [3] });
+    nested.toppings.push({ toppingId: 3, name: '雙Q果', onSale: true, sellable: true, inventoryId: null, prepId: 2, stoppedBy: [] });
+    api.status.and.callFake(async () => nested);
+    await state.load();
+    return state.data!;
+  }
+
+  it('半成品用別的半成品做（043）：連動的下層半成品或它的原料停售，上層半成品與加料一起停售', async () => {
+    const d = await loadNested(true);
+    expect(state.madeFrom(d.preps[1])).toBe('珍珠、茶凍');
+    state.toggle('prep', 1, true);
+    expect(state.prepState(d.preps[1])).toBe('linked');
+    expect(state.toppingBlockers(d.toppings[2])).toEqual(['茶凍']);
+    state.toggle('prep', 1, false);
+    state.toggle('inventory', 3, true);
+    expect(state.toppingBlockers(d.toppings[2])).toEqual(['紅茶包']);
+    expect(state.preview.linkedStop).toContain('加料「雙Q果」');
+  });
+
+  it('不連動的材料（044 link＝false）停售：上層半成品照賣', async () => {
+    const d = await loadNested(false);
+    expect(state.madeFrom(d.preps[1])).toBe('珍珠、茶凍（不連動）');
+    state.toggle('prep', 1, true);
+    state.toggle('inventory', 3, true);
+    expect(state.prepState(d.preps[1])).toBe('on');
+    expect(state.toppingState(d.toppings[2])).toBe('on');
+    expect(state.preview.linkedStop).not.toContain('加料「雙Q果」');
+    state.toggle('inventory', 6, true);
+    expect(state.toppingBlockers(d.toppings[2])).toEqual(['珍珠']);
+  });
+
+  it('show＝false（045）的項目不出現在停售管理頁，但連動照算', async () => {
+    const data = sample();
+    data.inventories[2].show = false;               // 中杯紙杯
+    data.products[1].show = false;                  // 茉香綠茶
+    data.inventories[1].show = false;               // 珍珠：隱藏但會連動
+    api.status.and.callFake(async () => data);
+    await state.load();
+    state.selectKind('inventory');
+    expect(state.groups.flatMap(g => g.rows.map(r => r.name))).toEqual(['紅茶包']);
+    state.selectKind('product');
+    expect(state.groups.flatMap(g => g.rows.map(r => r.name))).not.toContain('茉香綠茶');
+    state.toggle('inventory', 6, true);
+    expect(state.productState(state.data!.products[3])).toBe('linked');
+    expect(state.productBlockers(state.data!.products[3])).toEqual(['珍珠']);
+  });
+
   it('取消勾選回到原狀就不算變更；只有改過的送出', async () => {
     state.toggle('inventory', 6, true); state.toggle('inventory', 6, false);
     expect(state.changeCount).toBe(0);
