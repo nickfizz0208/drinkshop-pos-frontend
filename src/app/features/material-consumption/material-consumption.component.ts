@@ -41,8 +41,20 @@ export class MaterialConsumptionComponent implements OnInit {
   records: ConsumptionRecord[] = [];
   materials: MaterialItem[] = [];
 
+  // 分開保存「訂單物料消耗」與「原料報廢損耗」資料
+  orderRecords: ConsumptionRecord[] = [];
+  orderMaterials: MaterialItem[] = [];
+  wastageRecords: ConsumptionRecord[] = [];
+  wastageMaterials: MaterialItem[] = [];
+
+  // 目前檢視模式：'order'（訂單物料消耗） | 'wastage'（報廢料損耗）
+  consumptionMode: 'order' | 'wastage' = 'order';
+
   // 品項選擇勾選狀態
   selectedIds = new Set<number>();
+
+  // 是否展開顯示「月物料消耗統計」區塊（點擊按鈕切換）
+  showMonthlySummary = false;
 
   // 圖表設定
   readonly svgWidth = 920;
@@ -74,30 +86,50 @@ export class MaterialConsumptionComponent implements OnInit {
     this.hoverPoint = null;
     try {
       const res = await this.api.getMonthlyConsumption(this.currentYear, this.currentMonth);
-      this.records = res.records;
-      this.materials = res.materials;
+      this.orderRecords = res.records || [];
+      this.orderMaterials = res.materials || [];
+      this.wastageRecords = res.wastage_records || [];
+      this.wastageMaterials = res.wastage_materials || [];
 
-      // 找出這個月實際有消耗的品項 ID
-      const consumedIds = new Set(this.records.map(r => r.inventory_id));
-
-      // 若尚未選擇任何品項，預設選取本月有消耗的品項（最多預設前 6 個，避免過多線太雜）
-      if (this.selectedIds.size === 0) {
-        let count = 0;
-        for (const id of consumedIds) {
-          this.selectedIds.add(id);
-          count++;
-          if (count >= 6) break;
-        }
-        // 若完全沒資料，預設選前 3 個材料
-        if (this.selectedIds.size === 0) {
-          this.materials.slice(0, 3).forEach(m => this.selectedIds.add(m.inventory_id));
-        }
-      }
-
-      this.computeChart();
+      this.applyActiveModeData(false);
     } finally {
       this.loading = false;
     }
+  }
+
+  switchConsumptionMode(mode: 'order' | 'wastage'): void {
+    if (this.consumptionMode === mode) return;
+    this.consumptionMode = mode;
+    this.hoverPoint = null;
+    this.applyActiveModeData(true);
+  }
+
+  private applyActiveModeData(resetSelection: boolean): void {
+    this.records = this.consumptionMode === 'wastage' ? this.wastageRecords : this.orderRecords;
+    this.materials = this.consumptionMode === 'wastage' ? this.wastageMaterials : this.orderMaterials;
+
+    if (resetSelection) {
+      this.selectedIds.clear();
+    }
+
+    // 找出這個月實際有消耗／報廢的品項 ID
+    const consumedIds = new Set(this.records.filter(r => r.total_consumed > 0).map(r => r.inventory_id));
+
+    // 若尚未選擇任何品項，預設選取本月有消耗的品項（最多預設前 6 個，避免過多線太雜）
+    if (this.selectedIds.size === 0) {
+      let count = 0;
+      for (const id of consumedIds) {
+        this.selectedIds.add(id);
+        count++;
+        if (count >= 6) break;
+      }
+      // 若完全沒資料，預設選前 3 個材料
+      if (this.selectedIds.size === 0) {
+        this.materials.slice(0, 3).forEach(m => this.selectedIds.add(m.inventory_id));
+      }
+    }
+
+    this.computeChart();
   }
 
   onYearChange(): void {
@@ -223,8 +255,28 @@ export class MaterialConsumptionComponent implements OnInit {
     this.hoverPoint = null;
   }
 
+  toggleMonthlySummary(): void {
+    this.showMonthlySummary = !this.showMonthlySummary;
+  }
+
+  /** 本月所有品項（包含未勾選折線的品項）的月累計消耗統計，依消耗量由高至低排序。 */
+  get monthlyMaterialRows(): { inventoryId: number; name: string; unit: string; color: string; total: number; activeDays: number }[] {
+    return this.materials.map(mat => {
+      const matRecords = this.records.filter(r => r.inventory_id === mat.inventory_id && r.total_consumed > 0);
+      const total = Math.round(matRecords.reduce((sum, r) => sum + r.total_consumed, 0) * 100) / 100;
+      return {
+        inventoryId: mat.inventory_id,
+        name: mat.name,
+        unit: mat.base_unit || '份',
+        color: this.colorOf(mat.inventory_id),
+        total,
+        activeDays: matRecords.length
+      };
+    }).sort((a, b) => b.total - a.total || a.inventoryId - b.inventoryId);
+  }
+
   get totalMonthlyConsumptionCount(): number {
-    return this.seriesList.reduce((sum, s) => sum + s.total, 0);
+    return Math.round(this.seriesList.reduce((sum, s) => sum + s.total, 0) * 100) / 100;
   }
 
   get topMaterial(): MaterialSeries | null {

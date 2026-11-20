@@ -18,4 +18,6 @@ export interface MonthlyConsumptionResponse {
   month: number;
   records: ConsumptionRecord[];
   materials: MaterialItem[];
+  wastage_records?: ConsumptionRecord[];
+  wastage_materials?: MaterialItem[];
 }

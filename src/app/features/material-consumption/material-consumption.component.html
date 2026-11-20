@@ -1,12 +1,47 @@
 <section class="consumption-container" aria-label="物料月度消耗分析">
-  <!-- 頁面頂部控制列：切換年、月 -->
+  <!-- 頁面頂部控制列：切換年、月、數據來源與月統計 -->
   <div class="filter-header card">
     <div class="header-left">
-      <h2>物料消耗走勢</h2>
-      <p class="subtitle">依據訂單銷售配方用量與原料報廢，統計每日原物料消耗趨勢。</p>
+      <h2>{{ consumptionMode === 'wastage' ? '報廢料損耗走勢' : '物料消耗走勢' }}</h2>
+      <p class="subtitle">
+        @if (consumptionMode === 'wastage') {
+          依據門市回報之原料報廢紀錄（raw_material_wastage），獨立統計每日原料報廢損耗趨勢。
+        } @else {
+          依據訂單銷售之半成品料與直接配方物料（如茶湯、牛奶、加料）統計每日消耗趨勢，不包含原料報廢。
+        }
+      </p>
     </div>
 
     <div class="date-controls">
+      <!-- 訂單消耗 / 報廢料損耗 切換按鈕組 -->
+      <div class="mode-switch-group" role="group" aria-label="切換訂單消耗或報廢料損耗">
+        <button
+          type="button"
+          class="mode-switch-btn"
+          [class.active]="consumptionMode === 'order'"
+          (click)="switchConsumptionMode('order')">
+          <app-icon name="package" />
+          <span>訂單物料消耗</span>
+        </button>
+        <button
+          type="button"
+          class="mode-switch-btn wastage-btn"
+          [class.active]="consumptionMode === 'wastage'"
+          (click)="switchConsumptionMode('wastage')">
+          <app-icon name="ban" />
+          <span>報廢料損耗</span>
+        </button>
+      </div>
+
+      <button
+        type="button"
+        class="monthly-toggle-btn"
+        [class.active]="showMonthlySummary"
+        (click)="toggleMonthlySummary()">
+        <app-icon name="clipboard-list" />
+        <span>{{ showMonthlySummary ? '收合月物料消耗' : '查看月物料消耗' }}</span>
+      </button>
+
       <div class="year-selector">
         <label for="year-select">年份</label>
         <select id="year-select" [(ngModel)]="currentYear" (change)="onYearChange()" [disabled]="loading">
@@ -56,7 +91,7 @@
           </span>
           <span class="chip-name">{{ mat.name }}</span>
           @if (isConsumed(mat.inventory_id)) {
-            <span class="chip-badge">有消耗</span>
+            <span class="chip-badge">{{ consumptionMode === 'wastage' ? '有報廢' : '有消耗' }}</span>
           }
         </button>
       }
@@ -67,7 +102,7 @@
   <div class="chart-card card">
     <div class="chart-header">
       <div class="chart-title-area">
-        <h3>{{ currentYear }} 年 {{ currentMonth }} 月 每日消耗趨勢圖</h3>
+        <h3>{{ currentYear }} 年 {{ currentMonth }} 月 每日{{ consumptionMode === 'wastage' ? '報廢料損耗' : '訂單物料消耗' }}趨勢圖</h3>
         <span class="chart-unit-hint">單位：依物料各自基準單位計量（滑鼠移至圓點可看詳細數據）</span>
       </div>
       @if (loading) {
@@ -208,7 +243,7 @@
     <div class="summary-card card">
       <span class="card-icon"><app-icon name="receipt-text" /></span>
       <div class="card-content">
-        <span class="card-label">已選品項累計總消耗量</span>
+        <span class="card-label">{{ consumptionMode === 'wastage' ? '已選品項累計總報廢量' : '已選品項累計總消耗量' }}</span>
         <strong class="card-value">{{ totalMonthlyConsumptionCount }}</strong>
         <span class="card-hint">本月合計數據</span>
       </div>
@@ -218,10 +253,10 @@
       <div class="summary-card card">
         <span class="card-icon"><app-icon name="package" /></span>
         <div class="card-content">
-          <span class="card-label">本月消耗最高品項</span>
+          <span class="card-label">{{ consumptionMode === 'wastage' ? '本月報廢最高品項' : '本月消耗最高品項' }}</span>
           <strong class="card-value">{{ topMaterial.name }}</strong>
           <span class="card-hint">
-            共消耗 {{ topMaterial.total }} {{ topMaterial.unit }}
+            共{{ consumptionMode === 'wastage' ? '報廢' : '消耗' }} {{ topMaterial.total }} {{ topMaterial.unit }}
           </span>
         </div>
       </div>
@@ -237,46 +272,78 @@
     </div>
   </div>
 
-  <!-- 詳情統計清單表格 -->
-  <div class="details-table-card card">
-    <h4>已選品項月消耗明細統計</h4>
-    <div class="table-wrap">
-      <table class="consumption-table">
-        <thead>
-          <tr>
-            <th>標記顏色</th>
-            <th>物料品項</th>
-            <th>基準單位</th>
-            <th>本月累計消耗</th>
-            <th>狀態備註</th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (s of seriesList; track s.inventoryId) {
+  <!-- 點擊「查看月物料消耗」按鈕後才顯示的月物料消耗統計表格 -->
+  @if (showMonthlySummary) {
+    <div class="details-table-card card">
+      <div class="monthly-table-head">
+        <div>
+          <h4>{{ currentYear }} 年 {{ currentMonth }} 月 {{ consumptionMode === 'wastage' ? '月報廢料損耗統計明細' : '月物料消耗統計明細（純訂單消耗）' }}</h4>
+          <p class="monthly-table-subtitle">
+            @if (consumptionMode === 'wastage') {
+              統計本月所有原物料於門市回報的累計報廢損耗量（不包含訂單銷售消耗）。
+            } @else {
+              統計本月所有半成品料與配方物料的訂單累計消耗量（不含原料報廢）。
+            }
+          </p>
+        </div>
+        <div class="monthly-head-actions">
+          <button
+            type="button"
+            class="btn-switch-inline"
+            [class.active]="consumptionMode === 'order'"
+            (click)="switchConsumptionMode('order')">
+            訂單消耗明細
+          </button>
+          <button
+            type="button"
+            class="btn-switch-inline wastage"
+            [class.active]="consumptionMode === 'wastage'"
+            (click)="switchConsumptionMode('wastage')">
+            報廢料損耗明細
+          </button>
+          <button type="button" class="btn-close-monthly" (click)="toggleMonthlySummary()">收合 ✕</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table class="consumption-table">
+          <thead>
             <tr>
-              <td>
-                <span class="color-badge" [style.background-color]="s.color"></span>
-              </td>
-              <td class="mat-name"><strong>{{ s.name }}</strong></td>
-              <td>{{ s.unit }}</td>
-              <td class="mat-qty">
-                <span [class.highlight-qty]="s.total > 0">{{ s.total }} {{ s.unit }}</span>
-              </td>
-              <td>
-                @if (s.total > 0) {
-                  <span class="tag tag-active">本月正常消耗</span>
-                } @else {
-                  <span class="tag tag-idle">無消耗記錄</span>
-                }
-              </td>
+              <th>標記顏色</th>
+              <th>{{ consumptionMode === 'wastage' ? '報廢原料品項' : '半成品／配方物料' }}</th>
+              <th>基準單位</th>
+              <th>{{ consumptionMode === 'wastage' ? '有報廢天數' : '有消耗天數' }}</th>
+              <th>{{ consumptionMode === 'wastage' ? '本月累計報廢損耗' : '本月訂單累計消耗' }}</th>
+              <th>狀態備註</th>
             </tr>
-          } @empty {
-            <tr>
-              <td colspan="5" class="empty-row">尚未選取任何品項</td>
-            </tr>
-          }
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            @for (s of monthlyMaterialRows; track s.inventoryId) {
+              <tr>
+                <td>
+                  <span class="color-badge" [style.background-color]="s.color"></span>
+                </td>
+                <td class="mat-name"><strong>{{ s.name }}</strong></td>
+                <td>{{ s.unit }}</td>
+                <td>{{ s.activeDays }} 天</td>
+                <td class="mat-qty">
+                  <span [class.highlight-qty]="s.total > 0">{{ s.total }} {{ s.unit }}</span>
+                </td>
+                <td>
+                  @if (s.total > 0) {
+                    <span class="tag tag-active">{{ consumptionMode === 'wastage' ? '本月有報廢紀錄' : '本月訂單消耗' }}</span>
+                  } @else {
+                    <span class="tag tag-idle">{{ consumptionMode === 'wastage' ? '無報廢記錄' : '無消耗記錄' }}</span>
+                  }
+                </td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="6" class="empty-row">本月尚無任何物料項目</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
     </div>
-  </div>
+  }
 </section>
