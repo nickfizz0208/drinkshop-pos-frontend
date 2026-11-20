@@ -55,6 +55,8 @@ export class AppComponent {
   get storeAllowed(): boolean { return STORE_LEVELS.includes(this.api.staff()?.level ?? ''); }
   /** 停售管理只限門市 POS、店長；其他帳號選單不顯示、也切不過去。 */
   get saleAllowed(): boolean { return SALE_EDIT_LEVELS.includes(this.api.staff()?.level ?? ''); }
+  /** 物料消耗只限店長、總部帳號；POS 共用帳號與一般員工選單不顯示、也切不過去。 */
+  get consumptionAllowed(): boolean { const level = this.api.staff()?.level ?? ''; return level === 'MANAGER' || level === 'HQ'; }
   /** 配方：登入的帳號都能看（店長、總部可編輯，頁面內與後端控制）。 */
   get canViewRecipes(): boolean { return !this.ui.preview && !!this.api.staff(); }
   /** 點餐、訂單、日結頁可不可以用：未登入的介面預覽可以看；登入後只有 POS 帳號可以，個人帳號不行。 */
@@ -232,8 +234,9 @@ export class AppComponent {
     this.pos.restorePending();
     this.ui.loginOpen = false; this.ui.password = ''; this.ui.error = '';
     if (this.isPos) {
-      // POS 共用帳號不能盤點（要記在員工本人名下）
-      if (PERSONAL_VIEWS.includes(this.ui.view) || this.ui.view === 'store') this.ui.view = 'pos';
+      // POS 共用帳號不能盤點（要記在員工本人名下），也不能看物料消耗
+      if (PERSONAL_VIEWS.includes(this.ui.view) || this.ui.view === 'store'
+        || (this.ui.view === 'material-consumption' && !this.consumptionAllowed)) this.ui.view = 'pos';
       await this.loadShift();
       if (this.shiftLocked) this.ui.notice = this.shiftStatus === 'NONE' ? '登入成功。點餐與訂單需要先開班。' : '';
       else this.ui.notice = this.pos.pending ? '找到前次待確認訂單，請繼續確認送單結果。' : '登入成功，已載入門市菜單。';
@@ -241,7 +244,8 @@ export class AppComponent {
     } else {
       // 個人帳號不能點餐、看訂單與日結，直接進工時管理
       if (COUNTER_VIEWS.includes(this.ui.view) || (this.ui.view === 'sale-status' && !this.saleAllowed)
-        || (this.ui.view === 'store' && !this.storeAllowed)) this.ui.view = 'time-tracker';
+        || (this.ui.view === 'store' && !this.storeAllowed)
+        || (this.ui.view === 'material-consumption' && !this.consumptionAllowed)) this.ui.view = 'time-tracker';
       this.ui.notice = '登入成功。點餐收銀與訂單管理請使用門市 POS 帳號。';
     }
   }
@@ -261,6 +265,7 @@ export class AppComponent {
     if (PERSONAL_VIEWS.includes(view) && this.isPos) return;
     if (view === 'sale-status' && !this.saleAllowed) return;
     if (view === 'store' && !this.storeAllowed) return;
+    if (view === 'material-consumption' && !this.consumptionAllowed) return;
     if (!this.ui.navigate(view)) return;
     if (view === 'pos') void this.refreshMenu();
     if (view === 'orders' && !this.ui.preview && !this.shiftLocked) await this.orders.loadOrders();

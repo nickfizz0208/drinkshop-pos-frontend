@@ -67,9 +67,11 @@
       <button class="rail-link" [class.active]="ui.view === 'sale-status'" [disabled]="ui.busy"
         (click)="switchView('sale-status')"><app-icon name="ban" />停售管理</button>
       }
-      <!-- 物料消耗：統計每月原物料消耗多線折線圖，所有帳號皆可查看 -->
+      <!-- 物料消耗：只限店長、總部查看（POS 共用帳號與一般員工不可看） -->
+      @if (consumptionAllowed) {
       <button class="rail-link" [class.active]="ui.view === 'material-consumption'" [disabled]="ui.busy"
         (click)="switchView('material-consumption')"><app-icon name="clipboard-list" />物料消耗</button>
+      }
       <!-- 配方：登入的帳號都能看；店長、總部可編輯 -->
       @if (canViewRecipes) {
       <button type="button" class="rail-link" [class.active]="ui.view === 'recipes'"
@@ -139,7 +141,7 @@
       @case ('checklist') { <app-check-list /> }
       @case ('inventory-count') { <app-inventory-count /> }
       @case ('sale-status') { <app-sale-status /> }
-      @case ('material-consumption') { <app-material-consumption /> }
+      @case ('material-consumption') { @if (consumptionAllowed) { <app-material-consumption /> } }
       @case ('recipes') { @if (canViewRecipes) { <app-recipes /> } }
       }
       }
