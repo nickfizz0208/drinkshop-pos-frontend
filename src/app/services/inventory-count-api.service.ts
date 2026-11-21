@@ -35,4 +35,8 @@ export class InventoryCountApiService {
   submit(body: CountSubmit): Promise<CountRow[]> {
     return this.wait(this.http.post<CountRow[]>('/api/inventory-counts', body, this.options));
   }
+  /** 店長審核確認盤點紀錄，並正式更新原料帳面庫存。 */
+  approveCount(countId: number): Promise<{ success: boolean; message: string }> {
+    return this.wait(this.http.post<{ success: boolean; message: string }>(`/api/inventory-counts/${countId}/approve`, {}, this.options));
+  }
 }

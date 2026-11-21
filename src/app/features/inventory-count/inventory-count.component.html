@@ -41,6 +41,21 @@
     </button>
     }
   </div>
+  <!-- 物料分類篩選標籤 -->
+  @if (state.categories.length) {
+  <div class="category-pills" role="group" aria-label="物料分類篩選">
+    <button type="button" class="cat-pill" [class.active]="state.selectedCategory === 'ALL'"
+      [disabled]="ui.busy" (click)="state.selectedCategory = 'ALL'">
+      全部分類 ({{ state.typeItems.length }})
+    </button>
+    @for (cat of state.categories; track cat) {
+    <button type="button" class="cat-pill" [class.active]="state.selectedCategory === cat"
+      [disabled]="ui.busy" (click)="state.selectedCategory = cat">
+      {{ cat }}
+    </button>
+    }
+  </div>
+  }
   <p class="hint">
     @if (state.packOnly) { {{ state.type?.name }}：以較大單位紀錄，不記錄零頭。 }
     @else { 以最基本單位記錄。 }
@@ -52,20 +67,20 @@
   <div class="table-scroll count-scroll">
     <table class="count-table">
       <colgroup>
-        <col style="width: 15%;">
+        <col style="width: 18%;">
+        <col style="width: 12%;">
+        <col style="width: 10%;">
+        <col style="width: 26%;">
         <col style="width: 10%;">
         <col style="width: 10%;">
-        <col style="width: 30%;">
-        <col style="width: 10%;">
-        <col style="width: 10%;">
-        <col style="width: 10%;">
+        <col style="width: 9%;">
         <col style="width: 5%;">
       </colgroup>
       <thead>
         <tr>
-          <th>原料</th>
+          <th>原料品項</th>
           <th>說明</th>
-          <th class="num">帳面</th>
+          <th class="num">目前庫存</th>
           <th>實點</th>
           <th class="num">安全庫存</th>
           <th class="num">實點合計</th>
@@ -77,14 +92,18 @@
         @for (item of state.visibleItems; track item.inventoryId) {
         <tr [class.counted]="state.counted(item) !== null">
           <!-- 1 -->
-          <td class="name"><strong>{{ item.name }}</strong></td>
+          <td class="name">
+            <strong>{{ item.name }}</strong>
+            @if (item.category) { <span class="tag cat-tag">{{ item.category }}</span> }
+          </td>
           <!-- 2 -->
           <td class="describe">
             @if (state.hasPack(item)) { <small class="muted">1 {{ item.packUnit }} = {{ qty(item.perPack!) }} {{
               item.baseUnit }}</small> }
+            @else { <small class="muted">單位：{{ item.baseUnit }}</small> }
           </td>
           <!-- 3 -->
-          <td class="num book" data-label="帳面">{{ q(item.bookQty, item) }}</td>
+          <td class="num book" data-label="目前庫存"><strong>{{ q(item.bookQty, item) }}</strong></td>
           <!-- 4 -->
           <td class="input" data-label="實點">
             <div class="qty-inputs">
@@ -155,8 +174,15 @@
     <button type="button" class="group-head"
       (click)="state.expanded = state.expanded === g.requestId ? null : g.requestId"
       [attr.aria-expanded]="state.expanded === g.requestId">
-      <span><span class="tag type">{{ g.typeName }}</span> <strong>{{ time(g.countedAt) }}</strong> · {{ g.countedByName
-        || '員工' }} · {{ g.rows.length }} 項</span>
+      <span>
+        <span class="tag type">{{ g.typeName }}</span>
+        @if (g.note && g.note.includes('[待店長審核]')) {
+          <span class="tag tag-pending">待店長審核</span>
+        } @else if (g.note && (g.note.includes('[店長已審核確認]') || g.note.includes('[店長已確認]'))) {
+          <span class="tag tag-approved">✓ 店長已確認</span>
+        }
+        <strong>{{ time(g.countedAt) }}</strong> · {{ g.countedByName || '員工' }} · {{ g.rows.length }} 項
+      </span>
       <span class="group-sum">
         @if (g.shortCount) { <span class="short">盤虧 {{ g.shortCount }}</span> }
         @if (g.overCount) { <span class="over">盤盈 {{ g.overCount }}</span> }
@@ -165,7 +191,16 @@
       </span>
     </button>
     @if (state.expanded === g.requestId) {
-    @if (g.note) { <p class="muted">備註：{{ g.note }}</p> }
+    <div class="group-subbar">
+      @if (g.note) { <p class="muted">備註：{{ g.note }}</p> }
+      @if (state.isManager && g.note && g.note.includes('[待店長審核]')) {
+        <button type="button" class="button small primary approve-btn"
+          [disabled]="ui.busy || state.approvingId === g.rows[0].countId"
+          (click)="state.approveCount(g.rows[0].countId)">
+          {{ state.approvingId === g.rows[0].countId ? '審核中…' : '店長審核並更新帳面庫存' }}
+        </button>
+      }
+    </div>
     <div class="table-scroll">
       <table>
         <thead>
@@ -215,7 +250,11 @@
     </ul>
     @if (state.note.trim()) { <p class="muted">備註：{{ state.note.trim() }}</p> }
     @if (state.packOnly) { <p class="hint">只填箱數：零頭不計，帳面會改成「箱數 × 每箱數量」。</p> }
-    <p class="hint">送出後，這些原料的帳面庫存會改成實點數量；盤點前的帳面與差異會留在紀錄裡。</p>
+    @if (state.isManager) {
+      <p class="hint">以店長身分確認送出：帳面庫存將即時更新為實點數量。</p>
+    } @else {
+      <p class="hint">員工盤點回報：送出後標記為「待店長審核」，不會直接改動帳面庫存，待店長審核確認後才進行扣除/更新。</p>
+    }
   </div>
   <div class="modal-footer"><button class="button secondary" (click)="state.closeConfirm()"
       [disabled]="ui.busy">返回修改</button>

@@ -1,3 +1,5 @@
+import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { MaterialConsumptionComponent } from './material-consumption.component';
 import { ConsumptionApiService } from '../../services/consumption-api.service';
@@ -24,12 +26,14 @@ describe('物料消耗趨勢元件 (MaterialConsumptionComponent)', () => {
   };
 
   beforeEach(async () => {
-    api = jasmine.createSpyObj<ConsumptionApiService>('ConsumptionApiService', ['getMonthlyConsumption']);
+    api = jasmine.createSpyObj<ConsumptionApiService>('ConsumptionApiService', ['getMonthlyConsumption', 'confirmDeduct']);
     api.getMonthlyConsumption.and.resolveTo(mockData);
 
     await TestBed.configureTestingModule({
       imports: [MaterialConsumptionComponent],
       providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
         { provide: ConsumptionApiService, useValue: api },
         UiStateService
       ]
@@ -76,5 +80,21 @@ describe('物料消耗趨勢元件 (MaterialConsumptionComponent)', () => {
     component.selectAll();
     expect(component.selectedIds.size).toBe(3);
     expect(component.seriesList.length).toBe(3);
+  });
+
+  it('店長可開啟扣庫彈窗並計算待扣除項目', async () => {
+    await component.loadData();
+    component.openDeductModal();
+    expect(component.showDeductModal).toBeTrue();
+    expect(component.deductRows.length).toBeGreaterThan(0);
+  });
+
+  it('店長確認執行扣庫時應呼叫 confirmDeduct API 並刷新數據', async () => {
+    api.confirmDeduct.and.resolveTo({ success: true, message: '店長確認扣除完成', deductedCount: 2 });
+    await component.loadData();
+    component.openDeductModal();
+    await component.executeDeduct();
+    expect(api.confirmDeduct).toHaveBeenCalled();
+    expect(component.showDeductModal).toBeFalse();
   });
 });

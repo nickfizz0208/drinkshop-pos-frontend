@@ -523,3 +523,66 @@ tr.counted td:first-child {
   padding: 8px;
   /* 順便加上內距，文字才不會貼著線 */
 }
+
+.category-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.cat-pill {
+  padding: 6px 14px;
+  border-radius: 20px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-card);
+  color: var(--text-color);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+
+  &:hover {
+    border-color: var(--primary-accent);
+  }
+
+  &.active {
+    background: #1976d2;
+    color: #fff;
+    border-color: #1976d2;
+    font-weight: 600;
+  }
+}
+
+.cat-tag {
+  background: #e3f2fd;
+  color: #1565c0;
+}
+
+.tag-pending {
+  background: #fff8e1;
+  color: #b78103;
+  border: 1px solid #ffe082;
+}
+
+.tag-approved {
+  background: #e8f5e9;
+  color: #2e7d32;
+  border: 1px solid #a5d6a7;
+}
+
+.group-subbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+
+  p {
+    margin: 0;
+  }
+
+  .approve-btn {
+    margin-left: auto;
+  }
+}

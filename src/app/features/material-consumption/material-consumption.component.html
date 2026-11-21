@@ -5,7 +5,7 @@
       <h2>{{ consumptionMode === 'wastage' ? '報廢料損耗走勢' : '物料消耗走勢' }}</h2>
       <p class="subtitle">
         @if (consumptionMode === 'wastage') {
-          依據門市回報之原料報廢紀錄（raw_material_wastage），獨立統計每日原料報廢損耗趨勢。
+          依據門市回報之原料報廢紀錄（raw_material_wastage），獨立統計每日原料報廢損耗趨勢與回報人細項。
         } @else {
           依據訂單銷售之半成品料與直接配方物料（如茶湯、牛奶、加料）統計每日消耗趨勢，不包含原料報廢。
         }
@@ -41,6 +41,17 @@
         <app-icon name="clipboard-list" />
         <span>{{ showMonthlySummary ? '收合月物料消耗' : '查看月物料消耗' }}</span>
       </button>
+
+      <!-- 店長專屬：確認扣除庫存按鈕 -->
+      @if (isManager) {
+        <button
+          type="button"
+          class="manager-deduct-btn"
+          (click)="openDeductModal()">
+          <app-icon name="list-checks" />
+          <span>店長確認扣庫</span>
+        </button>
+      }
 
       <div class="year-selector">
         <label for="year-select">年份</label>
@@ -280,7 +291,7 @@
           <h4>{{ currentYear }} 年 {{ currentMonth }} 月 {{ consumptionMode === 'wastage' ? '月報廢料損耗統計明細' : '月物料消耗統計明細（純訂單消耗）' }}</h4>
           <p class="monthly-table-subtitle">
             @if (consumptionMode === 'wastage') {
-              統計本月所有原物料於門市回報的累計報廢損耗量（不包含訂單銷售消耗）。
+              統計本月所有原物料於門市回報的累計報廢損耗量與目前帳面庫存。
             } @else {
               統計本月所有半成品料與配方物料的訂單累計消耗量（不含原料報廢）。
             }
@@ -310,7 +321,9 @@
             <tr>
               <th>標記顏色</th>
               <th>{{ consumptionMode === 'wastage' ? '報廢原料品項' : '半成品／配方物料' }}</th>
+              <th>物料分類</th>
               <th>基準單位</th>
+              <th class="num">目前帳面庫存</th>
               <th>{{ consumptionMode === 'wastage' ? '有報廢天數' : '有消耗天數' }}</th>
               <th>{{ consumptionMode === 'wastage' ? '本月累計報廢損耗' : '本月訂單累計消耗' }}</th>
               <th>狀態備註</th>
@@ -323,7 +336,15 @@
                   <span class="color-badge" [style.background-color]="s.color"></span>
                 </td>
                 <td class="mat-name"><strong>{{ s.name }}</strong></td>
+                <td><span class="tag cat-tag">{{ s.category }}</span></td>
                 <td>{{ s.unit }}</td>
+                <td class="num">
+                  @if (s.inventoryId < 100000) {
+                    <strong>{{ s.bookQty }} {{ s.unit }}</strong>
+                  } @else {
+                    <span class="muted">半成品配方</span>
+                  }
+                </td>
                 <td>{{ s.activeDays }} 天</td>
                 <td class="mat-qty">
                   <span [class.highlight-qty]="s.total > 0">{{ s.total }} {{ s.unit }}</span>
@@ -338,7 +359,53 @@
               </tr>
             } @empty {
               <tr>
-                <td colspan="6" class="empty-row">本月尚無任何物料項目</td>
+                <td colspan="8" class="empty-row">本月尚無任何物料項目</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  }
+
+  <!-- 報廢模式下：顯示門市個別報廢回報詳細紀錄（依日期、時間、回報人、原因） -->
+  @if (consumptionMode === 'wastage') {
+    <div class="details-table-card card wastage-details-card">
+      <div class="monthly-table-head">
+        <div>
+          <h4>{{ currentYear }} 年 {{ currentMonth }} 月 門市原料報廢回報詳細紀錄</h4>
+          <p class="monthly-table-subtitle">詳細記錄每筆報廢紀錄之營業日、回報員工、時間、報廢數量與原因，供店長查核與損耗分析。</p>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table class="consumption-table">
+          <thead>
+            <tr>
+              <th>營業日</th>
+              <th>報廢原料</th>
+              <th class="num">報廢數量</th>
+              <th class="num">單位成本</th>
+              <th class="num">損耗總額</th>
+              <th>報廢原因</th>
+              <th>回報員工</th>
+              <th>回報時間</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (w of wastageDetails; track w.wastage_id) {
+              <tr>
+                <td>{{ w.business_date }}</td>
+                <td class="mat-name"><strong>{{ w.material_name }}</strong></td>
+                <td class="num mat-qty"><span class="highlight-qty">{{ w.quantity }} {{ w.unit }}</span></td>
+                <td class="num">{{ w.unit_cost !== null ? '$' + w.unit_cost : '—' }}</td>
+                <td class="num"><strong>{{ w.material_cost !== null ? '$' + w.material_cost : '—' }}</strong></td>
+                <td><span class="reason-pill">{{ w.reason }}</span></td>
+                <td>{{ w.reported_by_name || '員工 ' + w.reported_by }}</td>
+                <td><small class="muted">{{ w.reported_at }}</small></td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="8" class="empty-row">本月尚無任何報廢回報紀錄</td>
               </tr>
             }
           </tbody>
@@ -347,3 +414,123 @@
     </div>
   }
 </section>
+
+<!-- 店長確認扣除庫存 Modal 彈窗 -->
+@if (showDeductModal) {
+  <app-modal
+    title="店長確認物料扣庫審核"
+    subtitle="依據本期訂單消耗與報廢損耗數據，店長確認後直接扣除 inventory 帳面庫存"
+    [busy]="deducting"
+    (dismissed)="closeDeductModal()">
+    <div class="modal-body deduct-modal-body">
+      @if (deductError) {
+        <p class="alert error" role="alert">{{ deductError }}</p>
+      }
+
+      <div class="deduct-scope-tabs">
+        <span class="scope-label">快速帶入扣除範圍：</span>
+        <button
+          type="button"
+          class="scope-tab"
+          [class.active]="deductScope === 'all'"
+          (click)="setDeductScope('all')">
+          全部消耗（訂單 + 報廢）
+        </button>
+        <button
+          type="button"
+          class="scope-tab"
+          [class.active]="deductScope === 'order'"
+          (click)="setDeductScope('order')">
+          僅訂單消耗
+        </button>
+        <button
+          type="button"
+          class="scope-tab"
+          [class.active]="deductScope === 'wastage'"
+          (click)="setDeductScope('wastage')">
+          僅報廢損耗
+        </button>
+      </div>
+
+      <div class="deduct-actions-row">
+        <span class="selection-hint">已選擇 <strong>{{ selectedDeductCount }}</strong> 項原料待執行扣庫</span>
+        <div class="quick-btns">
+          <button type="button" class="btn-text" (click)="toggleSelectAllDeduct(true)">全選</button>
+          <span class="divider">|</span>
+          <button type="button" class="btn-text" (click)="toggleSelectAllDeduct(false)">全不選</button>
+        </div>
+      </div>
+
+      <div class="table-scroll deduct-table-scroll">
+        <table class="deduct-table">
+          <thead>
+            <tr>
+              <th style="width: 44px; text-align: center;">勾選</th>
+              <th>原料品項</th>
+              <th>分類</th>
+              <th class="num">目前庫存</th>
+              <th class="num">本月訂單消耗</th>
+              <th class="num">本月報廢損耗</th>
+              <th class="num">本次欲扣除數量</th>
+              <th class="num">扣後預估庫存</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of deductRows; track row.inventoryId) {
+              <tr [class.selected-row]="row.selected">
+                <td style="text-align: center;">
+                  <input type="checkbox" [(ngModel)]="row.selected" [name]="'chk-' + row.inventoryId">
+                </td>
+                <td><strong>{{ row.name }}</strong></td>
+                <td><span class="tag cat-tag">{{ row.category }}</span></td>
+                <td class="num">{{ row.bookQty }} {{ row.unit }}</td>
+                <td class="num">{{ row.orderQty }} {{ row.unit }}</td>
+                <td class="num">{{ row.wastageQty }} {{ row.unit }}</td>
+                <td class="num input-cell">
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    [(ngModel)]="row.deductQty"
+                    [name]="'qty-' + row.inventoryId"
+                    class="deduct-qty-input"
+                  >
+                  <span class="unit-text">{{ row.unit }}</span>
+                </td>
+                <td class="num projected-stock" [class.negative]="row.bookQty - row.deductQty < 0">
+                  {{ (row.bookQty - row.deductQty >= 0 ? (row.bookQty - row.deductQty).toFixed(2) : '0.00 (歸零)') }}
+                  {{ row.unit }}
+                </td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="8" class="empty-row">目前無可扣除之原物料</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+      <label class="field deduct-note-field">
+        扣庫審核備註
+        <input type="text" [(ngModel)]="deductNote" placeholder="例如：2026年11月 店長結算扣庫確認" maxlength="200">
+      </label>
+      <p class="hint">
+        說明：店長確認送出後，將直接更新資料庫 inventory.book_qty 帳面庫存，扣減時防負庫存（低於 0 自動歸零）。
+      </p>
+    </div>
+
+    <div class="modal-footer">
+      <button type="button" class="button secondary" (click)="closeDeductModal()" [disabled]="deducting">
+        取消
+      </button>
+      <button
+        type="button"
+        class="button primary"
+        (click)="executeDeduct()"
+        [disabled]="deducting || selectedDeductCount === 0">
+        {{ deducting ? '扣除更新中…' : '確認執行扣庫' }}
+      </button>
+    </div>
+  </app-modal>
+}

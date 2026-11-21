@@ -125,9 +125,27 @@ export class InventoryCountStateService {
     if (c !== null && c > MAX_QTY) return '數量太大';
     return '';
   }
+  selectedCategory = 'ALL';
+
+  get categories(): string[] {
+    const set = new Set<string>();
+    for (const item of this.items) {
+      if (item.category) set.add(item.category);
+    }
+    return Array.from(set);
+  }
+
   get visibleItems(): InventoryItem[] {
     const q = this.search.trim();
-    return q ? this.typeItems.filter(i => i.name.includes(q)) : this.typeItems;
+    let list = this.typeItems;
+    if (this.selectedCategory !== 'ALL') {
+      if (this.selectedCategory === '未分類') {
+        list = list.filter(i => !i.category || i.category === '未分類');
+      } else {
+        list = list.filter(i => i.category === this.selectedCategory);
+      }
+    }
+    return q ? list.filter(i => i.name.includes(q)) : list;
   }
   get lines(): CountLine[] {
     return this.typeItems.flatMap(item => {
@@ -268,6 +286,25 @@ export class InventoryCountStateService {
   private setTypes(types: CountType[]): void {
     this.types = types;
     if (!types.some(t => t.typeId === this.typeId)) { this.typeId = types[0]?.typeId ?? null; this.entries = {}; }
+  }
+
+  approvingId: number | null = null;
+
+  async approveCount(countId: number): Promise<void> {
+    if (this.ui.busy || !this.isManager) return;
+    this.approvingId = countId;
+    this.ui.busy = true;
+    try {
+      const res = await this.api.approveCount(countId);
+      this.ui.notice = res.message || '盤點紀錄已審核並更新帳面庫存';
+      await this.load();
+      await this.loadHistory();
+    } catch (error) {
+      this.historyError = errorMessage(error);
+    } finally {
+      this.approvingId = null;
+      this.ui.busy = false;
+    }
   }
 
   clearEntry(item: InventoryItem): void { delete this.entries[item.inventoryId]; }

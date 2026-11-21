@@ -11,6 +11,7 @@ export interface InventoryItem {
   bookQty: number; safetyStock: number; unitCost: number | null;
   /** true：畫面用「幾籃幾顆」顯示（資料庫照樣存基本單位）；盤點時零散要少於 perPack。 */
   displayByPack: boolean;
+  category?: string | null;
 }
 
 /**

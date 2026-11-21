@@ -108,6 +108,26 @@
       }
     }
 
+    .manager-deduct-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 14px;
+      border-radius: 9px;
+      border: 1px solid #1976d2;
+      background: #eff6ff;
+      color: #1d4ed8;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+
+      &:hover {
+        background: #1976d2;
+        color: #ffffff;
+      }
+    }
+
     .year-selector {
       display: flex;
       align-items: center;
@@ -522,5 +542,201 @@
       color: #9ca3af;
       padding: 30px;
     }
+
+    .reason-pill {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 12px;
+      background: #fef2f2;
+      color: #991b1b;
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    .cat-tag {
+      font-size: 11px;
+      padding: 2px 7px;
+      border-radius: 5px;
+      background: #e0f2fe;
+      color: #0369a1;
+      font-weight: 600;
+    }
+  }
+}
+
+.deduct-modal-body {
+  padding: 20px 24px;
+  max-height: 70vh;
+  overflow-y: auto;
+
+  .deduct-scope-tabs {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+
+    .scope-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: #4b5563;
+    }
+
+    .scope-tab {
+      padding: 5px 12px;
+      border-radius: 16px;
+      border: 1px solid #d1d5db;
+      background: #ffffff;
+      color: #374151;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.15s;
+
+      &:hover {
+        border-color: #1976d2;
+      }
+
+      &.active {
+        background: #1976d2;
+        color: #ffffff;
+        border-color: #1976d2;
+        font-weight: 600;
+      }
+    }
+  }
+
+  .deduct-actions-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    font-size: 13px;
+    color: #4b5563;
+
+    strong {
+      color: #1976d2;
+    }
+
+    .quick-btns {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+
+      .btn-text {
+        background: none;
+        border: none;
+        color: #1976d2;
+        cursor: pointer;
+        font-size: 12px;
+        padding: 0;
+
+        &:hover {
+          text-decoration: underline;
+        }
+      }
+
+      .divider {
+        color: #d1d5db;
+      }
+    }
+  }
+
+  .deduct-table-scroll {
+    max-height: 320px;
+    overflow-y: auto;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    margin-bottom: 16px;
+  }
+
+  .deduct-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+
+    th, td {
+      padding: 8px 10px;
+      border-bottom: 1px solid #e5e7eb;
+      vertical-align: middle;
+    }
+
+    th {
+      background: #f9fafb;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      font-weight: 600;
+      color: #374151;
+    }
+
+    tr.selected-row {
+      background: #f0fdf4;
+    }
+
+    .num {
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .input-cell {
+      white-space: nowrap;
+
+      .deduct-qty-input {
+        width: 70px;
+        padding: 4px 6px;
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+        text-align: right;
+        font-size: 13px;
+
+        &:focus {
+          border-color: #1976d2;
+          outline: none;
+        }
+      }
+
+      .unit-text {
+        margin-left: 4px;
+        font-size: 12px;
+        color: #6b7280;
+      }
+    }
+
+    .projected-stock {
+      font-weight: 600;
+      color: #15803d;
+
+      &.negative {
+        color: #dc2626;
+      }
+    }
+  }
+
+  .deduct-note-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 10px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #374151;
+
+    input {
+      padding: 8px 12px;
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
+      font-size: 13px;
+
+      &:focus {
+        border-color: #1976d2;
+        outline: none;
+      }
+    }
+  }
+
+  .hint {
+    margin: 0;
+    font-size: 12px;
+    color: #6b7280;
   }
 }
