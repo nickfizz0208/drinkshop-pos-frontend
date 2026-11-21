@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { firstValueFrom, Observable, timeout } from 'rxjs';
-import { CountHistory, CountRow, CountSubmit, CountType, InventoryItem, SaveType } from '../models/inventory-count';
+import { CountHistory, CountRow, CountSubmit, CountType, InventoryItem, PrepCountItem, PrepCountSubmit, SaveType } from '../models/inventory-count';
 import { API_TIMEOUT_MS, PosApiService } from './pos-api.service';
 
 /** 原料盤點 API：登入憑證沿用 PosApiService。只限個人帳號（POS 共用帳號後端回 403）。 */
@@ -38,5 +38,13 @@ export class InventoryCountApiService {
   /** 店長審核確認盤點紀錄，並正式更新原料帳面庫存。 */
   approveCount(countId: number): Promise<{ success: boolean; message: string }> {
     return this.wait(this.http.post<{ success: boolean; message: string }>(`/api/inventory-counts/${countId}/approve`, {}, this.options));
+  }
+  /** 半成品盤點清單（計算目前數量、今日訂單消耗、今日報廢、理論量）。 */
+  prepItems(date?: string): Promise<PrepCountItem[]> {
+    return this.wait(this.http.get<PrepCountItem[]>('/api/inventory-counts/prep-items', { ...this.options, params: date ? { date } : {} }));
+  }
+  /** 送出半成品盤點（員工送出待審核，店長送出確認並扣除原料）。 */
+  submitPrepCount(body: PrepCountSubmit): Promise<{ countId: number; requestId: string; isManager: boolean; results: any[]; message: string }> {
+    return this.wait(this.http.post<any>('/api/inventory-counts/prep-submit', body, this.options));
   }
 }

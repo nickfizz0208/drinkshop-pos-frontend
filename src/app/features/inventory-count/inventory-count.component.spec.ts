@@ -26,8 +26,11 @@ describe('原料盤點（隔離 API，不連共用庫）', () => {
 
   beforeEach(async () => {
     sessionStorage.clear(); staff.set({ staffId: 4, username: 'clerk', name: '王小明', level: 'STAFF' });
-    api = jasmine.createSpyObj<InventoryCountApiService>('api', ['items', 'history', 'submit', 'types', 'createType', 'updateType']);
+    api = jasmine.createSpyObj<InventoryCountApiService>('api', ['items', 'history', 'submit', 'types', 'createType', 'updateType', 'prepItems', 'submitPrepCount', 'approveCount']);
     api.items.and.resolveTo([milk, cups]); api.history.and.resolveTo({ enabled: true, rows: [] }); api.types.and.resolveTo([full, quick]);
+    api.prepItems.and.resolveTo([{ prepId: 3, name: '波霸', category: '底料', unit: '份', currentQty: 25, orderConsumed: 15, wastedQty: 2, theoreticalQty: 8, ingredients: [] }]);
+    api.submitPrepCount.and.resolveTo({ countId: 10, requestId: 'r1', isManager: false, results: [], message: 'ok' });
+    api.approveCount.and.resolveTo({ success: true, message: 'approved' });
     pos = jasmine.createSpyObj<PosApiService>('pos', ['logout', 'menu', 'rules', 'shiftToday', 'staffOptions', 'authHeaders'], { staff });
     pos.menu.and.resolveTo(PREVIEW_MENU); pos.rules.and.resolveTo(PREVIEW_RULES);
     pos.logout.and.callFake(() => staff.set(null));
@@ -166,5 +169,20 @@ describe('原料盤點（隔離 API，不連共用庫）', () => {
     staff.set({ staffId: 3, username: 'pos', name: '門市 POS', level: 'POS' }); ui.view = 'orders'; fixture.detectChanges();
     expect(labels()).not.toContain('盤點');
     await fixture.componentInstance.switchView('inventory-count'); expect(ui.view).toBe('orders');
+  });
+  it('半成品盤點：依公式「目前數量 - 訂單 - 報廢 = 理論量」並算出差距「理論量 - 實點量」', async () => {
+    state.setTab('PREP');
+    await state.loadPrepItems();
+    expect(state.prepItems.length).toBe(1);
+    const boba = state.prepItems[0];
+    // 目前數量 25 - 訂單 15 - 報廢 2 = 理論量 8
+    expect(state.prepTheoretical(boba)).toBe(8);
+    // 實點填 6
+    state.prepEntry(3).countedQty = 6;
+    // 差距 = 8 - 6 = 2 (短少 2)
+    expect(state.prepDiff(boba)).toBe(2);
+    expect(state.canSubmitPrep).toBeTrue();
+    await state.submitPrep();
+    expect(api.submitPrepCount).toHaveBeenCalled();
   });
 });

@@ -1,9 +1,19 @@
 <div class="page-heading">
   @if (!ui.preview) {
+  <div class="count-mode-tabs" role="tablist" aria-label="盤點項目切換">
+    <button type="button" class="tab-button" [class.active]="state.activeTab === 'RAW'"
+      (click)="state.setTab('RAW')" [disabled]="ui.busy">
+      📦 原料盤點
+    </button>
+    <button type="button" class="tab-button" [class.active]="state.activeTab === 'PREP'"
+      (click)="state.setTab('PREP')" [disabled]="ui.busy">
+      🧋 半成品備料盤點
+    </button>
+  </div>
   <div class="heading-actions">
-    @if (state.isManager) { <button class="button secondary" (click)="state.openManage()"
+    @if (state.isManager && state.activeTab === 'RAW') { <button class="button secondary" (click)="state.openManage()"
       [disabled]="ui.busy">管理盤點類型</button> }
-    <button class="button secondary" (click)="state.load()" [disabled]="ui.busy || state.loading">重新整理</button>
+    <button class="button secondary" (click)="state.activeTab === 'RAW' ? state.load() : state.loadPrepItems()" [disabled]="ui.busy || state.loading || state.prepLoading">重新整理</button>
   </div>
   }
 </div>
@@ -24,6 +34,7 @@
 @if (state.loading) { <p class="loading" role="status">正在讀取原料與盤點紀錄…</p> }
 
 @if (state.loaded) {
+@if (state.activeTab === 'RAW') {
 <section class="panel" aria-labelledby="count-title">
   <div class="panel-heading">
     <h2 id="count-title">本次盤點</h2>
@@ -157,6 +168,154 @@
     <button class="button primary" (click)="state.openConfirm()" [disabled]="!state.canSubmit">送出盤點</button>
   </div>
 </section>
+} @else if (state.activeTab === 'PREP') {
+<section class="panel prep-count-panel" aria-labelledby="prep-count-title">
+  <div class="panel-heading">
+    <div>
+      <h2 id="prep-count-title">半成品備料盤點檢查</h2>
+      <div class="formula-banner">
+        <span class="formula-badge">計算公式</span>
+        <strong>理論的量</strong> ＝ 目前物料數量 − 今日訂單消耗 − 今日報廢
+        <span class="sep">｜</span>
+        <strong>差距</strong> ＝ 理論的量 − 實際員工盤點的量
+        <div class="formula-subnote">
+          ※ 員工送出時僅記錄實點（不直接扣原料）；店長於此確認審核後，系統才自動依配方比例安全扣除底層原料庫存。
+        </div>
+      </div>
+    </div>
+    <label class="search"><span class="sr-only">搜尋半成品</span><input type="search" [(ngModel)]="state.prepSearch"
+        placeholder="搜尋半成品名稱" [disabled]="ui.busy"></label>
+  </div>
+
+  @if (state.prepLoading) {
+    <p class="loading" role="status">正在計算半成品理論量與今日消耗…</p>
+  } @else if (state.prepError) {
+    <p class="alert error" role="alert">{{ state.prepError }}</p>
+  } @else {
+    <!-- 半成品分類標籤 -->
+    @if (state.prepCategories.length) {
+    <div class="category-pills" role="group" aria-label="半成品分類篩選">
+      <button type="button" class="cat-pill" [class.active]="state.selectedPrepCategory === 'ALL'"
+        [disabled]="ui.busy" (click)="state.selectedPrepCategory = 'ALL'">
+        全部分類 ({{ state.prepItems.length }})
+      </button>
+      @for (cat of state.prepCategories; track cat) {
+      <button type="button" class="cat-pill" [class.active]="state.selectedPrepCategory === cat"
+        [disabled]="ui.busy" (click)="state.selectedPrepCategory = cat">
+        {{ cat }}
+      </button>
+      }
+    </div>
+    }
+
+    <div class="table-scroll count-scroll">
+      <table class="count-table prep-table">
+        <thead>
+          <tr>
+            <th>半成品料名</th>
+            <th>分類</th>
+            <th class="num">目前數量</th>
+            <th class="num">今日訂單消耗</th>
+            <th class="num">今日報廢</th>
+            <th class="num highlight-th">理論的量</th>
+            <th>實際員工盤點的量</th>
+            <th class="num highlight-th">差距</th>
+            <th>組成底層原料</th>
+            <th><span class="sr-only">操作</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (item of state.visiblePrepItems; track item.prepId) {
+          <tr [class.counted]="state.prepEntry(item.prepId).countedQty !== null">
+            <td class="name">
+              <strong>{{ item.name }}</strong>
+            </td>
+            <td>
+              <span class="tag cat-tag">{{ item.category }}</span>
+            </td>
+            <!-- 目前數量（可調整備料量） -->
+            <td class="num" data-label="目前數量">
+              <input type="number" min="0" step="1" class="small-qty-input"
+                [(ngModel)]="state.prepEntry(item.prepId).currentQty" [disabled]="ui.busy">
+              <span class="unit-text">{{ item.unit }}</span>
+            </td>
+            <!-- 今日訂單消耗 -->
+            <td class="num order-col" data-label="今日訂單消耗">
+              <strong>{{ item.orderConsumed }}</strong> {{ item.unit }}
+            </td>
+            <!-- 今日報廢 -->
+            <td class="num waste-col" data-label="今日報廢">
+              <strong>{{ item.wastedQty }}</strong> {{ item.unit }}
+            </td>
+            <!-- 理論的量 -->
+            <td class="num theoretical-col" data-label="理論的量">
+              <strong class="theo-val">{{ state.prepTheoretical(item) }}</strong> {{ item.unit }}
+            </td>
+            <!-- 實際員工盤點 -->
+            <td class="input" data-label="實際員工盤點的量">
+              <div class="prep-input-box">
+                <input type="number" min="0" step="0.5" class="prep-qty-input"
+                  placeholder="輸入實盤"
+                  [(ngModel)]="state.prepEntry(item.prepId).countedQty" [disabled]="ui.busy">
+                <span class="unit-text">{{ item.unit }}</span>
+              </div>
+            </td>
+            <!-- 差距 = 理論的量 - 實際員工盤點的量 -->
+            <td class="num diff" data-label="差距">
+              @if (state.prepDiff(item); as diff) {
+                <span class="diff-badge" [class.short]="diff > 0" [class.over]="diff < 0">
+                  {{ diff > 0 ? ('短少 ' + diff) : ('盤盈 ' + (-diff)) }} {{ item.unit }}
+                </span>
+              } @else if (state.prepDiff(item) === 0) {
+                <span class="diff-badge even">相符</span>
+              } @else {
+                <span class="muted">未盤</span>
+              }
+            </td>
+            <!-- 組成原料 -->
+            <td class="ingredients-cell">
+              <div class="ing-tags">
+                @for (ing of item.ingredients; track ing.inventoryId) {
+                  <span class="tag ing-tag" title="每份耗用 {{ ing.qty }} {{ ing.unit }}">
+                    {{ ing.name }} ({{ ing.qty }}{{ ing.unit }})
+                  </span>
+                }
+              </div>
+            </td>
+            <!-- 操作 -->
+            <td class="actions">
+              <button type="button" class="text-button" (click)="state.clearPrepEntry(item)" [disabled]="ui.busy">清除</button>
+            </td>
+          </tr>
+          } @empty {
+          <tr>
+            <td colspan="10" class="muted">無相符的半成品資料。</td>
+          </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+
+    <label class="field note">
+      半成品盤點備註（選填）
+      <input name="prepNote" maxlength="255" [(ngModel)]="state.prepNote" placeholder="例如：晚班備料盤點、珍珠重新煮製" [disabled]="ui.busy">
+    </label>
+
+    <div class="submit-bar">
+      <span>已盤點 {{ state.countedPrepCount }} / {{ state.prepItems.length }} 項半成品</span>
+      @if (state.isManager) {
+        <button class="button primary" (click)="state.submitPrep()" [disabled]="!state.canSubmitPrep">
+          店長確認審核並扣除底層原料
+        </button>
+      } @else {
+        <button class="button primary" (click)="state.submitPrep()" [disabled]="!state.canSubmitPrep">
+          送出半成品盤點（待店長審核）
+        </button>
+      }
+    </div>
+  }
+</section>
+}
 
 <section class="panel" aria-labelledby="history-title">
   <div class="panel-heading">
@@ -176,9 +335,9 @@
       [attr.aria-expanded]="state.expanded === g.requestId">
       <span>
         <span class="tag type">{{ g.typeName }}</span>
-        @if (g.note && g.note.includes('[待店長審核]')) {
+        @if (g.note && (g.note.includes('[半成品盤點待店長審核]') || g.note.includes('[待店長審核]'))) {
           <span class="tag tag-pending">待店長審核</span>
-        } @else if (g.note && (g.note.includes('[店長已審核確認]') || g.note.includes('[店長已確認]'))) {
+        } @else if (g.note && (g.note.includes('[半成品盤點-店長已確認扣庫]') || g.note.includes('[店長已審核確認]') || g.note.includes('[店長已確認]'))) {
           <span class="tag tag-approved">✓ 店長已確認</span>
         }
         <strong>{{ time(g.countedAt) }}</strong> · {{ g.countedByName || '員工' }} · {{ g.rows.length }} 項
@@ -193,11 +352,11 @@
     @if (state.expanded === g.requestId) {
     <div class="group-subbar">
       @if (g.note) { <p class="muted">備註：{{ g.note }}</p> }
-      @if (state.isManager && g.note && g.note.includes('[待店長審核]')) {
+      @if (state.isManager && g.note && (g.note.includes('[半成品盤點待店長審核]') || g.note.includes('[待店長審核]'))) {
         <button type="button" class="button small primary approve-btn"
           [disabled]="ui.busy || state.approvingId === g.rows[0].countId"
           (click)="state.approveCount(g.rows[0].countId)">
-          {{ state.approvingId === g.rows[0].countId ? '審核中…' : '店長審核並更新帳面庫存' }}
+          {{ state.approvingId === g.rows[0].countId ? '審核中…' : '店長審核並扣除底層原料' }}
         </button>
       }
     </div>
