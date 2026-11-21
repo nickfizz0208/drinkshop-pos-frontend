@@ -67,7 +67,7 @@
       <button class="rail-link" [class.active]="ui.view === 'sale-status'" [disabled]="ui.busy"
         (click)="switchView('sale-status')"><app-icon name="ban" />停售管理</button>
       }
-      <!-- 物料消耗：只限店長、總部查看（POS 共用帳號與一般員工不可看） -->
+      <!-- 物料消耗：只限店長查看（POS 共用帳號與一般員工不可看） -->
       @if (consumptionAllowed) {
       <button class="rail-link" [class.active]="ui.view === 'material-consumption'" [disabled]="ui.busy"
         (click)="switchView('material-consumption')"><app-icon name="clipboard-list" />物料消耗</button>

@@ -55,8 +55,8 @@ export class AppComponent {
   get storeAllowed(): boolean { return STORE_LEVELS.includes(this.api.staff()?.level ?? ''); }
   /** 停售管理只限門市 POS、店長；其他帳號選單不顯示、也切不過去。 */
   get saleAllowed(): boolean { return SALE_EDIT_LEVELS.includes(this.api.staff()?.level ?? ''); }
-  /** 物料消耗只限店長、總部帳號；POS 共用帳號與一般員工選單不顯示、也切不過去。 */
-  get consumptionAllowed(): boolean { const level = this.api.staff()?.level ?? ''; return level === 'MANAGER' || level === 'HQ'; }
+  /** 物料消耗只限店長帳號；其他帳號選單不顯示、也切不過去。 */
+  get consumptionAllowed(): boolean { return this.api.staff()?.level === 'MANAGER'; }
   /** 配方：登入的帳號都能看（店長、總部可編輯，頁面內與後端控制）。 */
   get canViewRecipes(): boolean { return !this.ui.preview && !!this.api.staff(); }
   /** 點餐、訂單、日結頁可不可以用：未登入的介面預覽可以看；登入後只有 POS 帳號可以，個人帳號不行。 */
