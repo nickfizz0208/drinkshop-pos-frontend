@@ -19,9 +19,9 @@ describe('物料消耗趨勢元件 (MaterialConsumptionComponent)', () => {
       { business_date: '2026-11-05', day_of_month: 5, inventory_id: 3, material_name: '紅茶包', unit: '包', total_consumed: 2 }
     ],
     materials: [
-      { inventory_id: 3, name: '紅茶包', base_unit: '包' },
-      { inventory_id: 4, name: '綠茶包', base_unit: '包' },
-      { inventory_id: 5, name: '奶料', base_unit: '份' }
+      { inventory_id: 3, name: '紅茶包', base_unit: '包', category: '茶葉' },
+      { inventory_id: 4, name: '綠茶包', base_unit: '包', category: '茶葉' },
+      { inventory_id: 5, name: '奶料', base_unit: '份', category: '底料' }
     ]
   };
 
@@ -96,5 +96,29 @@ describe('物料消耗趨勢元件 (MaterialConsumptionComponent)', () => {
     await component.executeDeduct();
     expect(api.confirmDeduct).toHaveBeenCalled();
     expect(component.showDeductModal).toBeFalse();
+  });
+
+  it('可以切換「使用分類整理查看」檢視模式', async () => {
+    await component.loadData();
+    expect(component.isCategoryGrouped).toBeFalse();
+    component.toggleCategoryView();
+    expect(component.isCategoryGrouped).toBeTrue();
+    expect(component.categoryGroups.length).toBe(2);
+  });
+
+  it('可以依特定分類篩選與全選該分類品項', async () => {
+    await component.loadData();
+    component.selectCategory('茶葉');
+    expect(component.filteredMaterials.length).toBe(2);
+
+    component.clearAll();
+    component.selectCategoryItems('茶葉');
+    expect(component.selectedIds.has(3)).toBeTrue();
+    expect(component.selectedIds.has(4)).toBeTrue();
+    expect(component.selectedIds.has(5)).toBeFalse();
+
+    component.clearCategoryItems('茶葉');
+    expect(component.selectedIds.has(3)).toBeFalse();
+    expect(component.selectedIds.has(4)).toBeFalse();
   });
 });

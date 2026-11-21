@@ -80,7 +80,18 @@
   <!-- 品項篩選選擇列 -->
   <div class="material-filter-card card">
     <div class="filter-title-row">
-      <span class="filter-label">品項篩選（點擊切換折線顯示）：</span>
+      <div class="filter-title-left">
+        <span class="filter-label">品項篩選（點擊切換折線顯示）：</span>
+        <!-- 使用分類整理查看按鈕 -->
+        <button
+          type="button"
+          class="category-view-toggle"
+          [class.active]="isCategoryGrouped"
+          (click)="toggleCategoryView()">
+          <app-icon name="list-checks" />
+          <span>{{ isCategoryGrouped ? '切換為平鋪清單' : '使用分類整理查看' }}</span>
+        </button>
+      </div>
       <div class="filter-actions">
         <button type="button" class="btn-text" (click)="selectAll()">全選</button>
         <span class="divider">|</span>
@@ -88,25 +99,94 @@
       </div>
     </div>
 
-    <div class="chips-wrap">
-      @for (mat of materials; track mat.inventory_id) {
+    <!-- 分類快速切換標籤列 -->
+    @if (categories.length > 1) {
+      <div class="category-pills-bar" role="group" aria-label="依物料分類篩選">
+        <span class="pills-label">分類篩選：</span>
         <button
           type="button"
-          class="material-chip"
-          [class.selected]="selectedIds.has(mat.inventory_id)"
-          [class.has-consumed]="isConsumed(mat.inventory_id)"
-          (click)="toggleMaterial(mat.inventory_id)">
-          <span
-            class="color-dot"
-            [style.background-color]="colorOf(mat.inventory_id)">
-          </span>
-          <span class="chip-name">{{ mat.name }}</span>
-          @if (isConsumed(mat.inventory_id)) {
-            <span class="chip-badge">{{ consumptionMode === 'wastage' ? '有報廢' : '有消耗' }}</span>
-          }
+          class="cat-filter-pill"
+          [class.active]="selectedCategory === 'ALL'"
+          (click)="selectCategory('ALL')">
+          全部分類 ({{ materials.length }})
         </button>
-      }
-    </div>
+        @for (cat of categories; track cat) {
+          <button
+            type="button"
+            class="cat-filter-pill"
+            [class.active]="selectedCategory === cat"
+            (click)="selectCategory(cat)">
+            {{ cat }}
+          </button>
+        }
+      </div>
+    }
+
+    @if (isCategoryGrouped) {
+      <!-- 使用分類整理查看：依類別分組展示 -->
+      <div class="category-grouped-sections">
+        @for (grp of categoryGroups; track grp.category) {
+          @if (selectedCategory === 'ALL' || selectedCategory === grp.category) {
+            <div class="category-group-card">
+              <div class="cat-group-header">
+                <div class="cat-badge-wrap">
+                  <span class="category-title-badge">{{ grp.category }}</span>
+                  <span class="category-stats-text">共 {{ grp.materials.length }} 項 · 已選 {{ grp.selectedCount }} 項</span>
+                </div>
+                <div class="cat-group-actions">
+                  <button type="button" class="cat-action-link" (click)="selectCategoryItems(grp.category)">全選此分類</button>
+                  <span class="divider">|</span>
+                  <button type="button" class="cat-action-link" (click)="clearCategoryItems(grp.category)">清除此分類</button>
+                </div>
+              </div>
+              <div class="chips-wrap">
+                @for (mat of grp.materials; track mat.inventory_id) {
+                  <button
+                    type="button"
+                    class="material-chip"
+                    [class.selected]="selectedIds.has(mat.inventory_id)"
+                    [class.has-consumed]="isConsumed(mat.inventory_id)"
+                    (click)="toggleMaterial(mat.inventory_id)">
+                    <span
+                      class="color-dot"
+                      [style.background-color]="colorOf(mat.inventory_id)">
+                    </span>
+                    <span class="chip-name">{{ mat.name }}</span>
+                    @if (isConsumed(mat.inventory_id)) {
+                      <span class="chip-badge">{{ consumptionMode === 'wastage' ? '有報廢' : '有消耗' }}</span>
+                    }
+                  </button>
+                }
+              </div>
+            </div>
+          }
+        }
+      </div>
+    } @else {
+      <!-- 平鋪查看模式 -->
+      <div class="chips-wrap">
+        @for (mat of filteredMaterials; track mat.inventory_id) {
+          <button
+            type="button"
+            class="material-chip"
+            [class.selected]="selectedIds.has(mat.inventory_id)"
+            [class.has-consumed]="isConsumed(mat.inventory_id)"
+            (click)="toggleMaterial(mat.inventory_id)">
+            <span
+              class="color-dot"
+              [style.background-color]="colorOf(mat.inventory_id)">
+            </span>
+            <span class="chip-name">{{ mat.name }}</span>
+            <span class="chip-cat-tag">{{ mat.category || '未分類' }}</span>
+            @if (isConsumed(mat.inventory_id)) {
+              <span class="chip-badge">{{ consumptionMode === 'wastage' ? '有報廢' : '有消耗' }}</span>
+            }
+          </button>
+        } @empty {
+          <p class="empty-category-hint">該分類下目前無物料項目。</p>
+        }
+      </div>
+    }
   </div>
 
   <!-- 主折線圖區塊 -->

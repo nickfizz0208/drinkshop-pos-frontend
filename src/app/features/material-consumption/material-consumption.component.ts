@@ -69,6 +69,10 @@ export class MaterialConsumptionComponent implements OnInit {
   // 品項選擇勾選狀態
   selectedIds = new Set<number>();
 
+  // 分類篩選與使用分類整理查看模式
+  selectedCategory = 'ALL';
+  isCategoryGrouped = false; // 是否使用分類整理查看
+
   // 是否展開顯示「月物料消耗統計」區塊（點擊按鈕切換）
   showMonthlySummary = false;
   // 是否展開顯示「報廢紀錄明細」區塊
@@ -190,6 +194,57 @@ export class MaterialConsumptionComponent implements OnInit {
 
   clearAll(): void {
     this.selectedIds.clear();
+    this.computeChart();
+  }
+
+  get categories(): string[] {
+    const set = new Set<string>();
+    for (const mat of this.materials) {
+      if (mat.category) set.add(mat.category);
+      else set.add('未分類');
+    }
+    return Array.from(set);
+  }
+
+  get filteredMaterials(): MaterialItem[] {
+    if (this.selectedCategory === 'ALL') {
+      return this.materials;
+    }
+    return this.materials.filter(m => (m.category || '未分類') === this.selectedCategory);
+  }
+
+  get categoryGroups(): { category: string; materials: MaterialItem[]; selectedCount: number }[] {
+    const map = new Map<string, MaterialItem[]>();
+    for (const mat of this.materials) {
+      const cat = mat.category || '未分類';
+      if (!map.has(cat)) {
+        map.set(cat, []);
+      }
+      map.get(cat)!.push(mat);
+    }
+    return Array.from(map.entries()).map(([category, items]) => {
+      const selectedCount = items.filter(m => this.selectedIds.has(m.inventory_id)).length;
+      return { category, materials: items, selectedCount };
+    });
+  }
+
+  toggleCategoryView(): void {
+    this.isCategoryGrouped = !this.isCategoryGrouped;
+  }
+
+  selectCategory(cat: string): void {
+    this.selectedCategory = cat;
+  }
+
+  selectCategoryItems(cat: string): void {
+    const items = this.materials.filter(m => (m.category || '未分類') === cat);
+    items.forEach(m => this.selectedIds.add(m.inventory_id));
+    this.computeChart();
+  }
+
+  clearCategoryItems(cat: string): void {
+    const items = this.materials.filter(m => (m.category || '未分類') === cat);
+    items.forEach(m => this.selectedIds.delete(m.inventory_id));
     this.computeChart();
   }
 
