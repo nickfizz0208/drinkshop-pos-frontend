@@ -2,11 +2,13 @@
 
 .hq-report {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 18px;
   max-width: 1120px;
 }
 
 .card {
+  min-width: 0;
   background: #fff;
   border: 1px solid var(--border-color);
   border-radius: 16px;
@@ -49,6 +51,7 @@
 .mode-btn {
   border: 0;
   background: transparent;
+  min-height: 44px;
   padding: 8px 16px;
   border-radius: 9px;
   font-weight: 600;
@@ -68,7 +71,9 @@
   flex-wrap: wrap;
 
   input, select {
-    min-height: 38px;
+    width: auto;
+    max-width: 100%;
+    min-height: 44px;
     padding: 6px 10px;
     border-radius: 10px;
     border: 1px solid var(--border-color);
@@ -79,13 +84,16 @@
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+  min-width: 0;
 }
 
 .month-btn {
   border: 1px solid var(--border-color);
   background: #f8faf8;
   color: var(--text-main);
-  padding: 6px 12px;
+  min-width: 48px;
+  min-height: 44px;
+  padding: 6px 8px;
   border-radius: 999px;
   font-size: 13px;
   cursor: pointer;
@@ -118,7 +126,7 @@
   }
 
   &.warn {
-    border-left: 4px solid #b87c2b;
+    box-shadow: inset 4px 0 #b87c2b;
   }
 }
 
@@ -141,7 +149,7 @@
 
 .charts-grid {
   display: grid;
-  grid-template-columns: 1.3fr 1fr;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
   gap: 16px;
 }
 
@@ -177,8 +185,9 @@
 }
 
 .bar-col {
-  flex: 1 0 42px;
-  max-width: 64px;
+  flex: 1 0 max-content;
+  min-width: 48px;
+  max-width: 96px;
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -241,6 +250,8 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  min-width: 0;
+  overflow-wrap: anywhere;
   font-weight: 600;
 }
 
@@ -248,6 +259,7 @@
   display: inline-flex;
   width: 22px;
   height: 22px;
+  flex-shrink: 0;
   align-items: center;
   justify-content: center;
   border-radius: 50%;
@@ -278,11 +290,13 @@
 }
 
 .table-wrap {
+  max-width: 100%;
   overflow-x: auto;
 }
 
 .order-table {
   width: 100%;
+  min-width: 600px;
   border-collapse: collapse;
   font-size: 14px;
 
@@ -298,12 +312,17 @@
     white-space: nowrap;
   }
 
+  td { white-space: nowrap; }
+
   .items-cell {
     max-width: 320px;
+    white-space: normal;
+    overflow-wrap: anywhere;
   }
 
   .num {
     font-weight: 700;
+    font-variant-numeric: tabular-nums;
     white-space: nowrap;
   }
 }
@@ -337,5 +356,5 @@
 
 @media (max-width: 900px) {
   .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .charts-grid { grid-template-columns: 1fr; }
+  .charts-grid { grid-template-columns: minmax(0, 1fr); }
 }

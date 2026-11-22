@@ -141,6 +141,7 @@
   align-items: center;
   gap: 6px;
   min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .kind-tag {
@@ -170,13 +171,16 @@
 
   select {
     flex: 1;
-    min-height: 40px;
+    min-width: 0;
+    min-height: 44px;
   }
+
+  button { flex-shrink: 0; white-space: nowrap; }
 }
 
 .remove-btn {
   padding-inline: 10px;
-  min-height: 36px;
+  min-height: 44px;
 }
 
 .recipe-actions {
@@ -186,6 +190,14 @@
 }
 
 @media (max-width: 480px) {
+  .portion-field.hq-row {
+    grid-template-columns: minmax(0, 1fr) auto auto auto;
+  }
+
+  .portion-field.hq-row .material-label {
+    grid-column: 1 / -1;
+  }
+
   .recipe-filters {
     grid-template-columns: minmax(0, 1fr);
     gap: 10px;
