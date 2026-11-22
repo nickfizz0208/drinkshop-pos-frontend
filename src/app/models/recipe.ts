@@ -13,6 +13,13 @@ export interface RecipeMaterial {
   portions: number | null;
 }
 
+export interface RecipeMaterialOption {
+  id: number;
+  kind: 'INVENTORY' | 'PREP';
+  name: string;
+  madeFrom: string[];
+}
+
 export interface RecipeDetail extends RecipeSummary {
   materials: RecipeMaterial[];
   steps: string | null;

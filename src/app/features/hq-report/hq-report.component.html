@@ -1,0 +1,160 @@
+<section class="hq-report" aria-label="總部營運報表">
+  <!-- 頂部篩選控制列 -->
+  <div class="card filter-bar">
+    <div class="filter-head">
+      <div>
+        <h2>總部營運與營收分析</h2>
+        <p class="subtitle">即時連線資料庫，切換檢視日／月營收、熱銷飲品排行與訂單紀錄。</p>
+      </div>
+      <div class="mode-switch" role="group" aria-label="切換日營收或月營收">
+        <button type="button" class="mode-btn" [class.active]="mode === 'day'" [disabled]="loading"
+          (click)="setMode('day')">日營收</button>
+        <button type="button" class="mode-btn" [class.active]="mode === 'month'" [disabled]="loading"
+          (click)="setMode('month')">月營收</button>
+      </div>
+    </div>
+
+    @if (mode === 'day') {
+      <div class="date-row">
+        <label for="hq-date">選擇日期</label>
+        <input id="hq-date" type="date" [(ngModel)]="selectedDate" (change)="load()" [disabled]="loading">
+        <button type="button" class="button secondary small" (click)="load()" [disabled]="loading">重新整理</button>
+      </div>
+    } @else {
+      <div class="month-row">
+        <select aria-label="選擇年份" [(ngModel)]="selectedYear" (change)="load()" [disabled]="loading">
+          @for (y of years; track y) {
+            <option [value]="y">{{ y }} 年</option>
+          }
+        </select>
+        <div class="month-pills" role="group" aria-label="選擇月份">
+          @for (m of months; track m) {
+            <button type="button" class="month-btn" [class.active]="selectedMonth === m" [disabled]="loading"
+              (click)="selectMonth(m)">{{ m }} 月</button>
+          }
+        </div>
+      </div>
+    }
+  </div>
+
+  @if (error) {
+    <div class="card error-box" role="alert">
+      <p>{{ error }}</p>
+      <button type="button" class="button secondary small" (click)="load()">重試</button>
+    </div>
+  }
+
+  @if (loading && !report) {
+    <div class="card state-box" role="status">正在載入總部報表資料…</div>
+  }
+
+  @if (report; as data) {
+    <!-- 4 張重點 KPI 卡 -->
+    <div class="kpi-grid">
+      <div class="card kpi-card primary">
+        <span class="kpi-label">{{ data.mode === 'day' ? '當日總營收' : '當月總營收' }}</span>
+        <strong class="kpi-value">{{ money(data.summary.revenue) }}</strong>
+      </div>
+      <div class="card kpi-card">
+        <span class="kpi-label">總銷售杯數</span>
+        <strong class="kpi-value">{{ data.summary.totalCups }} <small>杯</small></strong>
+      </div>
+      <div class="card kpi-card">
+        <span class="kpi-label">有效訂單數</span>
+        <strong class="kpi-value">{{ data.summary.orderCount }} <small>筆</small></strong>
+      </div>
+      <div class="card kpi-card warn">
+        <span class="kpi-label">報廢與損耗</span>
+        <strong class="kpi-value">{{ money(data.summary.rawWastageCost) }}</strong>
+        <span class="kpi-sub">飲品棄單 {{ data.summary.wastedCups }} 杯</span>
+      </div>
+    </div>
+
+    <!-- 圖表區：走勢長條圖 + 熱銷飲品排行 -->
+    <div class="charts-grid">
+      <div class="card chart-card">
+        <div class="card-head">
+          <h3>{{ data.mode === 'day' ? data.date + ' 各時段營收圖' : data.year + ' 年 ' + data.month + ' 月 每日營收走勢圖' }}</h3>
+          @if (loading) { <span class="loading-tag">更新中…</span> }
+        </div>
+        @if (data.trend.length) {
+          <div class="bar-chart" role="img" aria-label="營收長條圖">
+            @for (point of data.trend; track point.label) {
+              <div class="bar-col" [title]="point.label + '：' + money(point.revenue) + '（' + point.cups + ' 杯）'">
+                <span class="bar-val">{{ money(point.revenue) }}</span>
+                <div class="bar-track">
+                  <div class="bar-fill" [style.height.%]="barHeightPercent(point)"></div>
+                </div>
+                <span class="bar-label">{{ point.label }}</span>
+              </div>
+            }
+          </div>
+        } @else {
+          <p class="empty-hint">此期間尚無有效營收資料。</p>
+        }
+      </div>
+
+      <div class="card chart-card">
+        <div class="card-head">
+          <h3>熱銷飲品排行（賣出的品項）</h3>
+        </div>
+        @if (data.topProducts.length) {
+          <ul class="rank-list">
+            @for (item of data.topProducts; track item.productName; let i = $index) {
+              <li class="rank-item">
+                <div class="rank-top">
+                  <span class="rank-name"><b class="rank-num">{{ i + 1 }}</b>{{ item.productName }}</span>
+                  <span class="rank-stat">{{ item.cups }} 杯 · <strong>{{ money(item.revenue) }}</strong></span>
+                </div>
+                <div class="rank-track">
+                  <div class="rank-fill" [style.width.%]="productWidthPercent(item)"></div>
+                </div>
+              </li>
+            }
+          </ul>
+        } @else {
+          <p class="empty-hint">此期間尚無銷售品項資料。</p>
+        }
+      </div>
+    </div>
+
+    <!-- 訂單銷售紀錄表 -->
+    <div class="card table-card">
+      <div class="card-head">
+        <h3>訂單紀錄明細（共 {{ data.orders.length }} 筆）</h3>
+      </div>
+      @if (data.orders.length) {
+        <div class="table-wrap">
+          <table class="order-table">
+            <thead>
+              <tr>
+                <th>單號</th>
+                <th>時間</th>
+                <th>賣出品項</th>
+                <th>杯數</th>
+                <th>付款</th>
+                <th>金額</th>
+                <th>狀態</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (order of data.orders; track order.orderId) {
+                <tr>
+                  <td>#{{ order.orderId }}</td>
+                  <td>{{ order.createdAt }}</td>
+                  <td class="items-cell">{{ order.itemsSummary || '—' }}</td>
+                  <td>{{ order.totalCups }}</td>
+                  <td>{{ paymentLabel(order.payment) }}</td>
+                  <td class="num">{{ money(order.revenue) }}</td>
+                  <td><span class="status-pill" [class.cancelled]="order.status === 'CANCELLED'">{{ statusLabel(order.status) }}</span></td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      } @else {
+        <p class="empty-hint">此期間沒有訂單紀錄。</p>
+      }
+    </div>
+  }
+</section>

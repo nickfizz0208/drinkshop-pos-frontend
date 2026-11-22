@@ -3,7 +3,8 @@ import { Injectable, inject, signal } from '@angular/core';
 import { firstValueFrom, Observable, timeout, TimeoutError } from 'rxjs';
 import { ClockToday, ShiftClosingSummary } from '../models/time-clock';
 import { StaffOption } from '../models/schedule';
-import { RecipeDetail, RecipeSummary, RecipeUpdate } from '../models/recipe';
+import { RecipeDetail, RecipeMaterialOption, RecipeSummary, RecipeUpdate } from '../models/recipe';
+import { HqReportResponse } from '../models/hq-report';
 import { DeliveryRoute, MemberUpdate, PosConfig, CancelRequest, CreateOrder, ItemStatus, Member, Menu, Order, OrderSummary, Payment, Rule, Staff } from '../models/pos';
 import { DailyShift, Inventory, RawWastageRequest, WastageSummary } from '../models/store-ops';
 
@@ -67,8 +68,18 @@ export class PosApiService {
   recipe(productId: number): Promise<RecipeDetail> {
     return this.wait(this.http.get<RecipeDetail>(`/api/recipes/${productId}`, { headers: this.headers }));
   }
+  recipeMaterialOptions(): Promise<RecipeMaterialOption[]> {
+    return this.wait(this.http.get<RecipeMaterialOption[]>('/api/recipes/materials', { headers: this.headers }));
+  }
   updateRecipe(productId: number, update: RecipeUpdate): Promise<RecipeDetail> {
     return this.wait(this.http.put<RecipeDetail>(`/api/recipes/${productId}`, update, { headers: this.headers }));
+  }
+  hqReport(params: { mode: 'day' | 'month'; date?: string; year?: number; month?: number }): Promise<HqReportResponse> {
+    const query: Record<string, string> = { mode: params.mode };
+    if (params.date) query['date'] = params.date;
+    if (params.year !== undefined) query['year'] = String(params.year);
+    if (params.month !== undefined) query['month'] = String(params.month);
+    return this.wait(this.http.get<HqReportResponse>('/api/hq-reports', { headers: this.headers, params: query }));
   }
   shift(date: string): Promise<DailyShift> { return this.wait(this.http.get<DailyShift>(`/api/daily-shifts/${date}`, { headers: this.headers })); }
   inventories(): Promise<Inventory[]> { return this.wait(this.http.get<Inventory[]>('/api/inventories', { headers: this.headers })); }

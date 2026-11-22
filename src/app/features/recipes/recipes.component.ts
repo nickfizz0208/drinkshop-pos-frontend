@@ -1,7 +1,7 @@
 import { NumpadButtonComponent } from '../../shared/numpad-button.component';
 import { Component, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { RecipeDetail, RecipeMaterial, RecipeSummary } from '../../models/recipe';
+import { RecipeDetail, RecipeMaterial, RecipeMaterialOption, RecipeSummary } from '../../models/recipe';
 import { PosApiService, errorMessage } from '../../services/pos-api.service';
 import { IconComponent } from '../../shared/icon.component';
 import { ModalComponent } from '../../shared/modal.component';
@@ -26,13 +26,26 @@ export class RecipesComponent implements OnInit {
   detail: RecipeDetail | null = null;
   detailError = '';
   draft: { steps: string; materials: RecipeMaterial[] } | null = null;
+  materialOptions: RecipeMaterialOption[] = [];
+  materialOptionsError = '';
+  selectedNewMaterialKey = '';
   saving = false;
   saveError = '';
   saved = false;
 
+  get isHq(): boolean {
+    return this.api.staff()?.level === 'HQ';
+  }
+
   get canEdit(): boolean {
     const level = this.api.staff()?.level;
     return level === 'MANAGER' || level === 'HQ';
+  }
+
+  get availableMaterialOptions(): RecipeMaterialOption[] {
+    if (!this.draft) return [];
+    const used = new Set(this.draft.materials.map(m => `${m.kind}:${m.id}`));
+    return this.materialOptions.filter(opt => !used.has(`${opt.kind}:${opt.id}`));
   }
 
   ngOnInit(): void { void this.load(); }
@@ -60,39 +73,81 @@ export class RecipesComponent implements OnInit {
     }
   }
 
-  async open(recipe: RecipeSummary): Promise<void> {
-    const request = ++this.detailRequest;
-    this.selected = recipe;
-    this.detail = null;
-    this.detailError = '';
-    this.saved = false;
-    try {
-      const detail = await this.api.recipe(recipe.productId);
-      if (request === this.detailRequest) this.detail = detail;
-    } catch (error) {
-      if (request === this.detailRequest) this.detailError = errorMessage(error);
+  async open(recipe: RecipeSummary, startEditing = false): Promise < void> {
+      const request = ++this.detailRequest;
+      this.selected = recipe;
+      this.detail = null;
+      this.detailError = '';
+      this.saved = false;
+      this.cancelEdit();
+      try {
+        const detail = await this.api.recipe(recipe.productId);
+      if(request === this.detailRequest) {
+      this.detail = detail;
+      if (startEditing && this.canEdit) {
+        void this.edit(detail);
+      }
     }
+  } catch(error) {
+    if (request === this.detailRequest) this.detailError = errorMessage(error);
   }
+}
 
-  close(): void {
-    this.detailRequest++;
-    this.selected = null;
-    this.detail = null;
-    this.detailError = '';
-    this.cancelEdit();
-  }
+openForEdit(recipe: RecipeSummary, event: Event): void {
+  event.stopPropagation();
+  void this.open(recipe, true);
+}
 
-  edit(detail: RecipeDetail): void {
+close(): void {
+  this.detailRequest++;
+  this.selected = null;
+  this.detail = null;
+  this.detailError = '';
+  this.cancelEdit();
+}
+
+  async edit(detail: RecipeDetail): Promise<void> {
     if (!this.canEdit) return;
     this.saved = false;
+    this.selectedNewMaterialKey = '';
+    this.materialOptionsError = '';
     this.draft = {
       steps: detail.steps ?? '',
       materials: detail.materials.map(material => ({ ...material }))
     };
+    if (this.isHq && this.materialOptions.length === 0) {
+      try {
+        this.materialOptions = await this.api.recipeMaterialOptions();
+      } catch (error) {
+        this.materialOptionsError = errorMessage(error);
+      }
+    }
+  }
+
+  addMaterial(): void {
+    if (!this.isHq || !this.draft || !this.selectedNewMaterialKey) return;
+    const [kind, idStr] = this.selectedNewMaterialKey.split(':');
+    const id = Number(idStr);
+    const opt = this.materialOptions.find(o => o.kind === kind && o.id === id);
+    if (!opt) return;
+    this.draft.materials.push({
+      kind: opt.kind,
+      id: opt.id,
+      name: opt.name,
+      madeFrom: opt.madeFrom,
+      portions: 1
+    });
+    this.selectedNewMaterialKey = '';
+  }
+
+  removeMaterial(kind: 'INVENTORY' | 'PREP', id: number): void {
+    if (!this.isHq || !this.draft) return;
+    this.draft.materials = this.draft.materials.filter(m => !(m.kind === kind && m.id === id));
   }
 
   cancelEdit(): void {
     this.draft = null;
+    this.selectedNewMaterialKey = '';
     this.saveError = '';
   }
 
@@ -109,17 +164,21 @@ export class RecipesComponent implements OnInit {
     this.saving = true;
     this.saveError = '';
     try {
-      this.detail = await this.api.updateRecipe(detail.productId, {
-        version: detail.version,
-        steps,
-        materials: materials.map(({ kind, id, portions }) => ({ kind, id, portions }))
-      });
-      this.cancelEdit();
-      this.saved = true;
-    } catch (error) {
-      this.saveError = errorMessage(error);
-    } finally {
-      this.saving = false;
+        const updated = await this.api.updateRecipe(detail.productId, {
+          version: detail.version,
+          steps,
+          materials: materials.map(({ kind, id, portions }) => ({ kind, id, portions }))
+        });
+        this.detail = updated;
+        this.recipes = this.recipes.map(item =>
+          item.productId === updated.productId ? { ...item, recipeStatus: updated.recipeStatus } : item
+        );
+        this.cancelEdit();
+        this.saved = true;
+      } catch (error) {
+        this.saveError = errorMessage(error);
+      } finally {
+        this.saving = false;
+      }
     }
-  }
 }

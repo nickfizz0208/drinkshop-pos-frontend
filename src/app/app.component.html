@@ -72,6 +72,11 @@
       <button class="rail-link" [class.active]="ui.view === 'material-consumption'" [disabled]="ui.busy"
         (click)="switchView('material-consumption')"><app-icon name="clipboard-list" />物料消耗</button>
       }
+      <!-- 總部營運報表：只限 HQ 總部查看（日／月營收、熱銷排行、訂單紀錄） -->
+      @if (isHq) {
+      <button type="button" class="rail-link" [class.active]="ui.view === 'hq-report'" [disabled]="ui.busy"
+        (click)="switchView('hq-report')"><app-icon name="layout-grid" />營運報表</button>
+      }
       <!-- 配方：登入的帳號都能看；店長、總部可編輯 -->
       @if (canViewRecipes) {
       <button type="button" class="rail-link" [class.active]="ui.view === 'recipes'"
@@ -142,6 +147,7 @@
       @case ('inventory-count') { <app-inventory-count /> }
       @case ('sale-status') { <app-sale-status /> }
       @case ('material-consumption') { @if (consumptionAllowed) { <app-material-consumption /> } }
+      @case ('hq-report') { @if (isHq) { <app-hq-report /> } }
       @case ('recipes') { @if (canViewRecipes) { <app-recipes /> } }
       }
       }
