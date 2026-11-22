@@ -2,12 +2,6 @@
 @if (ui.preview) {
 <!-- 沒有登入：一律顯示登入畫面，看不到工作台。登入後（或重新整理時恢復登入）才進入工作台 -->
 <main class="login-screen" id="main-content">
-  <section class="login-brand" aria-hidden="true">
-    <div class="login-symbol"><span>青</span><i></i></div>
-    <p class="login-name">青日茶所<small>Qingri Tea</small></p>
-    <p class="login-tagline">好茶，慢慢來。<br>每一杯，都用心。</p>
-    <app-icon class="login-leaf" name="leaf" />
-  </section>
   <section class="login-card" aria-labelledby="login-title">
     @if (api.staff() && ui.busy) {
     <!-- 重新整理後恢復登入、或剛按下登入：正在載入菜單與班次 -->

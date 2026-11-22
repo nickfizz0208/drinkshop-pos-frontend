@@ -17,7 +17,7 @@
   <p>請使用右上角的「員工登入」。</p>
 </section>
 } @else {
-<div class="clock-layout">
+<div class="clock-layout" [class.with-punch]="isPosAccount">
 
   @if (isPosAccount) {
   <!-- 左：打卡（只限門市 POS 帳號） -->
@@ -59,15 +59,6 @@
     </button>
     @if (shiftMessage) { <p class="hint">{{ shiftMessage }}</p> }
   </section>
-  } @else {
-  <!-- 左（個人帳號）：不能在這裡打卡 -->
-  <section class="panel punch" aria-labelledby="punch-title">
-    <header class="panel-head">
-      <h2 id="punch-title">打卡</h2>
-      <span class="muted">{{ dateLabel(businessDate) }}</span>
-    </header>
-    <p class="hint">請到門市 POS 機打卡上下班。</p>
-  </section>
   }
 
   @if (canViewAll) {
@@ -78,13 +69,13 @@
         <h2 id="records-title">{{ viewMode === 'month' ? viewMonth + ' 打卡紀錄' : (viewingToday ? '今日打卡紀錄' : dateLabel(viewDate) + ' 打卡紀錄') }}</h2>
         <p class="summary">
           @if (viewMode === 'date' && viewingToday) { <span><b class="on-dot"></b>{{ onDutyCount }} 人在班</span> }
-          <span>共 {{ viewRecords.length }} 筆・總工時 {{ formatMinutes(totalMinutes) }}</span>
+          <span>共 {{ viewRecords.length }} 筆・總工時 {{ totalDurationLabel(viewRecords) }}</span>
         </p>
       </div>
       <div class="date-filter">
-        <div class="button-group" style="display:inline-flex; gap:4px; margin-right:8px;">
-          <button type="button" class="button small" [class.primary]="viewMode === 'date'" [class.secondary]="viewMode !== 'date'" (click)="switchViewMode('date')">日檢視</button>
-          <button type="button" class="button small" [class.primary]="viewMode === 'month'" [class.secondary]="viewMode !== 'month'" (click)="switchViewMode('month')">月檢視</button>
+        <div class="button-group">
+          <button type="button" class="button small" [attr.aria-pressed]="viewMode === 'date'" [class.primary]="viewMode === 'date'" [class.secondary]="viewMode !== 'date'" (click)="switchViewMode('date')">日檢視</button>
+          <button type="button" class="button small" [attr.aria-pressed]="viewMode === 'month'" [class.primary]="viewMode === 'month'" [class.secondary]="viewMode !== 'month'" (click)="switchViewMode('month')">月檢視</button>
         </div>
         @if (viewMode === 'date') {
           <input type="date" aria-label="查看日期" [(ngModel)]="viewDate" (change)="changeViewDate()" [disabled]="loading">
@@ -105,12 +96,15 @@
     <ul class="record-list" [class.month-mode]="viewMode === 'month'">
       @for (r of sortedRecords; track r.shiftStaffId) {
       <li [class.on]="r.onDuty" [class.mine]="r.staffId === pos.staff()?.staffId">
-        <span class="state" [attr.aria-label]="r.onDuty ? '在班' : '已下班'"></span>
+        <span class="state" [attr.aria-label]="r.onDuty ? '在班' : r.closeType === 'REVIEW' ? '待店長確認' : '已下班'"></span>
         @if (viewMode === 'month') { <span class="record-date">{{ shortDate(r.businessDate) }}</span> }
         <span class="name">{{ r.staffName }}@if (r.staffId === pos.staff()?.staffId) { <small>（我）</small> }</span>
-        <span class="times">{{ time(r.clockInAt) }} – {{ r.onDuty ? '在班中' : time(r.clockOutAt) }}@if (r.scheduledStartTime && r.scheduledEndTime) { <small class="sched-hint">（排班 {{ time(r.scheduledStartTime) }}–{{ time(r.scheduledEndTime) }}）</small> }</span>
+        <span class="times">{{ time(r.clockInAt) }} – {{ r.onDuty ? '在班中' : r.closeType === 'REVIEW' ? '—' : time(r.clockOutAt) }}@if (r.scheduledStartTime && r.scheduledEndTime) { <small class="sched-hint">（排班 {{ time(r.scheduledStartTime) }}–{{ time(r.scheduledEndTime) }}）</small> }</span>
         <span class="duration">{{ durationLabel(r) }}</span>
         <span class="record-meta">
+          @if (earlyClockInMinutes(r); as earlyMinutes) {
+            <span class="tag">提早打卡 {{ formatMinutes(earlyMinutes) }}</span>
+          }
           @if (overtimeMinutes(r)) {
             <span class="tag overtime">{{ overtimeLabel(r) }}</span>
           }
@@ -158,7 +152,7 @@
       <header class="panel-head">
         <div>
           <h2 id="mine-title">我的紀錄</h2>
-          <p class="summary"><span>{{ myWorkDays }} 天・{{ myRecords.length }} 筆・總工時 {{ formatMinutes(myTotalMinutes) }}</span></p>
+          <p class="summary"><span>{{ myWorkDays }} 天・{{ myRecords.length }} 筆・總工時 {{ totalDurationLabel(myRecords) }}</span></p>
         </div>
         <div class="date-filter">
           <input type="month" aria-label="查看月份" [(ngModel)]="myMonth" (change)="changeMyMonth()" [disabled]="loading">
@@ -170,9 +164,12 @@
         <li [class.on]="r.onDuty">
           <span class="state"></span>
           <span class="name">{{ shortDate(r.businessDate) }}</span>
-          <span class="times">{{ time(r.clockInAt) }} – {{ r.onDuty ? '在班中' : time(r.clockOutAt) }}@if (r.scheduledStartTime && r.scheduledEndTime) { <small class="sched-hint">（排班 {{ time(r.scheduledStartTime) }}–{{ time(r.scheduledEndTime) }}）</small> }</span>
+          <span class="times">{{ time(r.clockInAt) }} – {{ r.onDuty ? '在班中' : r.closeType === 'REVIEW' ? '—' : time(r.clockOutAt) }}@if (r.scheduledStartTime && r.scheduledEndTime) { <small class="sched-hint">（排班 {{ time(r.scheduledStartTime) }}–{{ time(r.scheduledEndTime) }}）</small> }</span>
           <span class="duration">{{ durationLabel(r) }}</span>
           <span class="record-meta">
+            @if (earlyClockInMinutes(r); as earlyMinutes) {
+              <span class="tag">提早打卡 {{ formatMinutes(earlyMinutes) }}</span>
+            }
             @if (overtimeMinutes(r)) {
               <span class="tag overtime">{{ overtimeLabel(r) }}</span>
             }

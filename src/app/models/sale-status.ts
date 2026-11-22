@@ -28,6 +28,7 @@ export const MAX_SUB_PREP_LEVELS = 3;
 export interface SaleProduct {
   productId: number; name: string; category: string; onSale: boolean; sellable: boolean;
   inventoryIds: number[]; prepIds: number[]; stoppedBy: string[];
+  soldOut?: boolean;
   show?: boolean;
 }
 export interface SaleTopping {
@@ -41,6 +42,7 @@ export interface SaleStatus {
 export interface SaleChange { id: number; onSale: boolean; }
 export interface SaleUpdate {
   inventories?: SaleChange[]; preps?: SaleChange[]; products?: SaleChange[]; toppings?: SaleChange[];
+  soldOutProducts?: { id: number; soldOut: boolean }[];
 }
 export type SaleKind = 'inventory' | 'prep' | 'product' | 'topping';
 /** 改原料或半成品的分類（只限店長、總部）；category 空白＝未分類。 */

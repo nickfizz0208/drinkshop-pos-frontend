@@ -2,7 +2,6 @@ import { NumpadButtonComponent } from '../../shared/numpad-button.component';
 import { Component, OnDestroy, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ModalComponent } from '../../shared/modal.component';
-import { money } from '../../models/pos';
 import { INPUT_MODE_LABELS, InputMode, InventoryItem } from '../../models/inventory-count';
 import { InventoryCountStateService } from './inventory-count-state.service';
 import { PackInfo, formatDiff, formatQty } from '../../shared/pack-format';
@@ -17,7 +16,6 @@ import { PackInfo, formatDiff, formatQty } from '../../shared/pack-format';
 export class InventoryCountComponent implements OnInit, OnDestroy {
   readonly state = inject(InventoryCountStateService);
   readonly ui = this.state.ui;
-  readonly money = money;
 
   ngOnInit(): void { void this.state.load(); }
   ngOnDestroy(): void { this.state.closeTransient(); }
@@ -25,7 +23,10 @@ export class InventoryCountComponent implements OnInit, OnDestroy {
   /** 數量顯示：最多兩位小數，去掉多餘的 0。 */
   qty(n: number): string { return Number(n.toFixed(2)).toLocaleString('zh-TW', { maximumFractionDigits: 2 }); }
   signed(n: number): string { return (n > 0 ? '+' : '') + this.qty(n); }
-  signedMoney(n: number): string { return n > 0 ? '+' + money(n) : n < 0 ? '−' + money(-n) : money(0); }
+  historyDifference(diff: number, unit: string): string {
+    if (diff === 0) return '數量相符';
+    return `比帳面${diff > 0 ? '多' : '少'} ${this.qty(Math.abs(diff))} ${unit}`;
+  }
   modeLabel(mode: InputMode): string { return INPUT_MODE_LABELS[mode]; }
   /** 數量與差異：芒果這類原料顯示成「5 籃 3 顆」「−1 籃、+17 顆」。 */
   q(qty: number, item: PackInfo): string { return formatQty(qty, item); }

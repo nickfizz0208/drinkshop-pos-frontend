@@ -13,7 +13,7 @@ export const CATEGORY_EDIT_LEVELS: readonly string[] = ['MANAGER'];
 export interface SaleRow {
   kind: SaleKind; id: number; name: string;
   category: string | null; categoryLabel: string;
-  state: SaleState; checked: boolean; changed: boolean;
+  state: SaleState; checked: boolean; changed: boolean; soldOut?: boolean;
   /** 連動停售的原因，例如「珍珠 停售」。 */
   reason: string;
   /** 補充說明，例如半成品「由 紅茶包 做成」。 */
@@ -28,7 +28,7 @@ export interface SalePreview {
   linkedStop: string[]; linkedResume: string[];
 }
 /** 一列飲品或加料目前（含尚未儲存的勾選）的狀態。 */
-export type SaleState = 'on' | 'stopped' | 'linked';
+export type SaleState = 'on' | 'stopped' | 'linked' | 'sold-out';
 
 /**
  * 停售管理：勾選要停售的飲品、加料、原料、半成品。
@@ -99,7 +99,7 @@ export class SaleStatusStateService {
     return this.blockers(t.inventoryId === null ? [] : [t.inventoryId], t.prepId === null ? [] : [t.prepId]);
   }
   productState(p: SaleProduct): SaleState {
-    return !this.onSale('product', p.productId) ? 'stopped' : this.productBlockers(p).length ? 'linked' : 'on';
+    return !this.onSale('product', p.productId) ? 'stopped' : p.soldOut ? 'sold-out' : this.productBlockers(p).length ? 'linked' : 'on';
   }
   toppingState(t: SaleTopping): SaleState {
     return !this.onSale('topping', t.toppingId) ? 'stopped' : this.toppingBlockers(t).length ? 'linked' : 'on';
@@ -143,9 +143,10 @@ export class SaleStatusStateService {
     const shown = <T extends { show?: boolean }>(items: T[]): T[] => items.filter(x => x.show !== false);
     if (kind === 'product') return shown(d.products).map(p => {
       const state = this.productState(p);
-      return this.row(kind, p.productId, p.name, p.category, state,
+      return { ...this.row(kind, p.productId, p.name, p.category, state,
         state === 'linked' ? this.productBlockers(p).join('、') + ' 停售' : '',
-        !p.inventoryIds.length && !p.prepIds.length ? '尚未建立配方，不會跟著原料停售' : '', []);
+        !p.inventoryIds.length && !p.prepIds.length ? '尚未建立配方，不會跟著原料停售' : '', []),
+        soldOut: p.soldOut ?? false };
     });
     if (kind === 'topping') return shown(d.toppings).map(t => {
       const state = this.toppingState(t);
@@ -174,8 +175,16 @@ export class SaleStatusStateService {
     return names;
   }
   /** 種類或分類裡停售中（含連動）的數量。 */
+  private isStopped(row: SaleRow): boolean {
+    return row.state === 'stopped' || row.state === 'linked';
+  }
+
+  get soldOutCount(): number {
+    return this.rowsOf('product').filter(row => row.state === 'sold-out').length;
+  }
+
   stoppedCount(kind: SaleKind, category: string | null = null): number {
-    return this.rowsOf(kind).filter(r => r.state !== 'on' && (category === null || r.categoryLabel === category)).length;
+    return this.rowsOf(kind).filter(r => this.isStopped(r) && (category === null || r.categoryLabel === category)).length;
   }
   totalCount(kind: SaleKind, category: string | null = null): number {
     return this.rowsOf(kind).filter(r => category === null || r.categoryLabel === category).length;
@@ -185,7 +194,7 @@ export class SaleStatusStateService {
     const keyword = this.search.trim().toLocaleLowerCase();
     const rows = this.rowsOf(this.kind).filter(r =>
       (keyword ? r.name.toLocaleLowerCase().includes(keyword) : this.category === null || r.categoryLabel === this.category)
-      && (!this.onlyStopped || r.state !== 'on'));
+      && (!this.onlyStopped || this.isStopped(r)));
     if (this.kind === 'topping') return rows.length ? [{ category: '', rows }] : [];
     const order = this.categoriesOf(this.kind);
     return order.map(category => ({ category, rows: rows.filter(r => r.categoryLabel === category) })).filter(g => g.rows.length);
@@ -219,12 +228,22 @@ export class SaleStatusStateService {
       for (const [id, onSale] of this.draft[kind]) (onSale ? result.resume : result.stop).push(`${label[kind]}「${this.nameOf(kind, id)}」`);
     }
     for (const p of d.products) {
-      if (p.show !== false && !this.draft.product.has(p.productId)) this.linked(result, p.sellable, this.productState(p) === 'on', `飲品「${p.name}」`);
+      if (p.show !== false && !p.soldOut && !this.draft.product.has(p.productId)) this.linked(result, p.sellable, this.productState(p) === 'on', `飲品「${p.name}」`);
     }
     for (const t of d.toppings) {
       if (t.show !== false && !this.draft.topping.has(t.toppingId)) this.linked(result, t.sellable, this.toppingState(t) === 'on', `加料「${t.name}」`);
     }
     return result;
+  }
+
+  async setSoldOut(row: SaleRow): Promise<void> {
+    if (!this.canEdit || this.ui.busy || row.kind !== 'product') return;
+    this.ui.busy = true; this.error = '';
+    try {
+      this.data = await this.api.update({ soldOutProducts: [{ id: row.id, soldOut: !row.soldOut }] });
+      this.ui.notice = row.soldOut ? '已解除售完標記。' : '已標記售完。';
+    } catch (error) { this.error = errorMessage(error); }
+    finally { this.ui.busy = false; }
   }
 
   openConfirm(): void {

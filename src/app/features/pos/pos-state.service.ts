@@ -60,13 +60,14 @@ export class PosStateService {
   delivery: Delivery | null = null;
 
   /** 菜單上的分類，照飲品第一次出現的順序；沒有「全部飲品」。 */
-  get categories(): string[] { return [...new Set(this.menu.products.map(p => p.category))]; }
+  private get menuProducts(): Product[] { return [...this.menu.products, ...(this.menu.unavailableProducts ?? [])]; }
+  get categories(): string[] { return [...new Set(this.menuProducts.map(p => p.category))]; }
   /** 目前顯示的分類：選中的分類還在菜單上就用它，否則用第一個分類。 */
   get currentCategory(): string { return this.categories.includes(this.category) ? this.category : this.categories[0] ?? ''; }
   /** 目前分類的飲品，依色系排序（黃綠紅橙奶紫白，見 drink-cup 的 TONE_ORDER）。 */
   get products(): Product[] {
     const category = this.currentCategory;
-    return sortByTone(this.menu.products.filter(p => p.category === category));
+    return sortByTone(this.menuProducts.filter(p => p.category === category));
   }
   /**
    * 飲品列表的卡片：這個分類的飲品；奶茶、鮮奶頁在每杯 main 飲品後面接著排出「{加料}{飲料}」的組合（046），
@@ -76,7 +77,7 @@ export class PosStateService {
     const combos = FREE_TOPPING_CATEGORIES.includes(this.currentCategory) ? this.menu.toppings.filter(t => t.free) : [];
     return this.products.flatMap(p => [
       { key: `${p.product_id}`, product: p, topping: null, name: p.name },
-      ...(p.main ? combos.map(t => ({ key: `${p.product_id}-${t.topping_id}`, product: p, topping: t, name: t.name + p.name })) : [])
+      ...(p.main && !p.availability ? combos.map(t => ({ key: `${p.product_id}-${t.topping_id}`, product: p, topping: t, name: t.name + p.name })) : [])
     ]);
   }
   get cups(): number { return this.cart.reduce((sum, line) => sum + line.qty, 0); }
@@ -120,6 +121,7 @@ export class PosStateService {
   }
   /** 點了一張卡：組合就是 main 飲品先加好一份那個加料（規則不允許就不加，跟自己按加入一樣）。 */
   openEntry(entry: MenuEntry): void {
+    if (entry.product.availability) return;
     this.openProduct(entry.product);
     if (entry.topping && this.product === entry.product) this.addTopping(entry.topping.topping_id);
   }

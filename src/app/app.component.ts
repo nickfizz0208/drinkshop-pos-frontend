@@ -81,7 +81,7 @@ export class AppComponent {
     const seen = new Set<number>();
     const list: StaffOption[] = [];
     for (const r of this.todayRecords) {
-      if (!r.onDuty || seen.has(r.staffId)) continue;
+      if (!r.onDuty || r.businessDate !== this.businessDate || seen.has(r.staffId)) continue;
       seen.add(r.staffId);
       const found = this.staffOptions.find(s => s.staffId === r.staffId);
       list.push(found ?? { staffId: r.staffId, name: r.staffName ?? `員工 #${r.staffId}`, level: 'STAFF' });

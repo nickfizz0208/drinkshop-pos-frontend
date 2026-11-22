@@ -89,17 +89,16 @@
           <td class="input" data-label="實點">
             <div class="qty-inputs">
               @if (state.hasPack(item)) {
-              <label><input #packsInput type="number" min="0" step="1" inputmode="numeric" [name]="'packs-' + item.inventoryId"
+              <div class="qty-field"><input #packsInput type="number" min="0" step="1" inputmode="numeric" [name]="'packs-' + item.inventoryId"
                   [(ngModel)]="state.entry(item.inventoryId).packs" [disabled]="ui.busy"
-                  [attr.aria-label]="item.name + ' 包數'"><app-numpad-button [for]="packsInput" [label]="item.name + ' 包數'" steppers /><span>{{ item.packUnit }}</span></label>
-              @if (!state.packOnly) { <span class="plus" aria-hidden="true">＋</span> }
+                  [attr.aria-label]="item.name + ' 包數'"><app-numpad-button [for]="packsInput" [label]="item.name + ' 包數'" steppers /><span>{{ item.packUnit }}</span></div>
               }
               @if (!state.packOnlyFor(item)) {
               <!-- 盤點一律整數：上下箭頭一次加減 1 -->
-              <label><input #looseInput type="number" min="0" step="1" inputmode="numeric" [name]="'loose-' + item.inventoryId"
+              <div class="qty-field"><input #looseInput type="number" min="0" step="1" inputmode="numeric" [name]="'loose-' + item.inventoryId"
                   [(ngModel)]="state.entry(item.inventoryId).loose" [disabled]="ui.busy"
                   [attr.aria-label]="item.name + (state.hasPack(item) ? ' 零散數量' : ' 數量')"><app-numpad-button [for]="looseInput" [label]="item.name + (state.hasPack(item) ? ' 零散數量' : ' 數量')" steppers /><span>{{ item.baseUnit
-                  }}</span></label>
+                  }}</span></div>
               }
             </div>
             @if (state.invalid(item); as message) { <small class="field-error" role="alert">{{ message }}</small> }
@@ -124,7 +123,7 @@
         </tr>
         } @empty {
         <tr>
-          <td colspan="6" class="muted">{{ state.typeItems.length ? '找不到符合的原料。' : (state.type ? '這個盤點類型沒有原料。' :
+          <td colspan="8" class="muted">{{ state.typeItems.length ? '找不到符合的原料。' : (state.type ? '這個盤點類型沒有原料。' :
             '請先選擇盤點類型。') }}</td>
         </tr>
         }
@@ -148,7 +147,7 @@
       <button class="button secondary" (click)="state.loadHistory()" [disabled]="state.historyLoading">查詢</button>
     </div>
   </div>
-  <p class="hint">一次最多查 31 天。差異金額用盤點當時的單位成本計算。</p>
+  <p class="hint">一次最多查 31 天。</p>
   @if (state.historyError) { <p class="alert error" role="alert">{{ state.historyError }}</p> }
   @for (g of state.groups; track g.requestId) {
   <article class="count-group">
@@ -158,10 +157,9 @@
       <span><span class="tag type">{{ g.typeName }}</span> <strong>{{ time(g.countedAt) }}</strong> · {{ g.countedByName
         || '員工' }} · {{ g.rows.length }} 項</span>
       <span class="group-sum">
-        @if (g.shortCount) { <span class="short">盤虧 {{ g.shortCount }}</span> }
-        @if (g.overCount) { <span class="over">盤盈 {{ g.overCount }}</span> }
-        @if (!g.shortCount && !g.overCount) { <span class="even">全部相符</span> }
-        <span>{{ g.diffCost === null ? '部分原料未建成本' : signedMoney(g.diffCost) }}</span>
+        @if (g.shortCount + g.overCount; as differences) {
+          <span>{{ differences }} 項數量有差異</span>
+        } @else { <span class="even">數量全部相符</span> }
       </span>
     </button>
     @if (state.expanded === g.requestId) {
@@ -174,7 +172,6 @@
             <th class="num">帳面</th>
             <th class="num">實點</th>
             <th class="num">差異</th>
-            <th class="num">差異金額</th>
           </tr>
         </thead>
         <tbody>@for (r of g.rows; track r.inventoryId) {
@@ -182,9 +179,7 @@
             <td>{{ r.inventoryName }}</td>
             <td class="num">{{ q(r.bookQty, state.packInfo(r.inventoryId, r.baseUnit)) }}</td>
             <td class="num">{{ q(r.countedQty, state.packInfo(r.inventoryId, r.baseUnit)) }}</td>
-            <td class="num"><span [class.short]="r.diffQty < 0" [class.over]="r.diffQty > 0">{{ r.diffQty === 0 ? '—' :
-                d(r.countedQty, r.bookQty, state.packInfo(r.inventoryId, r.baseUnit)) }}</span></td>
-            <td class="num">{{ r.diffCost === null ? '未建成本' : signedMoney(r.diffCost) }}</td>
+            <td class="num"><span [class.short]="r.diffQty < 0" [class.over]="r.diffQty > 0">{{ historyDifference(r.diffQty, r.baseUnit) }}</span></td>
           </tr>
           }
         </tbody>

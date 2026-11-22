@@ -9,7 +9,7 @@
   <button type="button" role="tab" class="kind-tab" [class.selected]="state.kind === k.kind" [attr.aria-selected]="state.kind === k.kind"
     [disabled]="ui.busy" (click)="state.selectKind(k.kind)">
     <strong>{{ k.label }}</strong>
-    <small [class.has-stopped]="state.stoppedCount(k.kind) > 0">{{ state.stoppedCount(k.kind) ? '停售 ' + state.stoppedCount(k.kind) + ' / ' : '' }}共 {{ state.totalCount(k.kind) }} 項</small>
+    <small [class.has-stopped]="state.stoppedCount(k.kind) > 0">{{ state.stoppedCount(k.kind) ? '停售 ' + state.stoppedCount(k.kind) + ' / ' : '' }}@if (k.kind === 'product' && state.soldOutCount) { 售完 {{ state.soldOutCount }} / }共 {{ state.totalCount(k.kind) }} 項</small>
   </button>
   }
 </div>
@@ -64,6 +64,11 @@
         maxlength="20" [attr.aria-label]="r.name + ' 的分類'" [disabled]="ui.busy"
         (change)="state.setCategory(r.kind, r.id, $any($event.target).value)">
       }
+      @if (r.kind === 'product' && !r.checked && !r.changed) {
+        <button type="button" class="text-button" [disabled]="!state.canEdit || ui.busy"
+          [attr.aria-label]="r.name + (r.soldOut ? ' 解除售完' : ' 標記售完')"
+          (click)="state.setSoldOut(r)">{{ r.soldOut ? '解除售完' : '標記售完' }}</button>
+      }
       <span class="tag" [class.off]="r.state !== 'on'">{{ stateLabel(r.state) }}</span>
     </li>
     }
@@ -94,7 +99,7 @@
     @if (pv.linkedStop.length) { <h3 class="confirm-title">因原物料一起停售</h3><p class="linked-list">{{ pv.linkedStop.join('、') }}</p> }
     @if (pv.linkedResume.length) { <h3 class="confirm-title">因原物料恢復而恢復販售</h3><p>{{ pv.linkedResume.join('、') }}</p> }
     }
-    <p class="muted small-copy">儲存後點餐畫面立即不顯示停售的飲品與加料；已在購物車或已送出的訂單不受影響，送單時停售的品項會被擋下。</p>
+    <p class="muted small-copy">停售飲品在點餐頁會標記為停售，停售加料會隱藏。送單時會再次檢查飲品與加料的販售狀態。</p>
   </div>
   <div class="modal-footer"><button type="button" class="button secondary" [disabled]="ui.busy"
       (click)="state.closeConfirm()">返回修改</button><button type="button" class="button primary" [disabled]="ui.busy"

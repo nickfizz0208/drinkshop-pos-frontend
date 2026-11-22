@@ -11,6 +11,10 @@ interface EditForm { record: ClockRecord; clockInAt: string; clockOutAt: string;
 /** 打卡前的確認：大字顯示是誰、上班或下班、現在時間。 */
 interface PunchConfirm { staffId: number; name: string; out: boolean; at: Date; }
 
+const newestFirst = (a: ClockRecord, b: ClockRecord) =>
+  b.businessDate.localeCompare(a.businessDate) || b.clockInAt.localeCompare(a.clockInAt)
+  || b.shiftStaffId - a.shiftStaffId;
+
 const MANAGER_LEVELS = ['MANAGER', 'HQ'];
 
 /**
@@ -80,7 +84,6 @@ export class TimeTrackerComponent implements OnDestroy {
   get onDutyRecords(): ClockRecord[] {
     return this.todayRecords.filter(r => r.onDuty).sort((a, b) => a.clockInAt.localeCompare(b.clockInAt));
   }
-  get myTotalMinutes(): number { return this.myRecords.reduce((sum, r) => sum + this.minutesOf(r), 0); }
   get myWorkDays(): number { return new Set(this.myRecords.map(r => r.businessDate)).size; }
   get viewingToday(): boolean { return this.viewDate === this.businessDate; }
 
@@ -90,9 +93,9 @@ export class TimeTrackerComponent implements OnDestroy {
   }
   /** 選到的人今天最後一次下班（顯示「今天已打卡下班 15:00」用）。 */
   get selectedLastOut(): ClockRecord | undefined {
-    return [...this.todayRecords].reverse().find(r => r.staffId === this.selectedStaffId && !r.onDuty);
+    return [...this.todayRecords].reverse().find(r => r.staffId === this.selectedStaffId && !r.onDuty && !!r.clockOutAt);
   }
-  get canPunch(): boolean { return this.isPosAccount && this.shiftStatus === 'OPEN' && this.selectedStaffId !== null && !this.busy; }
+  get canPunch(): boolean { return this.isPosAccount && (this.shiftStatus === 'OPEN' || !!this.selectedOnDuty) && this.selectedStaffId !== null && !this.busy; }
   get shiftMessage(): string {
     if (!this.isPosAccount) return '';
     return this.shiftStatus === 'NONE' ? '今天還沒開班，開班後才能打卡'
@@ -101,11 +104,11 @@ export class TimeTrackerComponent implements OnDestroy {
 
   /** 在班的排前面，各自依上班時間排序。 */
   get sortedRecords(): ClockRecord[] {
+    if (this.viewMode === 'month') return [...this.viewRecords].sort(newestFirst);
     return [...this.viewRecords].sort((a, b) =>
       Number(b.onDuty) - Number(a.onDuty) || a.clockInAt.localeCompare(b.clockInAt));
   }
   get onDutyCount(): number { return new Set(this.viewRecords.filter(r => r.onDuty).map(r => r.staffId)).size; }
-  get totalMinutes(): number { return this.viewRecords.reduce((sum, r) => sum + this.minutesOf(r), 0); }
 
   // ---------- 載入 ----------
 
@@ -130,7 +133,7 @@ export class TimeTrackerComponent implements OnDestroy {
         this.viewRecords = this.viewMode === 'month'
           ? await this.api.monthly(this.viewMonth, this.managerFilterStaffId)
           : (this.viewingToday ? today.records : await this.api.list(this.viewDate));
-      } else this.myRecords = await this.api.mine(this.myMonth);
+      } else this.myRecords = (await this.api.mine(this.myMonth)).sort(newestFirst);
     } catch (e) { this.error = errorMessage(e); }
     finally { this.loading = false; }
   }
@@ -168,7 +171,7 @@ export class TimeTrackerComponent implements OnDestroy {
   async changeMyMonth(): Promise<void> {
     if (!this.myMonth) this.myMonth = this.businessDate.slice(0, 7);
     this.loading = true; this.error = '';
-    try { this.myRecords = await this.api.mine(this.myMonth); }
+    try { this.myRecords = (await this.api.mine(this.myMonth)).sort(newestFirst); }
     catch (e) { this.error = errorMessage(e); }
     finally { this.loading = false; }
   }
@@ -256,26 +259,42 @@ export class TimeTrackerComponent implements OnDestroy {
 
   staffName(id: number | null): string { return this.staff.find(s => s.staffId === id)?.name ?? ''; }
   /** 2026-11-06T09:58:12.123 → 09:58 */
-  time(value: string | null): string { return value ? value.slice(11, 16) : ''; }
+  time(value: string | null): string { return value ? (value.includes('T') ? value.slice(11, 16) : value.slice(0, 5)) : ''; }
 
-  minutesOf(r: ClockRecord): number {
+  private elapsedMilliseconds(r: ClockRecord): number {
     // 只取到秒：後端時間有 6 位小數，部分瀏覽器無法解析
+    if (r.closeType === 'REVIEW') return 0;
     const start = new Date(r.clockInAt.slice(0, 19)).getTime();
     const end = r.clockOutAt ? new Date(r.clockOutAt.slice(0, 19)).getTime() : this.now;
-    return Math.max(0, Math.floor((end - start) / 60_000));
+    return Math.max(0, end - start);
   }
-  durationLabel(r: ClockRecord): string { return this.formatMinutes(this.minutesOf(r)); }
+  durationLabel(r: ClockRecord): string {
+    return r.closeType === 'REVIEW' ? '待核對' : this.formatMinutes(Math.floor(this.elapsedMilliseconds(r) / 60_000));
+  }
+
+  totalDurationLabel(records: ClockRecord[]): string {
+    const included = records.filter(r => r.closeType !== 'REVIEW');
+    if (!included.length) return '—';
+    const elapsed = included.reduce((sum, r) => sum + this.elapsedMilliseconds(r), 0);
+    return this.formatMinutes(Math.floor(elapsed / 60_000));
+  }
+
+  earlyClockInMinutes(r: ClockRecord): number {
+    if (!r.scheduledStartTime) return 0;
+    const scheduled = new Date(r.businessDate + 'T' + r.scheduledStartTime.slice(0, 5));
+    const clockIn = new Date(r.clockInAt.slice(0, 19));
+    return Math.max(0, Math.floor((scheduled.getTime() - clockIn.getTime()) / 60_000));
+  }
 
   /** 計算超出的加班分鐘數（相對於店長排班下班時間）。 */
   overtimeMinutes(r: ClockRecord): number | null {
-    if (!r.scheduledEndTime || !r.clockOutAt) return null;
-    const parts = r.scheduledEndTime.slice(0, 5).split(':').map(Number);
-    if (parts.length < 2) return null;
-    const [schedH, schedM] = parts;
-    const outDate = new Date(r.clockOutAt.slice(0, 19));
-    const schedDate = new Date(r.clockOutAt.slice(0, 19));
-    schedDate.setHours(schedH, schedM, 0, 0);
-    const diffMins = Math.floor((outDate.getTime() - schedDate.getTime()) / 60_000);
+    if (!r.scheduledEndTime || !r.clockOutAt || r.closeType === 'AUTO_SCHEDULE') return null;
+    const end = r.scheduledEndTime.slice(0, 5);
+    const start = r.scheduledStartTime?.slice(0, 5);
+    const scheduleEnd = new Date(r.businessDate + 'T' + end);
+    if (start && end < start) scheduleEnd.setDate(scheduleEnd.getDate() + 1);
+    const clockOut = new Date(r.clockOutAt.slice(0, 19));
+    const diffMins = Math.floor((clockOut.getTime() - scheduleEnd.getTime()) / 60_000);
     return diffMins > 0 ? diffMins : null;
   }
   overtimeLabel(r: ClockRecord): string {
@@ -285,6 +304,8 @@ export class TimeTrackerComponent implements OnDestroy {
 
   closeTypeLabel(closeType?: string | null): string {
     switch (closeType) {
+      case 'AUTO_SCHEDULE': return '系統補登（排班結束）';
+      case 'REVIEW': return '待店長確認';
       case 'AUTO_MIDNIGHT': return '逾午夜強制下班';
       case 'AUTO_SHIFT_CLOSE': return '隨關班下班';
       case 'MANAGER': return '店長修改';
@@ -293,6 +314,7 @@ export class TimeTrackerComponent implements OnDestroy {
     }
   }
   formatMinutes(m: number): string {
+    if (m === 0) return '未滿 1 分鐘';
     const h = Math.floor(m / 60), r = m % 60;
     return h ? (r ? `${h} 小時 ${r} 分` : `${h} 小時`) : `${r} 分`;
   }

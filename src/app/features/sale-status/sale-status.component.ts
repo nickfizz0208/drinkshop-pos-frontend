@@ -23,5 +23,5 @@ export class SaleStatusComponent implements OnInit, OnDestroy {
   toggle(kind: SaleKind, id: number, event: Event): void {
     this.state.toggle(kind, id, (event.target as HTMLInputElement).checked);
   }
-  stateLabel(s: SaleState): string { return s === 'on' ? '販售中' : s === 'stopped' ? '停售' : '連動停售'; }
+  stateLabel(s: SaleState): string { return s === 'on' ? '販售中' : s === 'stopped' ? '停售' : s === 'sold-out' ? '售完' : '連動停售'; }
 }

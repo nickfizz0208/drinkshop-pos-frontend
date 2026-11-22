@@ -22,6 +22,7 @@ export interface Product {
   color_tone?: ColorTone | null;
   /** 可以當組合底的飲品（046）：奶茶、鮮奶頁會在它後面排出「{加料}{飲料}」。 */
   main?: boolean;
+  availability?: 'SOLD_OUT' | 'STOPPED';
 }
 /** 資料庫 product.color_tone 的值：紅、橙、黃、綠、紫、白、奶、咖（BROWN，資料庫 036）。只存色系，色碼在前端 scss（drink-card、drink-cup）。 */
 export type ColorTone = 'RED' | 'ORANGE' | 'YELLOW' | 'GREEN' | 'PURPLE' | 'WHITE' | 'CREAM' | 'BROWN';
@@ -53,7 +54,7 @@ export function groupToppings(ids: readonly number[]): { id: number; qty: number
 /** 客製選項（041）：不用錢、沒有衝突規則的選項，例如加酸、少料、加梅子。max_qty＝一杯最多幾份（預設 1）。 */
 export interface CustomOption { option_id: number; name: string; max_qty?: number; }
 /** options 是 041 起才有，舊後端沒有就當空的。 */
-export interface Menu { products: Product[]; toppings: Topping[]; options?: CustomOption[]; }
+export interface Menu { products: Product[]; unavailableProducts?: Product[]; toppings: Topping[]; options?: CustomOption[]; }
 export interface Rule {
   rule_id: number;
   rule_type: 'FORBID' | 'AUTO_ADJUST' | 'MAX_COUNT' | 'MUTEX';

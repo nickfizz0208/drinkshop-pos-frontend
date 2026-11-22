@@ -8,7 +8,7 @@ export interface ClockRecord {
   updatedBy: number | null; updatedAt: string | null;
   scheduledStartTime?: string | null;
   scheduledEndTime?: string | null;
-  closeType?: 'SELF' | 'AUTO_MIDNIGHT' | 'AUTO_SHIFT_CLOSE' | 'MANAGER' | null;
+  closeType?: 'SELF' | 'AUTO_MIDNIGHT' | 'AUTO_SCHEDULE' | 'REVIEW' | 'AUTO_SHIFT_CLOSE' | 'MANAGER' | null;
 }
 
 /** canViewAll = 店長、總部：records 為全部；其他人只有「在班中的人」和自己的紀錄。 */

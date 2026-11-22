@@ -108,9 +108,13 @@ h1 {
 // ---------- 版面：左打卡、右紀錄 ----------
 .clock-layout {
   display: grid;
-  grid-template-columns: minmax(280px, 340px) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 16px;
   align-items: start;
+}
+
+.clock-layout.with-punch {
+  grid-template-columns: minmax(240px, 340px) minmax(0, 1fr);
 }
 
 .panel {
@@ -123,6 +127,7 @@ h1 {
 
 .panel-head {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: flex-start;
   gap: 12px;
@@ -230,6 +235,8 @@ label.check {
 
 // 紀錄
 .records {
+  min-width: 0;
+  container: clock-records / inline-size;
   transition: opacity .15s;
 }
 
@@ -261,8 +268,26 @@ label.check {
 
 .date-filter {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
+  max-width: 100%;
+}
+
+.date-filter .button-group {
+  display: flex;
+  gap: 4px;
+}
+
+.date-filter :is(button, .button-group) {
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.date-filter select {
+  width: auto;
+  min-height: 38px;
+  max-width: 100%;
 }
 
 .date-filter input {
@@ -274,28 +299,34 @@ label.check {
 .record-list {
   list-style: none;
   margin: 0;
-  padding: 0;
+  padding: 0 14px;
+  column-gap: 10px;
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
-  overflow: hidden;
+  display: grid;
+  grid-template-columns: 12px minmax(80px, 1fr) minmax(115px, 1.6fr) max-content minmax(92px, auto) max-content;
 }
 
 .record-list li {
   display: grid;
-  grid-template-columns: 12px max-content minmax(130px, 1fr) minmax(68px, auto) auto auto;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
   align-items: center;
   gap: 10px;
-  padding: 9px 14px;
+  padding: 9px 0;
   font-size: 14px;
 }
 
-.record-list.month-mode li {
-  grid-template-columns: 12px 72px max-content minmax(130px, 1fr) minmax(68px, auto) auto auto;
+.record-list.month-mode {
+  grid-template-columns: 12px max-content minmax(80px, 1fr) minmax(115px, 1.6fr) max-content minmax(92px, auto) max-content;
 }
 
 .record-list li+li {
   border-top: 1px solid var(--border-color);
 }
+
+.record-list li:first-child { border-start-start-radius: inherit; border-start-end-radius: inherit; }
+.record-list li:last-child { border-end-start-radius: inherit; border-end-end-radius: inherit; }
 
 .record-list li.mine {
   background: var(--mine-tint);
@@ -315,7 +346,7 @@ li.on .state {
 
 .name {
   font-weight: 650;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .record-date {
@@ -359,7 +390,7 @@ li.on .times {
   color: var(--text-muted);
   font-size: 13px;
   font-variant-numeric: tabular-nums;
-  text-align: right;
+  text-align: start;
   white-space: nowrap;
 }
 
@@ -368,8 +399,7 @@ li.on .times {
   align-items: center;
   justify-content: flex-end;
   gap: 6px;
-  flex-wrap: nowrap;
-  white-space: nowrap;
+  flex-wrap: wrap;
 }
 
 .tag {
@@ -451,8 +481,8 @@ li.on .times {
 
 // ---------- 窄螢幕 ----------
 @media (max-width: 1000px) {
-  .clock-layout {
-    grid-template-columns: 1fr;
+  .clock-layout.with-punch {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .punch {
@@ -477,37 +507,6 @@ li.on .times {
 
   .panel-head {
     flex-direction: column;
-  }
-
-  .record-list li,
-  .record-list.month-mode li {
-    grid-template-columns: 12px 1fr auto;
-    gap: 4px 10px;
-  }
-
-  .record-list.month-mode .name {
-    grid-column: 2;
-  }
-
-  .record-list .times {
-    grid-column: 2;
-    font-size: 13px;
-  }
-
-  .record-list .duration {
-    grid-column: 3;
-    grid-row: 1;
-  }
-
-  .record-list .record-meta {
-    grid-column: 2;
-    justify-content: flex-start;
-    flex-wrap: wrap;
-  }
-
-  .record-list .text-button {
-    grid-column: 3;
-    justify-self: end;
   }
 
   .modal-body {
@@ -562,8 +561,64 @@ li.on .times {
   font-variant-numeric: tabular-nums;
 }
 
-.mine-list li {
-  grid-template-columns: 12px minmax(72px, 0.8fr) minmax(130px, 1.4fr) minmax(68px, auto) auto;
+.mine-list {
+  grid-template-columns: 12px max-content minmax(115px, 1fr) max-content minmax(92px, auto);
+}
+
+@container clock-records (max-width: 1120px) {
+  .record-list,
+  .record-list.month-mode {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .record-list li {
+    grid-template-columns: 12px minmax(0, 1fr) minmax(0, 1.4fr) 108px 52px;
+    grid-template-areas: "state name times duration edit" ". meta meta meta .";
+    gap: 6px 16px;
+    padding-block: 12px;
+  }
+
+  .record-list.month-mode li {
+    grid-template-columns: 12px 76px minmax(0, 1fr) minmax(0, 1.4fr) 108px 52px;
+    grid-template-areas: "state date name times duration edit" ". meta meta meta meta .";
+  }
+
+  .mine-list li {
+    grid-template-columns: 12px minmax(0, 1fr) minmax(0, 1.4fr) 108px;
+    grid-template-areas: "state name times duration" ". meta meta meta";
+  }
+
+  .record-list .state { grid-area: state; }
+  .record-list .record-date { grid-area: date; }
+  .record-list .name { grid-area: name; }
+  .record-list .times { grid-area: times; align-items: flex-start; flex-direction: column; gap: 2px; }
+  .record-list .duration { grid-area: duration; }
+  .record-list .record-meta { grid-area: meta; justify-content: flex-start; }
+  .record-list .record-meta:empty { display: none; }
+  .record-list .text-button { grid-area: edit; justify-self: end; min-width: 44px; min-height: 44px; }
+}
+
+@container clock-records (max-width: 690px) {
+  .record-list,
+  .record-list.month-mode {
+    grid-template-columns: minmax(0, 1fr);
+    padding-inline: 12px;
+  }
+
+  .record-list li,
+  .record-list.month-mode li,
+  .mine-list li {
+    grid-template-columns: 12px minmax(0, 1fr) 108px;
+    grid-template-areas: "state name duration" ". times edit" ". meta meta";
+    gap: 5px 10px;
+    padding: 10px 0;
+  }
+
+  .record-list.month-mode li {
+    grid-template-areas: "state date duration" ". name edit" ". times times" ". meta meta";
+  }
+
+  .record-list .times { font-size: 13px; }
 }
 
 // ---------- 打卡確認視窗 ----------
@@ -621,10 +676,6 @@ li.on .times {
 }
 
 @media (max-width: 760px) {
-  .mine-list li {
-    grid-template-columns: 12px 1fr auto;
-  }
-
   .confirm-name {
     font-size: 28px;
   }

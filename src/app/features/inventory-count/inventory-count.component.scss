@@ -121,34 +121,32 @@ tr.counted td:first-child {
 }
 
 .qty-inputs {
-  width: 65%;
-  display: flex;
-  justify-content: end;
-  justify-self: center;
+  display: grid;
+  grid-template-columns: minmax(0, max-content);
+  justify-content: center;
   align-items: center;
   gap: 6px;
 }
 
-.qty-inputs label {
-  display: flex;
+.qty-field {
+  display: grid;
+  grid-template-columns: minmax(0, 84px) auto minmax(3ch, 1fr);
   align-items: center;
   gap: 5px;
+  max-width: 100%;
 }
 
 .qty-inputs input {
-  width: 84px;
+  width: 100%;
+  min-width: 0;
   min-height: 36px;
   text-align: right;
 }
 
-.qty-inputs label span {
+.qty-field span {
   font-size: 12px;
   color: var(--text-muted);
   white-space: nowrap;
-}
-
-.plus {
-  color: var(--text-muted);
 }
 
 .field-error {
@@ -437,7 +435,9 @@ tr.counted td:first-child {
 
   .count-table tbody tr {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-areas: 'name describe' 'book safety' 'input input' 'total diff' '. actions';
+    align-items: center;
     gap: 8px 12px;
     padding: 14px 4px 14px 12px;
     border-bottom: 1px solid var(--border-color);
@@ -449,32 +449,16 @@ tr.counted td:first-child {
     border: 0;
   }
 
-  .count-table td.name {
-    grid-column: 1;
-  }
-
-  .count-table td.book {
-    grid-column: 2;
-    align-self: center;
-  }
-
-  .count-table td.input {
-    grid-column: 1 / -1;
-  }
-
-  .count-table td.total {
-    grid-column: 1;
-    text-align: left;
-  }
-
-  .count-table td.diff {
-    grid-column: 2;
-  }
-
-  .count-table td.actions {
-    grid-column: 1 / -1;
-  }
-
+  .count-table td { min-width: 0; text-align: start; white-space: normal; }
+  .count-table td.name { grid-area: name; }
+  .count-table td.describe { grid-area: describe; }
+  .count-table td.book { grid-area: book; }
+  .count-table td.safety { grid-area: safety; }
+  .count-table td.input { grid-area: input; }
+  .count-table td.total { grid-area: total; }
+  .count-table td.diff { grid-area: diff; }
+  .count-table td.actions { grid-area: actions; justify-self: end; }
+  .count-table td[colspan] { grid-column: 1 / -1; }
   .count-table td[data-label]::before {
     content: attr(data-label) '　';
     color: var(--text-muted);
@@ -495,11 +479,8 @@ tr.counted td:first-child {
   }
 
   .qty-inputs {
-    flex-wrap: wrap;
-  }
-
-  .qty-inputs input {
-    width: 92px;
+    justify-content: start;
+    margin-block-start: 4px;
   }
 
   .panel {
@@ -515,11 +496,4 @@ tr.counted td:first-child {
     flex-direction: column;
     align-items: stretch;
   }
-}
-
-.count-table th,
-.count-table td {
-  border: 1px solid #ddd;
-  padding: 8px;
-  /* 順便加上內距，文字才不會貼著線 */
 }

@@ -69,7 +69,7 @@ export async function downloadScheduleExcel(week: ScheduleWeek, staff: StaffOpti
         const tags = e.tagNames?.length ? `\n${e.tagNames.join('・')}` : '';
         return `${short(e.startTime)}-${short(e.endTime)}${e.note ? '#' : ''}${tags}`;
       }).join('\n') || '休');
-    const total = entries.reduce((sum, e) => sum + minutes(e.endTime) - minutes(e.startTime), 0) / 60;
+    const total = entries.reduce((sum, e) => sum + (minutes(e.endTime) - minutes(e.startTime) + 24 * 60) % (24 * 60), 0) / 60;
     const row = ws.addRow([p.name, ...cells, total || '']);
     const lines = Math.max(1, ...cells.map(c => c.split('\n').length));
     row.height = Math.max(22, lines * 16 + 6);

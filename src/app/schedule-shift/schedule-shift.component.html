@@ -112,7 +112,7 @@
     <div class="axis">
       <span class="name-col"></span>
       <div class="track">
-        @for (h of hours; track h) { <span class="hour" [style.left.%]="hourLeft(h)">{{ h }}</span> }
+        @for (h of hours; track h) { <span class="hour" [style.left.%]="hourLeft(h)">{{ h >= 24 ? '翌日 ' + (h - 24) : h }}</span> }
       </div>
     </div>
     @for (row of timelineRows; track row.staffId) {
@@ -205,7 +205,9 @@
     @if (templatesError) { <p class="muted" role="status">班別範本暫時無法載入，仍可手動填寫時間。</p> }
     <div class="time-row">
       <label>上班<input type="time" name="startTime" [(ngModel)]="f.startTime" required [disabled]="busy"></label>
-      <label>下班<input type="time" name="endTime" [(ngModel)]="f.endTime" required [disabled]="busy"></label>
+      <label>下班<input type="time" name="endTime" [(ngModel)]="f.endTime" required [disabled]="busy">
+        @if (f.endTime && f.endTime < f.startTime) { <small>隔天 {{ f.endTime }} 下班</small> }
+      </label>
     </div>
     <div class="tag-field">
       <span class="field-label">標籤（可以多選）</span>

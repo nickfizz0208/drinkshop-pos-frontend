@@ -229,10 +229,15 @@ export class ScheduleShiftComponent {
   get selectedDay(): Day | undefined { return this.days.find(d => d.date === this.selectedDate); }
 
   /** 時間軸範圍：涵蓋當天所有班，至少 09:00–22:00，以整點為單位。 */
+  private endMinute(entry: ScheduleEntry): number {
+    const end = minutes(entry.endTime);
+    return end < minutes(entry.startTime) ? end + 24 * 60 : end;
+  }
+
   get timelineRange(): { start: number; end: number } {
     const entries = this.selectedDay?.entries ?? [];
     let start = DEFAULT_START_HOUR * 60, end = DEFAULT_END_HOUR * 60;
-    for (const e of entries) { start = Math.min(start, minutes(e.startTime)); end = Math.max(end, minutes(e.endTime)); }
+    for (const e of entries) { start = Math.min(start, minutes(e.startTime)); end = Math.max(end, this.endMinute(e)); }
     return { start: Math.floor(start / 60) * 60, end: Math.ceil(end / 60) * 60 };
   }
 
@@ -253,14 +258,14 @@ export class ScheduleShiftComponent {
     const rows = new Map<number, TimelineRow>();
     for (const e of this.selectedDay?.entries ?? []) {
       const row = rows.get(e.staffId) ?? { staffId: e.staffId, name: e.staffName ?? '', bars: [], mine: this.isMine(e) };
-      const s = minutes(e.startTime), t = minutes(e.endTime);
+      const s = minutes(e.startTime), t = this.endMinute(e);
       row.bars.push({ entry: e, left: (s - start) / span * 100, width: (t - s) / span * 100, overlap: false });
       rows.set(e.staffId, row);
     }
     for (const row of rows.values()) {
       for (const a of row.bars) {
         a.overlap = row.bars.some(b => b !== a
-          && minutes(a.entry.startTime) < minutes(b.entry.endTime) && minutes(b.entry.startTime) < minutes(a.entry.endTime));
+          && minutes(a.entry.startTime) < this.endMinute(b.entry) && minutes(b.entry.startTime) < this.endMinute(a.entry));
       }
     }
     // 自己排第一列，其餘依當天最早上班時間排序
@@ -280,7 +285,7 @@ export class ScheduleShiftComponent {
   get dayHeadcount(): number { return new Set((this.selectedDay?.entries ?? []).map(e => e.staffId)).size; }
 
   durationLabel(entry: ScheduleEntry): string {
-    const m = minutes(entry.endTime) - minutes(entry.startTime);
+    const m = this.endMinute(entry) - minutes(entry.startTime);
     const h = Math.floor(m / 60), r = m % 60;
     return r ? `${h} 小時 ${r} 分` : `${h} 小時`;
   }
@@ -363,7 +368,7 @@ export class ScheduleShiftComponent {
     if (!f || this.busy) return;
     if (f.staffId === null) { this.entryError = '請選擇員工'; return; }
     if (!f.startTime || !f.endTime) { this.entryError = '請填寫上班與下班時間'; return; }
-    if (f.endTime <= f.startTime) { this.entryError = '下班時間必須晚於上班時間'; return; }
+    if (f.endTime === f.startTime) { this.entryError = '上班和下班時間不能相同'; return; }
     const body: EntrySave = {
       workDate: f.workDate, staffId: f.staffId,
       ...(f.templateId === null ? {} : { templateId: f.templateId }),
