@@ -3,7 +3,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { PosApiService, errorMessage } from '../../services/pos-api.service';
 import { InventoryCountApiService } from '../../services/inventory-count-api.service';
 import { UiStateService } from '../../shared/ui-state.service';
-import { CountRow, CountSubmit, CountType, InputMode, InventoryItem, SaveType } from '../../models/inventory-count';
+import { CountRow, CountSubmit, CountType, InputMode, InventoryItem, PrepCountItem, PrepCountSubmit, SaveType } from '../../models/inventory-count';
 import { cents, taipeiDate } from '../../models/pos';
 import { PackInfo, byPack } from '../../shared/pack-format';
 
@@ -70,6 +70,15 @@ export class InventoryCountStateService {
   private historyVersion = 0;
   private loadedStaff: number | null = null;
 
+  activeTab: 'RAW' | 'PREP' = 'RAW';
+  prepItems: PrepCountItem[] = [];
+  prepEntries: Record<number, { currentQty: number; countedQty: number | null }> = {};
+  prepLoading = false;
+  prepError = '';
+  prepSearch = '';
+  selectedPrepCategory = 'ALL';
+  prepNote = '';
+
   constructor() {
     // 登出（或登入逾時）時清掉輸入到一半的盤點，下一位登入的人看不到
     effect(() => { if (!this.pos.staff()) untracked(() => this.reset()); });
@@ -125,9 +134,27 @@ export class InventoryCountStateService {
     if (c !== null && c > MAX_QTY) return '數量太大';
     return '';
   }
+  selectedCategory = 'ALL';
+
+  get categories(): string[] {
+    const set = new Set<string>();
+    for (const item of this.items) {
+      if (item.category) set.add(item.category);
+    }
+    return Array.from(set);
+  }
+
   get visibleItems(): InventoryItem[] {
     const q = this.search.trim();
-    return q ? this.typeItems.filter(i => i.name.includes(q)) : this.typeItems;
+    let list = this.typeItems;
+    if (this.selectedCategory !== 'ALL') {
+      if (this.selectedCategory === '未分類') {
+        list = list.filter(i => !i.category || i.category === '未分類');
+      } else {
+        list = list.filter(i => i.category === this.selectedCategory);
+      }
+    }
+    return q ? list.filter(i => i.name.includes(q)) : list;
   }
   get lines(): CountLine[] {
     return this.typeItems.flatMap(item => {
@@ -270,6 +297,132 @@ export class InventoryCountStateService {
     if (!types.some(t => t.typeId === this.typeId)) { this.typeId = types[0]?.typeId ?? null; this.entries = {}; }
   }
 
+  approvingId: number | null = null;
+
+  async approveCount(countId: number): Promise<void> {
+    if (this.ui.busy || !this.isManager) return;
+    this.approvingId = countId;
+    this.ui.busy = true;
+    try {
+      const res = await this.api.approveCount(countId);
+      this.ui.notice = res.message || '盤點紀錄已審核並更新帳面庫存';
+      await this.load();
+      await this.loadHistory();
+      if (this.activeTab === 'PREP') {
+        await this.loadPrepItems();
+      }
+    } catch (error) {
+      this.historyError = errorMessage(error);
+    } finally {
+      this.approvingId = null;
+      this.ui.busy = false;
+    }
+  }
+
+  setTab(tab: 'RAW' | 'PREP'): void {
+    this.activeTab = tab;
+    if (tab === 'PREP' && this.prepItems.length === 0) {
+      this.loadPrepItems();
+    }
+  }
+
+  async loadPrepItems(): Promise<void> {
+    this.prepLoading = true;
+    this.prepError = '';
+    try {
+      this.prepItems = await this.api.prepItems();
+      for (const item of this.prepItems) {
+        if (!this.prepEntries[item.prepId]) {
+          this.prepEntries[item.prepId] = {
+            currentQty: item.currentQty,
+            countedQty: null
+          };
+        }
+      }
+    } catch (err) {
+      this.prepError = errorMessage(err);
+    } finally {
+      this.prepLoading = false;
+    }
+  }
+
+  prepEntry(prepId: number) {
+    return this.prepEntries[prepId] ??= { currentQty: 10, countedQty: null };
+  }
+
+  prepTheoretical(item: PrepCountItem): number {
+    const e = this.prepEntry(item.prepId);
+    return Math.round((e.currentQty - item.orderConsumed - item.wastedQty) * 100) / 100;
+  }
+
+  prepDiff(item: PrepCountItem): number | null {
+    const e = this.prepEntry(item.prepId);
+    if (e.countedQty === null) return null;
+    return Math.round((this.prepTheoretical(item) - e.countedQty) * 100) / 100;
+  }
+
+  get prepCategories(): string[] {
+    const set = new Set<string>();
+    for (const item of this.prepItems) {
+      if (item.category) set.add(item.category);
+    }
+    return Array.from(set);
+  }
+
+  get visiblePrepItems(): PrepCountItem[] {
+    const q = this.prepSearch.trim();
+    let list = this.prepItems;
+    if (this.selectedPrepCategory !== 'ALL') {
+      list = list.filter(i => i.category === this.selectedPrepCategory);
+    }
+    return q ? list.filter(i => i.name.includes(q)) : list;
+  }
+
+  get countedPrepCount(): number {
+    return this.prepItems.filter(i => this.prepEntry(i.prepId).countedQty !== null).length;
+  }
+
+  get canSubmitPrep(): boolean {
+    return !this.ui.busy && this.countedPrepCount > 0;
+  }
+
+  clearPrepEntry(item: PrepCountItem): void {
+    const e = this.prepEntry(item.prepId);
+    e.countedQty = null;
+  }
+
+  async submitPrep(): Promise<void> {
+    if (!this.canSubmitPrep) return;
+    const lines = this.prepItems
+      .filter(i => this.prepEntry(i.prepId).countedQty !== null)
+      .map(i => {
+        const e = this.prepEntry(i.prepId);
+        return {
+          prepId: i.prepId,
+          currentQty: e.currentQty,
+          countedQty: e.countedQty!
+        };
+      });
+
+    this.ui.busy = true;
+    this.prepError = '';
+    try {
+      const res = await this.api.submitPrepCount({
+        requestId: crypto.randomUUID(),
+        note: this.prepNote.trim() || null,
+        lines
+      });
+      this.ui.notice = res.message || '半成品盤點送出成功';
+      this.prepNote = '';
+      await this.loadHistory();
+      await this.loadPrepItems();
+    } catch (err) {
+      this.prepError = errorMessage(err);
+    } finally {
+      this.ui.busy = false;
+    }
+  }
+
   clearEntry(item: InventoryItem): void { delete this.entries[item.inventoryId]; }
   clearInput(): void { this.entries = {}; this.note = ''; }
   closeTransient(): void { this.confirmOpen = false; this.confirmError = ''; }
@@ -280,5 +433,6 @@ export class InventoryCountStateService {
     this.pending = null; this.lastResult = null; this.search = ''; this.loadedStaff = null;
     this.history = []; this.historyError = ''; this.historyLoading = false; this.expanded = null;
     this.historyFrom = addDays(taipeiDate(), -6); this.historyTo = taipeiDate();
+    this.activeTab = 'RAW'; this.prepItems = []; this.prepEntries = {}; this.prepSearch = ''; this.prepNote = '';
   }
 }

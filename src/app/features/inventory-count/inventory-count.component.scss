@@ -497,3 +497,228 @@ tr.counted td:first-child {
     align-items: stretch;
   }
 }
+
+.category-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.cat-pill {
+  padding: 6px 14px;
+  border-radius: 20px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-card);
+  color: var(--text-main);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+
+  &:hover {
+    border-color: var(--primary-accent);
+  }
+
+  &.active {
+    background: #1976d2;
+    color: #fff;
+    border-color: #1976d2;
+    font-weight: 600;
+  }
+}
+
+.cat-tag {
+  background: #e3f2fd;
+  color: #1565c0;
+}
+
+.tag-pending {
+  background: #fff8e1;
+  color: #b78103;
+  border: 1px solid #ffe082;
+}
+
+.tag-approved {
+  background: #e8f5e9;
+  color: #2e7d32;
+  border: 1px solid #a5d6a7;
+}
+
+.group-subbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+
+  p {
+    margin: 0;
+  }
+
+  .approve-btn {
+    margin-left: auto;
+  }
+}
+
+.count-mode-tabs {
+  display: inline-flex;
+  gap: 8px;
+  background: var(--bg-hover, #f0f4f8);
+  padding: 4px;
+  border-radius: 10px;
+
+  .tab-button {
+    padding: 8px 16px;
+    font-size: 14px;
+    font-weight: 500;
+    border: none;
+    background: transparent;
+    color: var(--text-muted, #64748b);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+
+    &:hover {
+      color: var(--text-main);
+    }
+
+    &.active {
+      background: #fff;
+      color: #1976d2;
+      font-weight: 700;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+    }
+  }
+}
+
+.formula-banner {
+  margin-top: 8px;
+  margin-bottom: 12px;
+  padding: 10px 16px;
+  background: #f8fafc;
+  border-left: 4px solid #0284c7;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #334155;
+  line-height: 1.6;
+
+  .formula-badge {
+    display: inline-block;
+    padding: 2px 6px;
+    font-size: 11px;
+    font-weight: 700;
+    background: #0284c7;
+    color: #fff;
+    border-radius: 4px;
+    margin-right: 8px;
+  }
+
+  .sep {
+    margin: 0 8px;
+    color: #cbd5e1;
+  }
+
+  .formula-subnote {
+    margin-top: 4px;
+    font-size: 12px;
+    color: #64748b;
+  }
+}
+
+.prep-table {
+  .highlight-th {
+    background: #f1f5f9;
+    color: #0f172a;
+  }
+
+  .small-qty-input {
+    width: 60px;
+    padding: 4px 6px;
+    font-size: 13px;
+    border: 1px solid var(--border-color, #cbd5e1);
+    border-radius: 6px;
+    text-align: right;
+  }
+
+  .prep-input-box {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+
+    .prep-qty-input {
+      width: 80px;
+      padding: 6px 8px;
+      font-size: 14px;
+      font-weight: 600;
+      border: 1.5px solid #94a3b8;
+      border-radius: 6px;
+      text-align: right;
+
+      &:focus {
+        border-color: #0284c7;
+        outline: none;
+        box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.2);
+      }
+    }
+  }
+
+  .unit-text {
+    font-size: 12px;
+    color: var(--text-muted, #64748b);
+  }
+
+  .order-col strong {
+    color: #d97706;
+  }
+
+  .waste-col strong {
+    color: #dc2626;
+  }
+
+  .theoretical-col .theo-val {
+    color: #0284c7;
+    font-size: 15px;
+  }
+
+  .diff-badge {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 700;
+
+    &.short {
+      background: #fee2e2;
+      color: #b91c1c;
+      border: 1px solid #fca5a5;
+    }
+
+    &.over {
+      background: #dcfce7;
+      color: #15803d;
+      border: 1px solid #86efac;
+    }
+
+    &.even {
+      background: #f1f5f9;
+      color: #475569;
+    }
+  }
+
+  .ing-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+
+    .ing-tag {
+      font-size: 11px;
+      background: #f1f5f9;
+      color: #475569;
+      border: 1px solid #e2e8f0;
+      border-radius: 4px;
+      padding: 2px 6px;
+    }
+  }
+}
+

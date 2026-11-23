@@ -1,12 +1,14 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { ConsumptionRecord, MaterialItem } from '../../models/consumption';
+import { ConsumptionRecord, DeductItem, MaterialItem, WastageDetail } from '../../models/consumption';
 import { ConsumptionApiService } from '../../services/consumption-api.service';
+import { PosApiService, errorMessage } from '../../services/pos-api.service';
 import { IconComponent } from '../../shared/icon.component';
+import { ModalComponent } from '../../shared/modal.component';
 import { UiStateService } from '../../shared/ui-state.service';
 
-interface MaterialSeries {
+export interface MaterialSeries {
   inventoryId: number;
   name: string;
   unit: string;
@@ -16,6 +18,18 @@ interface MaterialSeries {
   pathD: string;
 }
 
+export interface DeductRow {
+  inventoryId: number;
+  name: string;
+  unit: string;
+  category: string;
+  bookQty: number;
+  orderQty: number;
+  wastageQty: number;
+  deductQty: number;
+  selected: boolean;
+}
+
 const PALETTE = [
   '#2e7d32', '#1976d2', '#d84315', '#8e24aa', '#00838f',
   '#c2185b', '#f57f17', '#4e342e', '#00695c', '#3949ab'
@@ -23,12 +37,13 @@ const PALETTE = [
 
 @Component({
   selector: 'app-material-consumption',
-  imports: [CommonModule, FormsModule, IconComponent],
+  imports: [CommonModule, FormsModule, IconComponent, ModalComponent],
   templateUrl: './material-consumption.component.html',
   styleUrl: './material-consumption.component.scss'
 })
 export class MaterialConsumptionComponent implements OnInit {
   private readonly api = inject(ConsumptionApiService);
+  private readonly posApi = inject(PosApiService);
   readonly ui = inject(UiStateService);
 
   // 預設今年、當月（或有資料的 2026 年 11 月）
@@ -41,8 +56,35 @@ export class MaterialConsumptionComponent implements OnInit {
   records: ConsumptionRecord[] = [];
   materials: MaterialItem[] = [];
 
+  // 分開保存「訂單物料消耗」與「原料報廢損耗」資料
+  orderRecords: ConsumptionRecord[] = [];
+  orderMaterials: MaterialItem[] = [];
+  wastageRecords: ConsumptionRecord[] = [];
+  wastageMaterials: MaterialItem[] = [];
+  wastageDetails: WastageDetail[] = [];
+
+  // 目前檢視模式：'order'（訂單物料消耗） | 'wastage'（報廢料損耗）
+  consumptionMode: 'order' | 'wastage' = 'order';
+
   // 品項選擇勾選狀態
   selectedIds = new Set<number>();
+
+  // 分類篩選與使用分類整理查看模式
+  selectedCategory = 'ALL';
+  isCategoryGrouped = false; // 是否使用分類整理查看
+
+  // 是否展開顯示「月物料消耗統計」區塊（點擊按鈕切換）
+  showMonthlySummary = false;
+  // 是否展開顯示「報廢紀錄明細」區塊
+  showWastageDetailsTable = true;
+
+  // 店長扣庫確認彈窗狀態
+  showDeductModal = false;
+  deducting = false;
+  deductError = '';
+  deductNote = '';
+  deductScope: 'all' | 'order' | 'wastage' = 'all';
+  deductRows: DeductRow[] = [];
 
   // 圖表設定
   readonly svgWidth = 920;
@@ -65,6 +107,11 @@ export class MaterialConsumptionComponent implements OnInit {
     color: string;
   } | null = null;
 
+  get isManager(): boolean {
+    const level = this.posApi.staff()?.level;
+    return level === 'MANAGER' || level === 'HQ';
+  }
+
   ngOnInit(): void {
     void this.loadData();
   }
@@ -74,30 +121,51 @@ export class MaterialConsumptionComponent implements OnInit {
     this.hoverPoint = null;
     try {
       const res = await this.api.getMonthlyConsumption(this.currentYear, this.currentMonth);
-      this.records = res.records;
-      this.materials = res.materials;
+      this.orderRecords = res.records || [];
+      this.orderMaterials = res.materials || [];
+      this.wastageRecords = res.wastage_records || [];
+      this.wastageMaterials = res.wastage_materials || [];
+      this.wastageDetails = res.wastage_details || [];
 
-      // 找出這個月實際有消耗的品項 ID
-      const consumedIds = new Set(this.records.map(r => r.inventory_id));
-
-      // 若尚未選擇任何品項，預設選取本月有消耗的品項（最多預設前 6 個，避免過多線太雜）
-      if (this.selectedIds.size === 0) {
-        let count = 0;
-        for (const id of consumedIds) {
-          this.selectedIds.add(id);
-          count++;
-          if (count >= 6) break;
-        }
-        // 若完全沒資料，預設選前 3 個材料
-        if (this.selectedIds.size === 0) {
-          this.materials.slice(0, 3).forEach(m => this.selectedIds.add(m.inventory_id));
-        }
-      }
-
-      this.computeChart();
+      this.applyActiveModeData(false);
     } finally {
       this.loading = false;
     }
+  }
+
+  switchConsumptionMode(mode: 'order' | 'wastage'): void {
+    if (this.consumptionMode === mode) return;
+    this.consumptionMode = mode;
+    this.hoverPoint = null;
+    this.applyActiveModeData(true);
+  }
+
+  private applyActiveModeData(resetSelection: boolean): void {
+    this.records = this.consumptionMode === 'wastage' ? this.wastageRecords : this.orderRecords;
+    this.materials = this.consumptionMode === 'wastage' ? this.wastageMaterials : this.orderMaterials;
+
+    if (resetSelection) {
+      this.selectedIds.clear();
+    }
+
+    // 找出這個月實際有消耗／報廢的品項 ID
+    const consumedIds = new Set(this.records.filter(r => r.total_consumed > 0).map(r => r.inventory_id));
+
+    // 若尚未選擇任何品項，預設選取本月有消耗的品項（最多預設前 6 個，避免過多線太雜）
+    if (this.selectedIds.size === 0) {
+      let count = 0;
+      for (const id of consumedIds) {
+        this.selectedIds.add(id);
+        count++;
+        if (count >= 6) break;
+      }
+      // 若完全沒資料，預設選前 3 個材料
+      if (this.selectedIds.size === 0) {
+        this.materials.slice(0, 3).forEach(m => this.selectedIds.add(m.inventory_id));
+      }
+    }
+
+    this.computeChart();
   }
 
   onYearChange(): void {
@@ -126,6 +194,57 @@ export class MaterialConsumptionComponent implements OnInit {
 
   clearAll(): void {
     this.selectedIds.clear();
+    this.computeChart();
+  }
+
+  get categories(): string[] {
+    const set = new Set<string>();
+    for (const mat of this.materials) {
+      if (mat.category) set.add(mat.category);
+      else set.add('未分類');
+    }
+    return Array.from(set);
+  }
+
+  get filteredMaterials(): MaterialItem[] {
+    if (this.selectedCategory === 'ALL') {
+      return this.materials;
+    }
+    return this.materials.filter(m => (m.category || '未分類') === this.selectedCategory);
+  }
+
+  get categoryGroups(): { category: string; materials: MaterialItem[]; selectedCount: number }[] {
+    const map = new Map<string, MaterialItem[]>();
+    for (const mat of this.materials) {
+      const cat = mat.category || '未分類';
+      if (!map.has(cat)) {
+        map.set(cat, []);
+      }
+      map.get(cat)!.push(mat);
+    }
+    return Array.from(map.entries()).map(([category, items]) => {
+      const selectedCount = items.filter(m => this.selectedIds.has(m.inventory_id)).length;
+      return { category, materials: items, selectedCount };
+    });
+  }
+
+  toggleCategoryView(): void {
+    this.isCategoryGrouped = !this.isCategoryGrouped;
+  }
+
+  selectCategory(cat: string): void {
+    this.selectedCategory = cat;
+  }
+
+  selectCategoryItems(cat: string): void {
+    const items = this.materials.filter(m => (m.category || '未分類') === cat);
+    items.forEach(m => this.selectedIds.add(m.inventory_id));
+    this.computeChart();
+  }
+
+  clearCategoryItems(cat: string): void {
+    const items = this.materials.filter(m => (m.category || '未分類') === cat);
+    items.forEach(m => this.selectedIds.delete(m.inventory_id));
     this.computeChart();
   }
 
@@ -223,12 +342,146 @@ export class MaterialConsumptionComponent implements OnInit {
     this.hoverPoint = null;
   }
 
+  toggleMonthlySummary(): void {
+    this.showMonthlySummary = !this.showMonthlySummary;
+  }
+
+  /** 本月所有品項（包含未勾選折線的品項）的月累計消耗統計，依消耗量由高至低排序。 */
+  get monthlyMaterialRows(): { inventoryId: number; name: string; unit: string; color: string; total: number; activeDays: number; bookQty: number; category: string }[] {
+    return this.materials.map(mat => {
+      const matRecords = this.records.filter(r => r.inventory_id === mat.inventory_id && r.total_consumed > 0);
+      const total = Math.round(matRecords.reduce((sum, r) => sum + r.total_consumed, 0) * 100) / 100;
+      return {
+        inventoryId: mat.inventory_id,
+        name: mat.name,
+        unit: mat.base_unit || '份',
+        color: this.colorOf(mat.inventory_id),
+        total,
+        activeDays: matRecords.length,
+        bookQty: mat.book_qty ?? 0,
+        category: mat.category || '未分類'
+      };
+    }).sort((a, b) => b.total - a.total || a.inventoryId - b.inventoryId);
+  }
+
   get totalMonthlyConsumptionCount(): number {
-    return this.seriesList.reduce((sum, s) => sum + s.total, 0);
+    return Math.round(this.seriesList.reduce((sum, s) => sum + s.total, 0) * 100) / 100;
   }
 
   get topMaterial(): MaterialSeries | null {
     if (this.seriesList.length === 0) return null;
     return [...this.seriesList].sort((a, b) => b.total - a.total)[0] || null;
+  }
+
+  // ==========================================
+  // 店長確認扣庫功能 (Confirm Deduct)
+  // ==========================================
+
+  openDeductModal(): void {
+    this.deductError = '';
+    this.deductNote = `${this.currentYear} 年 ${this.currentMonth} 月 店長物料消耗扣庫確認`;
+    this.deductScope = 'all';
+
+    // 彙總所有真實原料（inventory_id < 100000，排除半成品 prep_item）
+    const invMap = new Map<number, DeductRow>();
+
+    // 從 wastageMaterials 與 orderMaterials 取得原料基準檔
+    const allRaw = [...this.wastageMaterials, ...this.orderMaterials];
+    for (const mat of allRaw) {
+      if (mat.inventory_id < 100000 && !invMap.has(mat.inventory_id)) {
+        invMap.set(mat.inventory_id, {
+          inventoryId: mat.inventory_id,
+          name: mat.name,
+          unit: mat.base_unit || '份',
+          category: mat.category || '未分類',
+          bookQty: mat.book_qty ?? 0,
+          orderQty: 0,
+          wastageQty: 0,
+          deductQty: 0,
+          selected: false
+        });
+      }
+    }
+
+    // 計算當月訂單消耗
+    for (const r of this.orderRecords) {
+      if (r.inventory_id < 100000 && invMap.has(r.inventory_id)) {
+        const item = invMap.get(r.inventory_id)!;
+        item.orderQty = Math.round((item.orderQty + r.total_consumed) * 100) / 100;
+      }
+    }
+
+    // 計算當月報廢消耗
+    for (const w of this.wastageRecords) {
+      if (w.inventory_id < 100000 && invMap.has(w.inventory_id)) {
+        const item = invMap.get(w.inventory_id)!;
+        item.wastageQty = Math.round((item.wastageQty + w.total_consumed) * 100) / 100;
+      }
+    }
+
+    // 依據 deductScope 計算預設扣除數量
+    this.deductRows = Array.from(invMap.values()).map(row => {
+      const sum = Math.round((row.orderQty + row.wastageQty) * 100) / 100;
+      return {
+        ...row,
+        deductQty: sum,
+        selected: sum > 0
+      };
+    }).sort((a, b) => b.deductQty - a.deductQty || a.inventoryId - b.inventoryId);
+
+    this.showDeductModal = true;
+  }
+
+  closeDeductModal(): void {
+    if (!this.deducting) {
+      this.showDeductModal = false;
+    }
+  }
+
+  setDeductScope(scope: 'all' | 'order' | 'wastage'): void {
+    this.deductScope = scope;
+    for (const row of this.deductRows) {
+      let qty = 0;
+      if (scope === 'all') qty = Math.round((row.orderQty + row.wastageQty) * 100) / 100;
+      else if (scope === 'order') qty = row.orderQty;
+      else if (scope === 'wastage') qty = row.wastageQty;
+
+      row.deductQty = qty;
+      row.selected = qty > 0;
+    }
+  }
+
+  toggleSelectAllDeduct(selectAll: boolean): void {
+    for (const row of this.deductRows) {
+      row.selected = selectAll;
+    }
+  }
+
+  get selectedDeductCount(): number {
+    return this.deductRows.filter(r => r.selected && r.deductQty > 0).length;
+  }
+
+  async executeDeduct(): Promise<void> {
+    const toDeduct = this.deductRows
+      .filter(r => r.selected && r.deductQty > 0)
+      .map(r => ({ inventoryId: r.inventoryId, deductQty: r.deductQty }));
+
+    if (toDeduct.length === 0) {
+      this.deductError = '請至少勾選一項扣除數量大於 0 的原料品項';
+      return;
+    }
+
+    this.deducting = true;
+    this.deductError = '';
+    try {
+      const res = await this.api.confirmDeduct(toDeduct, this.deductNote);
+      this.ui.notice = res.message || '店長已確認扣庫完成！帳面庫存已更新';
+      this.showDeductModal = false;
+      await this.loadData();
+    } catch (err) {
+      this.deductError = errorMessage(err);
+    } finally {
+      this.deducting = false;
+    }
   }
 }

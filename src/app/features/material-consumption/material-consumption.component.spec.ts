@@ -1,3 +1,5 @@
+import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { MaterialConsumptionComponent } from './material-consumption.component';
 import { ConsumptionApiService } from '../../services/consumption-api.service';
@@ -17,19 +19,21 @@ describe('物料消耗趨勢元件 (MaterialConsumptionComponent)', () => {
       { business_date: '2026-11-05', day_of_month: 5, inventory_id: 3, material_name: '紅茶包', unit: '包', total_consumed: 2 }
     ],
     materials: [
-      { inventory_id: 3, name: '紅茶包', base_unit: '包' },
-      { inventory_id: 4, name: '綠茶包', base_unit: '包' },
-      { inventory_id: 5, name: '奶料', base_unit: '份' }
+      { inventory_id: 3, name: '紅茶包', base_unit: '包', category: '茶葉' },
+      { inventory_id: 4, name: '綠茶包', base_unit: '包', category: '茶葉' },
+      { inventory_id: 5, name: '奶料', base_unit: '份', category: '底料' }
     ]
   };
 
   beforeEach(async () => {
-    api = jasmine.createSpyObj<ConsumptionApiService>('ConsumptionApiService', ['getMonthlyConsumption']);
+    api = jasmine.createSpyObj<ConsumptionApiService>('ConsumptionApiService', ['getMonthlyConsumption', 'confirmDeduct']);
     api.getMonthlyConsumption.and.resolveTo(mockData);
 
     await TestBed.configureTestingModule({
       imports: [MaterialConsumptionComponent],
       providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
         { provide: ConsumptionApiService, useValue: api },
         UiStateService
       ]
@@ -76,5 +80,45 @@ describe('物料消耗趨勢元件 (MaterialConsumptionComponent)', () => {
     component.selectAll();
     expect(component.selectedIds.size).toBe(3);
     expect(component.seriesList.length).toBe(3);
+  });
+
+  it('店長可開啟扣庫彈窗並計算待扣除項目', async () => {
+    await component.loadData();
+    component.openDeductModal();
+    expect(component.showDeductModal).toBeTrue();
+    expect(component.deductRows.length).toBeGreaterThan(0);
+  });
+
+  it('店長確認執行扣庫時應呼叫 confirmDeduct API 並刷新數據', async () => {
+    api.confirmDeduct.and.resolveTo({ success: true, message: '店長確認扣除完成', deductedCount: 2 });
+    await component.loadData();
+    component.openDeductModal();
+    await component.executeDeduct();
+    expect(api.confirmDeduct).toHaveBeenCalled();
+    expect(component.showDeductModal).toBeFalse();
+  });
+
+  it('可以切換「使用分類整理查看」檢視模式', async () => {
+    await component.loadData();
+    expect(component.isCategoryGrouped).toBeFalse();
+    component.toggleCategoryView();
+    expect(component.isCategoryGrouped).toBeTrue();
+    expect(component.categoryGroups.length).toBe(2);
+  });
+
+  it('可以依特定分類篩選與全選該分類品項', async () => {
+    await component.loadData();
+    component.selectCategory('茶葉');
+    expect(component.filteredMaterials.length).toBe(2);
+
+    component.clearAll();
+    component.selectCategoryItems('茶葉');
+    expect(component.selectedIds.has(3)).toBeTrue();
+    expect(component.selectedIds.has(4)).toBeTrue();
+    expect(component.selectedIds.has(5)).toBeFalse();
+
+    component.clearCategoryItems('茶葉');
+    expect(component.selectedIds.has(3)).toBeFalse();
+    expect(component.selectedIds.has(4)).toBeFalse();
   });
 });

@@ -11,6 +11,7 @@ export interface InventoryItem {
   bookQty: number; safetyStock: number; unitCost: number | null;
   /** true：畫面用「幾籃幾顆」顯示（資料庫照樣存基本單位）；盤點時零散要少於 perPack。 */
   displayByPack: boolean;
+  category?: string | null;
 }
 
 /**
@@ -46,3 +47,48 @@ export interface SaveType { name: string; inputMode: InputMode; allItems: boolea
 
 /** GET /api/inventory-counts。enabled = false 表示資料庫還沒升級 016，盤點功能未開放。 */
 export interface CountHistory { enabled: boolean; rows: CountRow[]; }
+
+export interface PrepIngredient {
+  inventoryId: number;
+  name: string;
+  qty: number;
+  unit: string;
+}
+
+export interface PrepCountItem {
+  prepId: number;
+  name: string;
+  category: string;
+  unit: string;
+  currentQty: number;      // 目前數量（今日備量）
+  orderConsumed: number;   // 今日訂單消耗
+  wastedQty: number;       // 今日報廢
+  theoreticalQty: number;  // 理論的量 = 目前數量 - 訂單消耗 - 報廢
+  ingredients: PrepIngredient[];
+}
+
+export interface PrepCountLineSubmit {
+  prepId: number;
+  currentQty: number;
+  countedQty: number;
+}
+
+export interface PrepCountSubmit {
+  requestId: string;
+  lines: PrepCountLineSubmit[];
+  note?: string | null;
+}
+
+export interface PrepCountResult {
+  prepId: number;
+  name: string;
+  category: string;
+  unit: string;
+  currentQty: number;
+  orderConsumed: number;
+  wastedQty: number;
+  theoreticalQty: number;
+  countedQty: number;
+  diffQty: number;
+}
+
