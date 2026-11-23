@@ -3,7 +3,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { PosApiService, errorMessage } from '../../services/pos-api.service';
 import { InventoryCountApiService } from '../../services/inventory-count-api.service';
 import { UiStateService } from '../../shared/ui-state.service';
-import { CountRow, CountSubmit, CountType, InputMode, InventoryItem, PrepCountItem, PrepCountSubmit, SaveType } from '../../models/inventory-count';
+import { CountRow, CountSubmit, CountType, InputMode, InventoryItem, SaveType } from '../../models/inventory-count';
 import { cents, taipeiDate } from '../../models/pos';
 import { PackInfo, byPack } from '../../shared/pack-format';
 
@@ -69,21 +69,6 @@ export class InventoryCountStateService {
   private version = 0;
   private historyVersion = 0;
   private loadedStaff: number | null = null;
-
-  activeTab: 'RAW' | 'PREP' = 'RAW';
-  prepItems: PrepCountItem[] = [];
-  /**
-   * 每一項半成品的輸入狀態：
-   * - produceQty：第一張表「請輸入今天的製作量」（本次要新增煮多少茶／多少料）
-   * - wasteQty：第二張表「將剩餘半成品作為報廢量處理」（本次要報廢多少剩餘半成品）
-   */
-  prepEntries: Record<number, { produceQty: number | null; wasteQty: number | null; currentQty: number; countedQty: number | null }> = {};
-  prepLoading = false;
-  prepError = '';
-  prepSearch = '';
-  selectedPrepCategory = 'ALL';
-  prepNote = '';
-  prepWastageNote = '';
 
   constructor() {
     // 登出（或登入逾時）時清掉輸入到一半的盤點，下一位登入的人看不到
@@ -314,257 +299,10 @@ export class InventoryCountStateService {
       this.ui.notice = res.message || '盤點紀錄已審核並更新帳面庫存';
       await this.load();
       await this.loadHistory();
-      if (this.activeTab === 'PREP') {
-        await this.loadPrepItems();
-      }
     } catch (error) {
       this.historyError = errorMessage(error);
     } finally {
       this.approvingId = null;
-      this.ui.busy = false;
-    }
-  }
-
-  setTab(tab: 'RAW' | 'PREP'): void {
-    this.activeTab = tab;
-    if (tab === 'PREP' && this.prepItems.length === 0) {
-      this.loadPrepItems();
-    }
-  }
-
-  async loadPrepItems(): Promise<void> {
-    this.prepLoading = true;
-    this.prepError = '';
-    try {
-      const list = await this.api.prepItems();
-      this.applyPrepItems(list);
-    } catch (err) {
-      this.prepError = errorMessage(err);
-    } finally {
-      this.prepLoading = false;
-    }
-  }
-
-  private applyPrepItems(list: PrepCountItem[]): void {
-    this.prepItems = list;
-    for (const item of this.prepItems) {
-      const existing = this.prepEntries[item.prepId];
-      this.prepEntries[item.prepId] = {
-        produceQty: existing?.produceQty ?? null,
-        wasteQty: existing?.wasteQty ?? null,
-        currentQty: item.currentQty,
-        countedQty: existing?.countedQty ?? null
-      };
-    }
-  }
-
-  prepEntry(prepId: number) {
-    return this.prepEntries[prepId] ??= { produceQty: null, wasteQty: null, currentQty: 0, countedQty: null };
-  }
-
-  /**
-   * 即時換算某項半成品「應使用多少底層原料」：
-   * - 若目前輸入框有輸入「本次製作量 (produceQty > 0)」，以本次輸入量換算；
-   * - 若輸入框尚未輸入，可傳入 baseFactor（例如今日累計製作量或 1 份）換算。
-   */
-  convertedIngredients(item: PrepCountItem, factor: number): { inventoryId: number; name: string; requiredQty: number; unit: string }[] {
-    const safeFactor = factor > 0 ? factor : 0;
-    return (item.ingredients || []).map(ing => ({
-      inventoryId: ing.inventoryId,
-      name: ing.name,
-      requiredQty: Math.round(ing.qty * safeFactor * 1000) / 1000,
-      unit: ing.unit
-    }));
-  }
-
-  /** 下表：目前剩餘半成品量 = 今日累計製作量 (currentQty) - 今日訂單消耗 (orderConsumed) - 今日已報廢半成品量 (wastedQty) */
-  prepRemaining(item: PrepCountItem): number {
-    const rem = Math.round((item.currentQty - item.orderConsumed - item.wastedQty) * 100) / 100;
-    return rem > 0 ? rem : 0;
-  }
-
-  /** 原始理論差值（保留供相容） */
-  prepTheoretical(item: PrepCountItem): number {
-    return Math.round((item.currentQty - item.orderConsumed - item.wastedQty) * 100) / 100;
-  }
-
-  prepDiff(item: PrepCountItem): number | null {
-    const e = this.prepEntry(item.prepId);
-    if (e.countedQty === null) return null;
-    return Math.round((this.prepTheoretical(item) - e.countedQty) * 100) / 100;
-  }
-
-  get prepCategories(): string[] {
-    const set = new Set<string>();
-    for (const item of this.prepItems) {
-      if (item.category) set.add(item.category);
-    }
-    return Array.from(set);
-  }
-
-  get visiblePrepItems(): PrepCountItem[] {
-    const q = this.prepSearch.trim();
-    let list = this.prepItems;
-    if (this.selectedPrepCategory !== 'ALL') {
-      list = list.filter(i => i.category === this.selectedPrepCategory);
-    }
-    return q ? list.filter(i => i.name.includes(q)) : list;
-  }
-
-  /** 已填寫「今日新增製作量」的半成品項數 */
-  get enteredProduceCount(): number {
-    return this.prepItems.filter(i => {
-      const q = this.prepEntry(i.prepId).produceQty;
-      return q !== null && q > 0;
-    }).length;
-  }
-
-  get canSubmitProduction(): boolean {
-    return !this.ui.busy && this.enteredProduceCount > 0;
-  }
-
-  /** 已填寫「剩餘半成品轉報廢量」的項數 */
-  get enteredWasteCount(): number {
-    return this.prepItems.filter(i => {
-      const q = this.prepEntry(i.prepId).wasteQty;
-      return q !== null && q > 0;
-    }).length;
-  }
-
-  get canSubmitPrepWastage(): boolean {
-    return !this.ui.busy && this.enteredWasteCount > 0;
-  }
-
-  clearProduceEntry(item: PrepCountItem): void {
-    this.prepEntry(item.prepId).produceQty = null;
-  }
-
-  clearWasteEntry(item: PrepCountItem): void {
-    this.prepEntry(item.prepId).wasteQty = null;
-  }
-
-  /** 將單項半成品的「目前剩餘半成品量」一鍵帶入報廢輸入框 */
-  fillRemainingToWaste(item: PrepCountItem): void {
-    const rem = this.prepRemaining(item);
-    if (rem > 0) {
-      this.prepEntry(item.prepId).wasteQty = rem;
-    }
-  }
-
-  /** 將所有有剩餘量的半成品一鍵帶入報廢輸入框 */
-  fillAllRemainingToWaste(): void {
-    for (const item of this.prepItems) {
-      const rem = this.prepRemaining(item);
-      if (rem > 0) {
-        this.prepEntry(item.prepId).wasteQty = rem;
-      }
-    }
-  }
-
-  /** 單項直接新增一次今日製作量（支援同一個料一天新增 2、3 次，記錄每次時間） */
-  async addSingleProduction(item: PrepCountItem): Promise<void> {
-    const qty = this.prepEntry(item.prepId).produceQty;
-    if (this.ui.busy || qty === null || qty <= 0) return;
-    this.ui.busy = true;
-    this.prepError = '';
-    try {
-      const res = await this.api.recordPrepProduction({
-        lines: [{ prepId: item.prepId, producedQty: qty }],
-        note: this.prepNote.trim() || null
-      });
-      this.prepEntry(item.prepId).produceQty = null;
-      this.applyPrepItems(res.items);
-      this.ui.notice = `已新增「${item.name}」今日製作量 +${qty} ${item.unit}（已記錄時間並換算底層原料）。`;
-    } catch (err) {
-      this.prepError = errorMessage(err);
-    } finally {
-      this.ui.busy = false;
-    }
-  }
-
-  /** 批次送出所有已填寫的今日半成品製作量 */
-  async submitBatchProduction(): Promise<void> {
-    if (!this.canSubmitProduction) return;
-    const lines = this.prepItems
-      .filter(i => {
-        const q = this.prepEntry(i.prepId).produceQty;
-        return q !== null && q > 0;
-      })
-      .map(i => ({
-        prepId: i.prepId,
-        producedQty: this.prepEntry(i.prepId).produceQty!
-      }));
-
-    this.ui.busy = true;
-    this.prepError = '';
-    try {
-      const res = await this.api.recordPrepProduction({
-        lines,
-        note: this.prepNote.trim() || null
-      });
-      for (const l of lines) {
-        this.prepEntry(l.prepId).produceQty = null;
-      }
-      this.prepNote = '';
-      this.applyPrepItems(res.items);
-      this.ui.notice = res.message || `已記錄 ${lines.length} 項半成品的今日製作量。`;
-    } catch (err) {
-      this.prepError = errorMessage(err);
-    } finally {
-      this.ui.busy = false;
-    }
-  }
-
-  /** 單項將剩餘半成品轉為半成品報廢量處理 */
-  async addSinglePrepWastage(item: PrepCountItem): Promise<void> {
-    const qty = this.prepEntry(item.prepId).wasteQty;
-    if (this.ui.busy || qty === null || qty <= 0) return;
-    this.ui.busy = true;
-    this.prepError = '';
-    try {
-      const res = await this.api.recordPrepWastage({
-        lines: [{ prepId: item.prepId, wastedQty: qty }],
-        note: this.prepWastageNote.trim() || '剩餘半成品報廢'
-      });
-      this.prepEntry(item.prepId).wasteQty = null;
-      this.applyPrepItems(res.items);
-      this.ui.notice = `已將「${item.name}」登記半成品報廢 ${qty} ${item.unit}（與生原料報廢分開記錄）。`;
-    } catch (err) {
-      this.prepError = errorMessage(err);
-    } finally {
-      this.ui.busy = false;
-    }
-  }
-
-  /** 批次將已填寫的剩餘半成品轉為半成品報廢量處理 */
-  async submitBatchPrepWastage(): Promise<void> {
-    if (!this.canSubmitPrepWastage) return;
-    const lines = this.prepItems
-      .filter(i => {
-        const q = this.prepEntry(i.prepId).wasteQty;
-        return q !== null && q > 0;
-      })
-      .map(i => ({
-        prepId: i.prepId,
-        wastedQty: this.prepEntry(i.prepId).wasteQty!
-      }));
-
-    this.ui.busy = true;
-    this.prepError = '';
-    try {
-      const res = await this.api.recordPrepWastage({
-        lines,
-        note: this.prepWastageNote.trim() || '剩餘半成品報廢'
-      });
-      for (const l of lines) {
-        this.prepEntry(l.prepId).wasteQty = null;
-      }
-      this.prepWastageNote = '';
-      this.applyPrepItems(res.items);
-      this.ui.notice = res.message || `已將 ${lines.length} 項剩餘半成品登記為半成品報廢量。`;
-    } catch (err) {
-      this.prepError = errorMessage(err);
-    } finally {
       this.ui.busy = false;
     }
   }
@@ -579,6 +317,5 @@ export class InventoryCountStateService {
     this.pending = null; this.lastResult = null; this.search = ''; this.loadedStaff = null;
     this.history = []; this.historyError = ''; this.historyLoading = false; this.expanded = null;
     this.historyFrom = addDays(taipeiDate(), -6); this.historyTo = taipeiDate();
-    this.activeTab = 'RAW'; this.prepItems = []; this.prepEntries = {}; this.prepSearch = ''; this.prepNote = ''; this.prepWastageNote = '';
   }
 }

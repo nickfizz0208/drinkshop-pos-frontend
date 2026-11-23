@@ -1,13 +1,19 @@
-<!-- 備料：登記誰煮了什麼半成品、幾份。只做紀錄，不扣原料、不改半成品數量。 -->
+<!-- 備料：登記誰做了什麼半成品、幾份，以及剩下的半成品倒掉幾份。只做紀錄，不扣原料、沒有半成品庫存。 -->
 @if (ui.preview) {
-  <section class="panel signin"><h2>登入後登記備料</h2><p>記下誰煮了哪些半成品、幾份。預覽不會登記。</p>
+  <section class="panel signin"><h2>登入後登記備料</h2><p>記下誰做了哪些半成品、幾份，以及倒掉的半成品。預覽不會登記。</p>
     <button class="button primary" type="button" (click)="ui.openLogin()">員工登入</button></section>
 } @else {
   @if (error) { <p class="alert error" role="alert">{{ error }}</p> }
   <div class="prep-grid">
     <section class="panel" aria-labelledby="prep-form-title">
-      <h2 id="prep-form-title">登記備料</h2>
-      @if (!canCreate) { <p class="alert warning">只能登記今天的備料；正在看 {{ date }} 的紀錄。</p> }
+      <h2 id="prep-form-title">登記</h2>
+      <div class="mode-switch" role="group" aria-label="登記種類">
+        <button type="button" class="button small" [class.primary]="mode === 'made'" [class.secondary]="mode !== 'made'"
+          [attr.aria-pressed]="mode === 'made'" (click)="setMode('made')" [disabled]="ui.busy">做了</button>
+        <button type="button" class="button small" [class.primary]="mode === 'waste'" [class.secondary]="mode !== 'waste'"
+          [attr.aria-pressed]="mode === 'waste'" (click)="setMode('waste')" [disabled]="ui.busy">倒掉（報廢）</button>
+      </div>
+      @if (!canCreate) { <p class="alert warning">只能登記今天的；正在看 {{ date }} 的紀錄。</p> }
       <form (ngSubmit)="submit()">
         <fieldset [disabled]="ui.busy || !canCreate || loading">
           <label class="field">半成品
@@ -23,8 +29,8 @@
               inputmode="decimal"><app-numpad-button [for]="qtyInput" label="份數" /></span>
           </label>
           @if (isPos) {
-          <label class="field">誰煮的
-            <select name="madeBy" [(ngModel)]="madeBy" required>
+          <label class="field">{{ mode === 'made' ? '誰做的' : '誰處理的' }}
+            <select name="who" [(ngModel)]="who" required>
               <option [ngValue]="null">選擇員工</option>
               @for (s of staff; track s.staffId) { <option [ngValue]="s.staffId">{{ s.name }}</option> }
             </select>
@@ -32,45 +38,76 @@
           } @else {
           <p class="who">登記人：<strong>{{ me }}</strong>（記在自己名下）</p>
           }
+          @if (mode === 'made') {
           <label class="field">備註 <small>可不填</small>
             <input name="note" type="text" [(ngModel)]="note" maxlength="200" placeholder="例如：茶葉換新批">
           </label>
-          <button type="submit" class="button primary action">登記</button>
+          } @else {
+          <label class="field">報廢原因
+            <input name="note" type="text" [(ngModel)]="note" maxlength="200" required placeholder="例如：放超過 4 小時">
+          </label>
+          }
+          <button type="submit" class="button action" [class.primary]="mode === 'made'" [class.danger-outline]="mode === 'waste'">
+            {{ mode === 'made' ? '登記做了' : '登記報廢' }}</button>
         </fieldset>
       </form>
     </section>
 
-    <section class="panel" aria-labelledby="prep-list-title">
-      <div class="panel-heading">
-        <h2 id="prep-list-title">備料紀錄</h2>
-        <div class="date-tools">
-          <label for="prep-date">日期</label>
-          <input id="prep-date" type="date" [(ngModel)]="date" (change)="load()" [disabled]="ui.busy || loading">
-          <button class="button secondary small" type="button" (click)="load()" [disabled]="ui.busy || loading">重新整理</button>
+    <div class="prep-side">
+      <section class="panel" aria-labelledby="prep-summary-title">
+        <div class="panel-heading">
+          <h2 id="prep-summary-title">{{ date === today ? '今日' : date }}總覽</h2>
+          <div class="date-tools">
+            <label for="prep-date">日期</label>
+            <input id="prep-date" type="date" [(ngModel)]="date" (change)="load()" [disabled]="ui.busy || loading">
+            <button class="button secondary small" type="button" (click)="load()" [disabled]="ui.busy || loading">重新整理</button>
+          </div>
         </div>
-      </div>
-      @if (loading) { <p class="loading" role="status">正在讀取備料紀錄…</p> }
-      @else {
-        @if (totals.length) {
-        <ul class="totals" aria-label="這一天各半成品合計">@for (t of totals; track t.name) { <li><span>{{ t.name }}</span><b>{{ t.qty }} 份</b></li> }</ul>
-        }
+        <p class="hint">「訂單用了」由當天的訂單計算（飲品配方＋加料，取消的不算）；剩下＝做了 − 用了 − 倒掉，只是參考，不是庫存。</p>
+        @if (loading) { <p class="loading" role="status">正在讀取備料紀錄…</p> }
+        @else {
         <div class="table-scroll">
           <table>
-            <thead><tr><th>時間</th><th>半成品</th><th class="num">份數</th><th>誰煮的</th><th>備註</th></tr></thead>
+            <thead><tr><th>半成品</th><th class="num">做了</th><th class="num">訂單用了</th><th class="num">倒掉</th><th class="num">剩下</th></tr></thead>
             <tbody>
-              @for (row of rows; track row.batchId) {
+              @for (s of summary; track s.prepId) {
               <tr>
-                <td class="nowrap">{{ time(row) }}</td>
-                <td>{{ row.prepName }}</td>
-                <td class="num">{{ row.qty }}</td>
-                <td>{{ row.madeByName }}@if (row.recordedBy !== row.madeBy) { <small class="muted">（{{ row.recordedByName }}登記）</small> }</td>
-                <td>{{ row.note ?? '' }}</td>
+                <td>{{ s.name }}</td>
+                <td class="num">{{ num(s.made) }}</td>
+                <td class="num">{{ num(s.used) }}</td>
+                <td class="num">{{ num(s.wasted) }}</td>
+                <td class="num" [class.short]="s.remaining < 0">{{ num(s.remaining) }}</td>
               </tr>
-              } @empty { <tr><td colspan="5" class="muted">這一天還沒有備料紀錄。</td></tr> }
+              } @empty { <tr><td colspan="5" class="muted">這一天沒有備料，也沒有訂單用到半成品。</td></tr> }
             </tbody>
           </table>
         </div>
-      }
-    </section>
+        @if (hasShort) { <p class="hint short">剩下是負數：可能有做了沒登記。</p> }
+        }
+      </section>
+
+      <section class="panel" aria-labelledby="prep-list-title">
+        <h2 id="prep-list-title">紀錄</h2>
+        @if (!loading) {
+        <div class="table-scroll">
+          <table>
+            <thead><tr><th>時間</th><th>種類</th><th>半成品</th><th class="num">份數</th><th>誰</th><th>備註／原因</th></tr></thead>
+            <tbody>
+              @for (line of log; track line.key) {
+              <tr>
+                <td class="nowrap">{{ time(line.at) }}</td>
+                <td><span class="kind" [class.waste]="line.kind === 'waste'">{{ line.kind === 'made' ? '做了' : '倒掉' }}</span></td>
+                <td>{{ line.prepName }}</td>
+                <td class="num">{{ num(line.qty) }}</td>
+                <td>{{ line.who }}@if (line.recordedBy) { <small class="muted">（{{ line.recordedBy }}登記）</small> }</td>
+                <td>{{ line.note ?? '' }}</td>
+              </tr>
+              } @empty { <tr><td colspan="6" class="muted">這一天還沒有紀錄。</td></tr> }
+            </tbody>
+          </table>
+        </div>
+        }
+      </section>
+    </div>
   </div>
 }

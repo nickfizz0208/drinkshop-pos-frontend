@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { firstValueFrom, Observable, timeout } from 'rxjs';
-import { PrepBatchCreate, PrepBatchDay, PrepBatchRow, PrepOption } from '../models/prep-batch';
+import { PrepBatchCreate, PrepBatchDay, PrepBatchRow, PrepOption, PrepWasteCreate, PrepWasteRow } from '../models/prep-batch';
 import { API_TIMEOUT_MS, PosApiService } from './pos-api.service';
 
 /** 備料 API：門市 POS 與店員、店長等個人帳號可以用，總部不行（後端也會擋）。 */
@@ -16,11 +16,15 @@ export class PrepBatchApiService {
   private get options() { return { headers: this.pos.authHeaders() }; }
 
   preps(): Promise<PrepOption[]> { return this.wait(this.http.get<PrepOption[]>('/api/prep-batches/preps', this.options)); }
-  /** 某一天的備料紀錄（新的在前）。 */
+  /** 某一天的備料、報廢紀錄（新的在前）與各半成品總覽。 */
   day(date: string): Promise<PrepBatchDay> {
     return this.wait(this.http.get<PrepBatchDay>('/api/prep-batches', { ...this.options, params: { date } }));
   }
   create(body: PrepBatchCreate): Promise<PrepBatchRow> {
     return this.wait(this.http.post<PrepBatchRow>('/api/prep-batches', body, this.options));
+  }
+  /** 登記一筆半成品報廢（051）。 */
+  createWaste(body: PrepWasteCreate): Promise<PrepWasteRow> {
+    return this.wait(this.http.post<PrepWasteRow>('/api/prep-batches/waste', body, this.options));
   }
 }

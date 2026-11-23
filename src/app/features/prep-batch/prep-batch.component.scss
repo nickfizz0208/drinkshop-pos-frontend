@@ -1,6 +1,13 @@
 @use '../../shared/workspace';
 :host { display: block; min-width: 0; }
 .prep-grid { display: grid; grid-template-columns: minmax(280px, 380px) minmax(0, 1fr); gap: 24px; align-items: start; }
+.prep-side { display: grid; gap: 24px; min-width: 0; }
+.mode-switch { display: flex; gap: 6px; margin-bottom: 16px; }
+.mode-switch .button { flex: 1; }
+.hint { font-size: 13px; color: var(--text-muted); margin: 0 0 12px; }
+.short { color: var(--danger-color, #b3261e); }
+.kind { display: inline-block; padding: 2px 8px; border-radius: 999px; background: var(--bg-card-sub); color: var(--primary-accent); font-size: 12px; font-weight: 600; white-space: nowrap; }
+.kind.waste { background: #fdecea; color: #b3261e; }
 .panel { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 14px; padding: 24px; min-width: 0; }
 h2 { font-size: 21px; margin: 0 0 16px; }
 .panel-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
@@ -12,9 +19,6 @@ fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
 .who { font-size: 14px; color: var(--text-muted); margin: 0 0 16px; }
 .who strong { color: var(--text-main); }
 .action { width: 100%; }
-.totals { display: flex; flex-wrap: wrap; gap: 8px; list-style: none; margin: 0 0 12px; padding: 0; }
-.totals li { display: inline-flex; gap: 8px; padding: 6px 12px; border-radius: 999px; background: var(--bg-card-sub); font-size: 13px; }
-.totals b { color: var(--primary-accent); font-variant-numeric: tabular-nums; }
 .table-scroll { overflow: auto; }
 table { width: 100%; border-collapse: collapse; font-size: 14px; text-align: left; }
 th, td { padding: 10px; border-bottom: 1px solid var(--border-color); vertical-align: top; }

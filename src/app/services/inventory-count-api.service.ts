@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { firstValueFrom, Observable, timeout } from 'rxjs';
-import { CountHistory, CountRow, CountSubmit, CountType, InventoryItem, PrepCountItem, PrepCountSubmit, PrepProductionSubmit, PrepWastageSubmit, SaveType } from '../models/inventory-count';
+import { CountHistory, CountRow, CountSubmit, CountType, InventoryItem, SaveType } from '../models/inventory-count';
 import { API_TIMEOUT_MS, PosApiService } from './pos-api.service';
 
 /** 原料盤點 API：登入憑證沿用 PosApiService。只限個人帳號（POS 共用帳號後端回 403）。 */
@@ -38,21 +38,5 @@ export class InventoryCountApiService {
   /** 店長審核確認盤點紀錄，並正式更新原料帳面庫存。 */
   approveCount(countId: number): Promise<{ success: boolean; message: string }> {
     return this.wait(this.http.post<{ success: boolean; message: string }>(`/api/inventory-counts/${countId}/approve`, {}, this.options));
-  }
-  /** 半成品盤點清單（含今日各次製作時間紀錄、今日訂單消耗、剩餘半成品、今日半成品報廢紀錄）。 */
-  prepItems(date?: string): Promise<PrepCountItem[]> {
-    return this.wait(this.http.get<PrepCountItem[]>('/api/inventory-counts/prep-items', { ...this.options, params: date ? { date } : {} }));
-  }
-  /** 新增今日半成品製作量（支援同品項一日多次新增，並記錄時間與底層原料換算）。 */
-  recordPrepProduction(body: PrepProductionSubmit): Promise<{ success: boolean; recordedCount: number; items: PrepCountItem[]; message: string }> {
-    return this.wait(this.http.post<{ success: boolean; recordedCount: number; items: PrepCountItem[]; message: string }>('/api/inventory-counts/prep-production', body, this.options));
-  }
-  /** 將剩餘半成品記錄為半成品報廢量（獨立於生原料報廢回報）。 */
-  recordPrepWastage(body: PrepWastageSubmit): Promise<{ success: boolean; recordedCount: number; items: PrepCountItem[]; message: string }> {
-    return this.wait(this.http.post<{ success: boolean; recordedCount: number; items: PrepCountItem[]; message: string }>('/api/inventory-counts/prep-wastage', body, this.options));
-  }
-  /** 送出半成品盤點（向下相容）。 */
-  submitPrepCount(body: PrepCountSubmit): Promise<{ countId: number; requestId: string; isManager: boolean; results: any[]; message: string }> {
-    return this.wait(this.http.post<any>('/api/inventory-counts/prep-submit', body, this.options));
   }
 }
