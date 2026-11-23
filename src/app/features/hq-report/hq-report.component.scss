@@ -358,3 +358,28 @@
   .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .charts-grid { grid-template-columns: minmax(0, 1fr); }
 }
+
+.report-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--border-color);
+  overflow-x: auto;
+}
+
+.report-tab {
+  border: 0;
+  background: transparent;
+  min-height: 44px;
+  padding: 8px 18px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-muted);
+  border-bottom: 3px solid transparent;
+  cursor: pointer;
+  white-space: nowrap;
+
+  &.active {
+    color: var(--text-main);
+    border-bottom-color: var(--primary-accent);
+  }
+}

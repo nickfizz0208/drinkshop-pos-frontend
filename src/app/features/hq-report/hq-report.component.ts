@@ -3,10 +3,11 @@ import { FormsModule } from '@angular/forms';
 import { HqReportResponse, HqTopProduct, HqTrendPoint } from '../../models/hq-report';
 import { money } from '../../models/pos';
 import { PosApiService, errorMessage } from '../../services/pos-api.service';
+import { HqDetailComponent } from './hq-detail/hq-detail.component';
 
 @Component({
   selector: 'app-hq-report',
-  imports: [FormsModule],
+  imports: [FormsModule, HqDetailComponent],
   templateUrl: './hq-report.component.html',
   styleUrl: './hq-report.component.scss'
 })
@@ -15,6 +16,20 @@ export class HqReportComponent implements OnInit {
   readonly money = money;
 
   mode: 'month' | 'day' = 'month';
+  /** 分頁：總覽（營收、熱銷、訂單）、飲品、加料、客製、冷熱甜度。總覽以外都讀 /api/hq-reports/details。 */
+  tab: 'overview' | 'products' | 'toppings' | 'options' | 'tempSugar' = 'overview';
+  readonly tabs: { key: 'overview' | 'products' | 'toppings' | 'options' | 'tempSugar'; label: string }[] = [
+    { key: 'overview', label: '總覽' }, { key: 'products', label: '飲品' }, { key: 'toppings', label: '加料' },
+    { key: 'options', label: '客製' }, { key: 'tempSugar', label: '冷熱甜度' }];
+  /** 細項分頁的期間：日＝那一天；月＝那個月的第一天到最後一天。 */
+  get detailFrom(): string {
+    return this.mode === 'day' ? this.selectedDate : `${this.selectedYear}-${String(this.selectedMonth).padStart(2, '0')}-01`;
+  }
+  get detailTo(): string {
+    if (this.mode === 'day') return this.selectedDate;
+    const last = new Date(Number(this.selectedYear), Number(this.selectedMonth), 0).getDate();
+    return `${this.selectedYear}-${String(this.selectedMonth).padStart(2, '0')}-${String(last).padStart(2, '0')}`;
+  }
   selectedDate = this.todayString();
   selectedYear = new Date().getFullYear();
   selectedMonth = new Date().getMonth() + 1;

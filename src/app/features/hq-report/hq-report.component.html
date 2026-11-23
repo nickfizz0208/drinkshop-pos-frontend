@@ -37,6 +37,16 @@
     }
   </div>
 
+  <div class="report-tabs" role="tablist" aria-label="報表分頁">
+    @for (t of tabs; track t.key) {
+      <button type="button" role="tab" class="report-tab" [class.active]="tab === t.key" [attr.aria-selected]="tab === t.key"
+        (click)="tab = t.key">{{ t.label }}</button>
+    }
+  </div>
+
+  @if (tab !== 'overview') {
+    <app-hq-detail [view]="tab" [from]="detailFrom" [to]="detailTo" />
+  } @else {
   @if (error) {
     <div class="card error-box" role="alert">
       <p>{{ error }}</p>
@@ -156,5 +166,6 @@
         <p class="empty-hint">此期間沒有訂單紀錄。</p>
       }
     </div>
+  }
   }
 </section>

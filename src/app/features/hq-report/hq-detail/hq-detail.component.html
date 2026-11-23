@@ -1,0 +1,319 @@
+<!-- 總部報表細項：飲品／冷熱甜度。期間由上方日、月決定，這裡篩選分類、來源、杯型。 -->
+<div class="card detail-filters" role="group" aria-label="細項篩選">
+  <label>飲品分類
+    <select [(ngModel)]="category" (change)="load()" [disabled]="loading">
+      <option value="">全部</option>
+      @for (c of data?.categories ?? []; track c) { <option [value]="c">{{ c }}</option> }
+    </select>
+  </label>
+  <label>訂單來源
+    <select [(ngModel)]="source" (change)="load()" [disabled]="loading">
+      <option value="">全部</option>
+      @for (s of sources; track s[0]) { <option [value]="s[0]">{{ s[1] }}</option> }
+    </select>
+  </label>
+  <label>杯型
+    <select [(ngModel)]="size" (change)="load()" [disabled]="loading">
+      <option value="">全部</option>
+      @for (s of sizes; track s[0]) { <option [value]="s[0]">{{ s[1] }}</option> }
+    </select>
+  </label>
+  <span class="period">{{ from === to ? from : from + ' ～ ' + to }}</span>
+</div>
+
+@if (error) { <div class="card error-box" role="alert"><p>{{ error }}</p><button type="button" class="button secondary small" (click)="load()">重試</button></div> }
+@if (loading && !data) { <div class="card state-box" role="status">正在載入細項資料…</div> }
+
+@if (data; as d) {
+  @if (view === 'products') {
+  <div class="kpi-grid">
+    <div class="card kpi-card primary">
+      <span class="kpi-label">總杯數</span>
+      <strong class="kpi-value">{{ d.totalCups }} <small>杯</small></strong>
+      @if (change(d.totalCups, d.prevTotalCups); as c) { <span class="kpi-sub change" [class]="changeClass(d.totalCups, d.prevTotalCups)">比上一期 {{ c }}</span> }
+    </div>
+    <div class="card kpi-card">
+      <span class="kpi-label">營收</span>
+      <strong class="kpi-value">{{ money(d.totalRevenue) }}</strong>
+      <span class="kpi-sub">平均每杯 {{ money(d.totalCups ? d.totalRevenue / d.totalCups : 0) }}</span>
+    </div>
+    <div class="card kpi-card">
+      <span class="kpi-label">賣出幾種飲品</span>
+      <strong class="kpi-value">{{ d.products.length }} <small>種</small></strong>
+    </div>
+    <div class="card kpi-card">
+      <span class="kpi-label">大杯占比</span>
+      <strong class="kpi-value">{{ pct(d.sizes[1].cups, d.totalCups) }}<small>%</small></strong>
+      <span class="kpi-sub">中杯 {{ pct(d.sizes[0].cups, d.totalCups) }}%・瓶 {{ pct(d.sizes[2].cups, d.totalCups) }}%</span>
+    </div>
+  </div>
+
+  <div class="card table-card">
+    <div class="card-head"><h3>飲品銷售（點一杯看杯型、冷熱、甜度）</h3><span class="muted">上一期：{{ d.prevFrom === d.prevTo ? d.prevFrom : d.prevFrom + ' ～ ' + d.prevTo }}</span></div>
+    @if (d.products.length) {
+    <div class="table-wrap">
+      <table class="product-table">
+        <thead><tr><th>#</th><th>飲品</th><th>分類</th><th class="num">杯數</th><th class="bar-col">占比</th><th class="num">營收</th><th class="num">比上一期</th></tr></thead>
+        <tbody>
+          @for (p of d.products; track p.productId; let i = $index) {
+          <tr class="product-row" [class.open]="expanded === p.productId" (click)="toggle(p.productId)" tabindex="0"
+            (keydown.enter)="toggle(p.productId)" [attr.aria-expanded]="expanded === p.productId">
+            <td class="muted">{{ i + 1 }}</td>
+            <td><strong>{{ p.productName }}</strong></td>
+            <td class="muted">{{ p.category ?? '—' }}</td>
+            <td class="num">{{ p.cups }}</td>
+            <td class="bar-col"><div class="share-cell"><div class="share"><div class="share-fill" [style.width.%]="p.cups / maxProductCups * 100"></div></div><span class="muted">{{ pct(p.cups, d.totalCups) }}%</span></div></td>
+            <td class="num">{{ money(p.revenue) }}</td>
+            <td class="num change" [class]="changeClass(p.cups, p.prevCups)">{{ change(p.cups, p.prevCups) || '—' }}</td>
+          </tr>
+          @if (expanded === p.productId) {
+          <tr class="breakdown-row"><td colspan="7">
+            <div class="breakdown">
+              <div>
+                <h4>杯型</h4>
+                <p class="chips">@for (s of sizeOf(p); track s.key) { <span>{{ sizeLabels[s.key] }} <b>{{ pct(s.cups, p.cups) }}%</b></span> }</p>
+              </div>
+              <div>
+                <h4>冷熱</h4>
+                <div class="stack" role="img" [attr.aria-label]="p.productName + ' 冷熱分布'">
+                  @for (g of groupTemp(p.tempIce); track g.key) { @if (g.cups) { <span class="seg t-{{ g.key }}" [style.flex-grow]="g.cups" [title]="g.label + '：' + g.cups + ' 杯（' + g.pct + '%）'"></span> } }
+                </div>
+                <p class="chips">@for (c of p.tempIce; track c.key) { @if (c.cups) { <span>{{ tempLabels[c.key] }} <b>{{ pct(c.cups, p.cups) }}%</b></span> } }</p>
+              </div>
+              <div>
+                <h4>甜度</h4>
+                <div class="stack" role="img" [attr.aria-label]="p.productName + ' 甜度分布'">
+                  @for (g of groupSugar(p.sugar); track g.key) { @if (g.cups) { <span class="seg s-{{ g.key }}" [style.flex-grow]="g.cups" [title]="g.label + '：' + g.cups + ' 杯（' + g.pct + '%）'"></span> } }
+                </div>
+                <p class="chips">@for (c of p.sugar; track c.key) { @if (c.cups) { <span>{{ sugarLabels[c.key] }} <b>{{ pct(c.cups, p.cups) }}%</b></span> } }</p>
+              </div>
+            </div>
+            @if (p.options?.length) {
+            <div class="breakdown-options"><h4>客製</h4>
+              <p class="chips">@for (c of p.options!; track c.key) { <span>{{ c.key }} <b>{{ c.cups }} 杯（{{ pct(c.cups, p.cups) }}%）</b></span> }</p>
+            </div>
+            }
+          </td></tr>
+          }
+          }
+        </tbody>
+      </table>
+    </div>
+    } @else { <p class="empty-hint">此期間沒有賣出的飲品。</p> }
+  </div>
+  } @else if (view === 'toppings') {
+  @if (d.toppings; as tp) {
+  <div class="kpi-grid">
+    <div class="card kpi-card primary">
+      <span class="kpi-label">加料率</span>
+      <strong class="kpi-value">{{ pct(tp.toppedCups, d.totalCups) }}<small>%</small></strong>
+      <span class="kpi-sub">{{ tp.toppedCups }} / {{ d.totalCups }} 杯有加料</span>
+    </div>
+    <div class="card kpi-card">
+      <span class="kpi-label">加料份數</span>
+      <strong class="kpi-value">{{ tp.totalPortions }} <small>份</small></strong>
+      <span class="kpi-sub">有加料的杯平均 {{ tp.toppedCups ? (tp.totalPortions / tp.toppedCups).toFixed(1) : 0 }} 份@if (change(tp.totalPortions, tp.prevPortions); as c) {・比上一期 <span class="change" [class]="changeClass(tp.totalPortions, tp.prevPortions)">{{ c }}</span>}</span>
+    </div>
+    <div class="card kpi-card">
+      <span class="kpi-label">加料實收</span>
+      <strong class="kpi-value">{{ money(tp.revenue) }}</strong>
+      <span class="kpi-sub">占營收 {{ pct(tp.revenue, d.totalRevenue) }}%</span>
+    </div>
+    <div class="card kpi-card">
+      <span class="kpi-label">首份免費</span>
+      <strong class="kpi-value">{{ tp.freePortions }} <small>份</small></strong>
+      <span class="kpi-sub">少收 {{ money(tp.freeValue) }}（奶茶、鮮奶第一份免費的料）</span>
+    </div>
+  </div>
+
+  <div class="card table-card">
+    <div class="card-head"><h3>加料排行</h3><span class="muted">份數＝杯數 × 每杯加幾份；實收不含首份免費</span></div>
+    @if (tp.items.length) {
+    <div class="table-wrap">
+      <table class="product-table">
+        <thead><tr><th>#</th><th>加料</th><th class="num">份數</th><th class="bar-col">占比</th><th class="num">實收</th><th class="num">首份免費</th><th class="num">比上一期</th><th>最常加在</th></tr></thead>
+        <tbody>
+          @for (t of tp.items; track t.toppingId; let i = $index) {
+          <tr>
+            <td class="muted">{{ i + 1 }}</td>
+            <td><strong>{{ t.name }}</strong></td>
+            <td class="num">{{ t.portions }}</td>
+            <td class="bar-col"><div class="share-cell"><div class="share"><div class="share-fill" [style.width.%]="t.portions / maxToppingPortions * 100"></div></div><span class="muted">{{ pct(t.portions, tp.totalPortions) }}%</span></div></td>
+            <td class="num">{{ money(t.revenue) }}</td>
+            <td class="num">@if (t.freePortions) { {{ t.freePortions }} 份 <small class="muted">（{{ money(t.freeValue) }}）</small> } @else { <span class="muted">—</span> }</td>
+            <td class="num change" [class]="changeClass(t.portions, t.prevPortions)">{{ change(t.portions, t.prevPortions) || '—' }}</td>
+            <td><p class="chips pairs">@for (p of t.topProducts; track p.productName) { <span>{{ p.productName }} <b>{{ p.portions }}</b></span> }</p></td>
+          </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    } @else { <p class="empty-hint">此期間沒有加料。</p> }
+  </div>
+  } @else { <div class="card state-box">目前的後端還沒有加料統計，請更新後端。</div> }
+  } @else if (view === 'options') {
+  @if (d.options; as op) {
+  <div class="kpi-grid">
+    <div class="card kpi-card primary">
+      <span class="kpi-label">有客製的杯數</span>
+      <strong class="kpi-value">{{ pct(op.optionCups, d.totalCups) }}<small>%</small></strong>
+      <span class="kpi-sub">{{ op.optionCups }} / {{ d.totalCups }} 杯</span>
+    </div>
+    <div class="card kpi-card">
+      <span class="kpi-label">最常用的客製</span>
+      <strong class="kpi-value combo">{{ op.items[0]?.name ?? '—' }}</strong>
+      @if (op.items[0]; as t) { <span class="kpi-sub">{{ t.cups }} 杯（{{ pct(t.cups, d.totalCups) }}%）</span> }
+    </div>
+    <div class="card kpi-card">
+      <span class="kpi-label">用到幾種客製</span>
+      <strong class="kpi-value">{{ op.items.length }} <small>種</small></strong>
+    </div>
+  </div>
+
+  <div class="card table-card">
+    <div class="card-head"><h3>客製選項（點一項看是哪些飲品用的）</h3><span class="muted">一杯用了好幾個客製時，每個都會算到</span></div>
+    @if (op.items.length) {
+    <div class="table-wrap">
+      <table class="product-table">
+        <thead><tr><th>#</th><th>客製</th><th class="num">杯數</th><th class="bar-col">佔全部杯數</th><th class="num">比上一期</th><th>主要的飲品</th></tr></thead>
+        <tbody>
+          @for (o of op.items; track o.optionId; let i = $index) {
+          <tr class="product-row" [class.open]="expandedOption === o.optionId" (click)="toggleOption(o.optionId)" tabindex="0"
+            (keydown.enter)="toggleOption(o.optionId)" [attr.aria-expanded]="expandedOption === o.optionId">
+            <td class="muted">{{ i + 1 }}</td>
+            <td><strong>{{ o.name }}</strong></td>
+            <td class="num">{{ o.cups }}</td>
+            <td class="bar-col"><div class="share-cell"><div class="share"><div class="share-fill" [style.width.%]="o.cups / maxOptionCups * 100"></div></div><span class="muted">{{ pct(o.cups, d.totalCups) }}%</span></div></td>
+            <td class="num change" [class]="changeClass(o.cups, o.prevCups)">{{ change(o.cups, o.prevCups) || '—' }}</td>
+            <td><p class="chips pairs">@for (p of o.products.slice(0, 3); track p.productId) { <span>{{ p.productName }} <b>{{ p.cups }}</b></span> }@if (o.products.length > 3) { <span class="muted">…等 {{ o.products.length }} 種</span> }</p></td>
+          </tr>
+          @if (expandedOption === o.optionId) {
+          <tr class="breakdown-row"><td colspan="6">
+            <div class="option-detail">
+              <div>
+                <h4>是哪些飲品點了「{{ o.name }}」</h4>
+                <table class="inner">
+                  <thead><tr><th>飲品</th><th class="num">杯數</th><th class="num">佔「{{ o.name }}」</th><th class="num">佔這杯飲品</th></tr></thead>
+                  <tbody>
+                    @for (p of o.products; track p.productId) {
+                    <tr><td>{{ p.productName }}</td><td class="num">{{ p.cups }}</td><td class="num">{{ pct(p.cups, o.cups) }}%</td>
+                      <td class="num">{{ p.productCups ? pct(p.cups, p.productCups) + '%' : '—' }} <small class="muted">（共 {{ p.productCups }} 杯）</small></td></tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+              <div>
+                <h4>{{ d.trendBy === 'hour' ? '各時段' : '每天' }}的杯數</h4>
+                <div class="spark" role="img" [attr.aria-label]="o.name + ' 趨勢'">
+                  @for (t of o.trend; track t.key) {
+                  <div class="spark-col" [title]="trendLabel(t.key) + '：' + t.cups + ' 杯'">
+                    <div class="spark-bar" [style.height.%]="t.cups / sparkMax(o.trend) * 100"></div>
+                  </div>
+                  }
+                </div>
+                @if (o.trend.length) { <p class="spark-axis muted"><span>{{ trendLabel(o.trend[0].key) }}</span><span>{{ trendLabel(o.trend[o.trend.length - 1].key) }}</span></p> }
+              </div>
+            </div>
+          </td></tr>
+          }
+          }
+        </tbody>
+      </table>
+    </div>
+    } @else { <p class="empty-hint">此期間沒有用到客製選項。</p> }
+  </div>
+  } @else { <div class="card state-box">目前的後端還沒有客製統計，請更新後端。</div> }
+  } @else {
+  <div class="kpi-grid">
+    <div class="card kpi-card primary">
+      <span class="kpi-label">熱飲占比</span>
+      <strong class="kpi-value">{{ groupTemp(d.tempIce)[0].pct }}<small>%</small></strong>
+      <span class="kpi-sub">熱、溫共 {{ groupTemp(d.tempIce)[0].cups }} 杯</span>
+    </div>
+    <div class="card kpi-card">
+      <span class="kpi-label">最常見冰量</span>
+      <strong class="kpi-value">{{ top(d.tempIce) ? tempLabels[top(d.tempIce)!.key] : '—' }}</strong>
+      @if (top(d.tempIce); as t) { <span class="kpi-sub">{{ pct(t.cups, d.totalCups) }}%</span> }
+    </div>
+    <div class="card kpi-card">
+      <span class="kpi-label">最常見甜度</span>
+      <strong class="kpi-value">{{ top(d.sugar) ? sugarLabels[top(d.sugar)!.key] : '—' }}</strong>
+      @if (top(d.sugar); as t) { <span class="kpi-sub">{{ pct(t.cups, d.totalCups) }}%</span> }
+    </div>
+    <div class="card kpi-card">
+      <span class="kpi-label">最常見組合</span>
+      <strong class="kpi-value combo">{{ topCombo ? tempLabels[topCombo.tempIce] + '・' + sugarLabels[topCombo.sugar] : '—' }}</strong>
+      @if (topCombo; as c) { <span class="kpi-sub">{{ c.cups }} 杯（{{ pct(c.cups, d.totalCups) }}%）</span> }
+    </div>
+  </div>
+
+  <div class="dist-grid">
+    <div class="card">
+      <div class="card-head"><h3>冷熱冰量</h3><span class="muted">共 {{ d.totalCups }} 杯</span></div>
+      <ul class="dist">
+        @for (c of d.tempIce; track c.key) {
+        <li><span class="dist-label">{{ tempLabels[c.key] }}</span>
+          <span class="dist-track"><span class="dist-fill" [style.width.%]="c.cups / max(d.tempIce) * 100"></span></span>
+          <span class="dist-val">{{ c.cups }} 杯 <small>{{ pct(c.cups, d.totalCups) }}%</small></span></li>
+        }
+      </ul>
+    </div>
+    <div class="card">
+      <div class="card-head"><h3>甜度</h3><span class="muted">共 {{ d.totalCups }} 杯</span></div>
+      <ul class="dist">
+        @for (c of d.sugar; track c.key) {
+        <li><span class="dist-label">{{ sugarLabels[c.key] }}</span>
+          <span class="dist-track"><span class="dist-fill" [style.width.%]="c.cups / max(d.sugar) * 100"></span></span>
+          <span class="dist-val">{{ c.cups }} 杯 <small>{{ pct(c.cups, d.totalCups) }}%</small></span></li>
+        }
+      </ul>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <h3>{{ d.trendBy === 'hour' ? '各時段' : '每天' }}的{{ trendOf === 'temp' ? '冷熱' : '甜度' }}</h3>
+      <div class="mini-switch" role="group" aria-label="趨勢圖看冷熱或甜度">
+        <button type="button" [class.active]="trendOf === 'temp'" [attr.aria-pressed]="trendOf === 'temp'" (click)="trendOf = 'temp'">冷熱</button>
+        <button type="button" [class.active]="trendOf === 'sugar'" [attr.aria-pressed]="trendOf === 'sugar'" (click)="trendOf = 'sugar'">甜度</button>
+      </div>
+    </div>
+    <ul class="legend">@for (g of legend; track g.key) { <li><span class="swatch" [class]="(trendOf === 'temp' ? 't-' : 's-') + g.key"></span>{{ g.label }}</li> }</ul>
+    @if (d.trend.length) {
+    <p class="tooltip" aria-live="polite">@if (hovered; as h) { <b>{{ trendLabel(h.label) }}</b>　{{ h.cups }} 杯：@for (s of segments(h); track s.key) { @if (s.cups) { <span>{{ s.label }} {{ s.cups }}（{{ s.pct }}%）</span> } } } @else { <span class="muted">把滑鼠移到長條上看每格的數字</span> }</p>
+    <div class="trend" role="img" [attr.aria-label]="(trendOf === 'temp' ? '冷熱' : '甜度') + '趨勢堆疊長條圖'" (mouseleave)="hovered = null">
+      @for (point of d.trend; track point.label) {
+      <div class="trend-col" (mouseenter)="hovered = point" (focus)="hovered = point" tabindex="0" [class.active]="hovered === point">
+        <span class="trend-val">{{ point.cups || '' }}</span>
+        <div class="trend-bar" [style.height.%]="point.cups / trendMax * 100">
+          @for (s of segments(point); track s.key) { @if (s.cups) { <span class="seg" [class]="(trendOf === 'temp' ? 't-' : 's-') + s.key" [style.flex-grow]="s.cups"></span> } }
+        </div>
+        <span class="trend-label">{{ trendLabel(point.label) }}</span>
+      </div>
+      }
+    </div>
+    } @else { <p class="empty-hint">此期間沒有資料。</p> }
+  </div>
+
+  <div class="card table-card">
+    <div class="card-head"><h3>冷熱 × 甜度（杯數）</h3><span class="muted">顏色越深越多；只列有賣過的選項</span></div>
+    @if (d.cross.length) {
+    <div class="table-wrap">
+      <table class="cross">
+        <thead><tr><th></th>@for (s of crossSugars; track s) { <th class="num">{{ sugarLabels[s] }}</th> }</tr></thead>
+        <tbody>
+          @for (t of crossTemps; track t) {
+          <tr><th>{{ tempLabels[t] }}</th>
+            @for (s of crossSugars; track s) {
+            <td class="num cell" [style.--heat]="heat(crossCups(t, s))" [class.dark]="heat(crossCups(t, s)) > 0.55"
+              [title]="tempLabels[t] + '・' + sugarLabels[s] + '：' + crossCups(t, s) + ' 杯'">{{ crossCups(t, s) || '' }}</td>
+            }
+          </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    } @else { <p class="empty-hint">此期間沒有資料。</p> }
+  </div>
+  }
+}

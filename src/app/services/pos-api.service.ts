@@ -3,6 +3,7 @@ import { Injectable, inject, signal } from '@angular/core';
 import { firstValueFrom, Observable, timeout, TimeoutError } from 'rxjs';
 import { ClockToday, ShiftClosingSummary } from '../models/time-clock';
 import { StaffOption } from '../models/schedule';
+import { HqDetailQuery, HqDetails } from '../models/hq-detail';
 import { RecipeDetail, RecipeMaterialOption, RecipeSummary, RecipeUpdate } from '../models/recipe';
 import { HqReportResponse } from '../models/hq-report';
 import { DeliveryRoute, MemberUpdate, PosConfig, CancelRequest, CreateOrder, ItemStatus, Member, Menu, Order, OrderSummary, Payment, Rule, Staff } from '../models/pos';
@@ -73,6 +74,14 @@ export class PosApiService {
   }
   updateRecipe(productId: number, update: RecipeUpdate): Promise<RecipeDetail> {
     return this.wait(this.http.put<RecipeDetail>(`/api/recipes/${productId}`, update, { headers: this.headers }));
+  }
+  /** 總部報表細項：飲品、冷熱、甜度（只限 HQ）。 */
+  hqDetails(query: HqDetailQuery): Promise<HqDetails> {
+    const params: Record<string, string> = { from: query.from, to: query.to };
+    if (query.category) params['category'] = query.category;
+    if (query.source) params['source'] = query.source;
+    if (query.size) params['size'] = query.size;
+    return this.wait(this.http.get<HqDetails>('/api/hq-reports/details', { headers: this.headers, params }));
   }
   hqReport(params: { mode: 'day' | 'month'; date?: string; year?: number; month?: number }): Promise<HqReportResponse> {
     const query: Record<string, string> = { mode: params.mode };
