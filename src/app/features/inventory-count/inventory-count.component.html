@@ -168,17 +168,16 @@
   </div>
 </section>
 } @else if (state.activeTab === 'PREP') {
-<section class="panel prep-count-panel" aria-labelledby="prep-count-title">
+<!-- ==================== 第一張表：今日半成品備料製作登記（煮了多少茶、多少料） ==================== -->
+<section class="panel prep-count-panel" aria-labelledby="prep-prod-title">
   <div class="panel-heading">
     <div>
-      <h2 id="prep-count-title">半成品備料盤點檢查</h2>
+      <h2 id="prep-prod-title">1. 今日半成品備料製作登記（煮茶／備料）</h2>
       <div class="formula-banner">
-        <span class="formula-badge">計算公式</span>
-        <strong>理論的量</strong> ＝ 目前物料數量 − 今日訂單消耗 − 今日報廢
-        <span class="sep">｜</span>
-        <strong>差距</strong> ＝ 理論的量 − 實際員工盤點的量
+        <span class="formula-badge">備料登記說明</span>
+        請輸入今天每次新煮的茶湯或配料製作量，系統會<strong>即時換算應使用的底層原料</strong>。
         <div class="formula-subnote">
-          ※ 員工送出時僅記錄實點（不直接扣原料）；店長於此確認審核後，系統才自動依配方比例安全扣除底層原料庫存。
+          ※ 同一個半成品一天內可進行 2、3 次（多次）新增，每次新增皆會自動記錄時間與登記人員，並累計至下方「剩餘半成品結算表」。
         </div>
       </div>
     </div>
@@ -187,7 +186,7 @@
   </div>
 
   @if (state.prepLoading) {
-    <p class="loading" role="status">正在計算半成品理論量與今日消耗…</p>
+    <p class="loading" role="status">正在讀取今日半成品備料紀錄與訂單消耗…</p>
   } @else if (state.prepError) {
     <p class="alert error" role="alert">{{ state.prepError }}</p>
   } @else {
@@ -211,84 +210,107 @@
       <table class="count-table prep-table">
         <thead>
           <tr>
-            <th>半成品料名</th>
-            <th>分類</th>
-            <th class="num">目前數量</th>
-            <th class="num">今日訂單消耗</th>
-            <th class="num">今日報廢</th>
-            <th class="num highlight-th">理論的量</th>
-            <th>實際員工盤點的量</th>
-            <th class="num highlight-th">差距</th>
-            <th>組成底層原料</th>
-            <th><span class="sr-only">操作</span></th>
+            <th style="width: 15%;">半成品料名</th>
+            <th style="width: 8%;">分類</th>
+            <th style="width: 24%;">今日累計製作量 ＆ 新增時間紀錄</th>
+            <th style="width: 20%;">請輸入今天的製作量</th>
+            <th style="width: 23%;">換算成底層原料（應使用多少原料）</th>
+            <th style="width: 10%;">操作</th>
           </tr>
         </thead>
         <tbody>
           @for (item of state.visiblePrepItems; track item.prepId) {
-          <tr [class.counted]="state.prepEntry(item.prepId).countedQty !== null">
+          <tr [class.counted]="(state.prepEntry(item.prepId).produceQty ?? 0) > 0">
             <td class="name">
               <strong>{{ item.name }}</strong>
             </td>
             <td>
               <span class="tag cat-tag">{{ item.category }}</span>
             </td>
-            <!-- 目前數量（可調整備料量） -->
-            <td class="num" data-label="目前數量">
-              <input type="number" min="0" step="1" class="small-qty-input"
-                [(ngModel)]="state.prepEntry(item.prepId).currentQty" [disabled]="ui.busy">
-              <span class="unit-text">{{ item.unit }}</span>
+            <!-- 今日累計製作量 & 各次新增時間紀錄 -->
+            <td class="prod-history-cell" data-label="今日累計製作量">
+              <div class="prod-total-line">
+                <strong class="prod-total-val">{{ item.currentQty }}</strong> {{ item.unit }}
+                @if (item.productionLogs?.length) {
+                  <span class="batch-count-badge">今日已新增 {{ item.productionLogs!.length }} 次</span>
+                } @else {
+                  <span class="muted">（今日尚無紀錄）</span>
+                }
+              </div>
+              @if (item.productionLogs?.length) {
+                <div class="time-log-list">
+                  @for (log of item.productionLogs!; track log.logId; let idx = $index) {
+                    <span class="time-log-chip" [title]="(log.note ? '備註：' + log.note + ' · ' : '') + '登記人：' + log.staffName">
+                      <span class="batch-idx">#{{ idx + 1 }}</span>
+                      <strong>{{ time(log.createdAt).slice(11, 16) }}</strong>
+                      ＋{{ log.producedQty }}{{ item.unit }}
+                      <small>({{ log.staffName }})</small>
+                    </span>
+                  }
+                </div>
+              }
             </td>
-            <!-- 今日訂單消耗 -->
-            <td class="num order-col" data-label="今日訂單消耗">
-              <strong>{{ item.orderConsumed }}</strong> {{ item.unit }}
-            </td>
-            <!-- 今日報廢 -->
-            <td class="num waste-col" data-label="今日報廢">
-              <strong>{{ item.wastedQty }}</strong> {{ item.unit }}
-            </td>
-            <!-- 理論的量 -->
-            <td class="num theoretical-col" data-label="理論的量">
-              <strong class="theo-val">{{ state.prepTheoretical(item) }}</strong> {{ item.unit }}
-            </td>
-            <!-- 實際員工盤點 -->
-            <td class="input" data-label="實際員工盤點的量">
+            <!-- 請輸入今天的製作量 -->
+            <td class="input" data-label="請輸入今天的製作量">
               <div class="prep-input-box">
-                <input type="number" min="0" step="0.5" class="prep-qty-input"
-                  placeholder="輸入實盤"
-                  [(ngModel)]="state.prepEntry(item.prepId).countedQty" [disabled]="ui.busy">
+                <input type="number" min="0" step="0.5" class="prep-qty-input wide-placeholder"
+                  placeholder="請輸入今天的製作量"
+                  [(ngModel)]="state.prepEntry(item.prepId).produceQty" [disabled]="ui.busy">
                 <span class="unit-text">{{ item.unit }}</span>
               </div>
             </td>
-            <!-- 差距 = 理論的量 - 實際員工盤點的量 -->
-            <td class="num diff" data-label="差距">
-              @if (state.prepDiff(item); as diff) {
-                <span class="diff-badge" [class.short]="diff > 0" [class.over]="diff < 0">
-                  {{ diff > 0 ? ('短少 ' + diff) : ('盤盈 ' + (-diff)) }} {{ item.unit }}
-                </span>
-              } @else if (state.prepDiff(item) === 0) {
-                <span class="diff-badge even">相符</span>
+            <!-- 換算成底層原料（應使用多少原料） -->
+            <td class="ingredients-cell" data-label="換算成底層原料">
+              @if ((state.prepEntry(item.prepId).produceQty ?? 0) > 0) {
+                <div class="conversion-highlight">
+                  <div class="conv-title">本次製作 {{ state.prepEntry(item.prepId).produceQty }} {{ item.unit }} 應使用原料：</div>
+                  <div class="ing-tags">
+                    @for (ing of state.convertedIngredients(item, state.prepEntry(item.prepId).produceQty!); track ing.inventoryId) {
+                      <span class="tag ing-tag active-ing">
+                        {{ ing.name }}：<strong>應使用 {{ ing.requiredQty }} {{ ing.unit }}</strong>
+                      </span>
+                    } @empty {
+                      <span class="muted">未設定底層原料關聯</span>
+                    }
+                  </div>
+                </div>
               } @else {
-                <span class="muted">未盤</span>
-              }
-            </td>
-            <!-- 組成原料 -->
-            <td class="ingredients-cell">
-              <div class="ing-tags">
-                @for (ing of item.ingredients; track ing.inventoryId) {
-                  <span class="tag ing-tag" title="每份耗用 {{ ing.qty }} {{ ing.unit }}">
-                    {{ ing.name }} ({{ ing.qty }}{{ ing.unit }})
-                  </span>
+                <div class="ing-tags">
+                  @for (ing of item.ingredients; track ing.inventoryId) {
+                    <span class="tag ing-tag" title="每製作 1 {{ item.unit }} 應使用 {{ ing.qty }} {{ ing.unit }}">
+                      每 1 {{ item.unit }} 需：{{ ing.name }} {{ ing.qty }} {{ ing.unit }}
+                    </span>
+                  } @empty {
+                    <span class="muted">未設定底層原料</span>
+                  }
+                </div>
+                @if (item.currentQty > 0 && item.ingredients.length) {
+                  <div class="today-cum-raw">
+                    今日累計應使用：
+                    @for (ing of state.convertedIngredients(item, item.currentQty); track ing.inventoryId; let last = $last) {
+                      <strong>{{ ing.name }} {{ ing.requiredQty }} {{ ing.unit }}</strong>{{ last ? '' : '、' }}
+                    }
+                  </div>
                 }
-              </div>
+              }
             </td>
             <!-- 操作 -->
             <td class="actions">
-              <button type="button" class="text-button" (click)="state.clearPrepEntry(item)" [disabled]="ui.busy">清除</button>
+              <div class="row-action-btns">
+                <button type="button" class="button small primary"
+                  [disabled]="ui.busy || !state.prepEntry(item.prepId).produceQty || state.prepEntry(item.prepId).produceQty! <= 0"
+                  (click)="state.addSingleProduction(item)">
+                  ＋新增
+                </button>
+                @if (state.prepEntry(item.prepId).produceQty !== null) {
+                  <button type="button" class="text-button" (click)="state.clearProduceEntry(item)" [disabled]="ui.busy">清除</button>
+                }
+              </div>
             </td>
           </tr>
           } @empty {
           <tr>
-            <td colspan="10" class="muted">無相符的半成品資料。</td>
+            <td colspan="6" class="muted">無相符的半成品資料。</td>
           </tr>
           }
         </tbody>
@@ -296,24 +318,135 @@
     </div>
 
     <label class="field note">
-      半成品盤點備註（選填）
-      <input name="prepNote" maxlength="255" [(ngModel)]="state.prepNote" placeholder="例如：晚班備料盤點、珍珠重新煮製" [disabled]="ui.busy">
+      本次備料製作備註（選填）
+      <input name="prepNote" maxlength="255" [(ngModel)]="state.prepNote" placeholder="例如：早班開鍋煮茶、下午第二次補煮茶凍" [disabled]="ui.busy">
     </label>
 
     <div class="submit-bar">
-      <span>已盤點 {{ state.countedPrepCount }} / {{ state.prepItems.length }} 項半成品</span>
-      @if (state.isManager) {
-        <button class="button primary" (click)="state.submitPrep()" [disabled]="!state.canSubmitPrep">
-          店長確認審核並扣除底層原料
-        </button>
-      } @else {
-        <button class="button primary" (click)="state.submitPrep()" [disabled]="!state.canSubmitPrep">
-          送出半成品盤點（待店長審核）
-        </button>
-      }
+      <span>已填寫今日新增製作量：{{ state.enteredProduceCount }} 項半成品</span>
+      <button class="button primary" (click)="state.submitBatchProduction()" [disabled]="!state.canSubmitProduction">
+        批次送出今日新增製作量（記錄時間並換算原料）
+      </button>
     </div>
   }
 </section>
+
+<!-- ==================== 第二張表：剩餘半成品結算 ＆ 轉報廢處理表（依據訂單消耗） ==================== -->
+@if (!state.prepLoading && !state.prepError) {
+<section class="panel prep-count-panel prep-remaining-panel" aria-labelledby="prep-rem-title">
+  <div class="panel-heading">
+    <div>
+      <h2 id="prep-rem-title">2. 今日剩餘半成品結算 ＆ 報廢量處理（依據訂單消耗）</h2>
+      <div class="formula-banner waste-formula-banner">
+        <span class="formula-badge waste-badge">剩餘半成品公式</span>
+        <strong>目前剩餘半成品</strong> ＝ 今日累計製作量 − 今日訂單消耗 − 今日已處理半成品報廢
+        <div class="formula-subnote">
+          ※ 此表處理的是<strong>「已煮好但未賣完／打烊過期的剩餘半成品報廢」</strong>，與「原料報廢回報（生原料受潮／破包出問題）」獨立分開，不會混入原料報廢回報。
+        </div>
+      </div>
+    </div>
+    <div class="heading-actions">
+      <button type="button" class="button secondary" (click)="state.fillAllRemainingToWaste()" [disabled]="ui.busy">
+        一鍵帶入全部剩餘量
+      </button>
+    </div>
+  </div>
+
+  <div class="table-scroll count-scroll">
+    <table class="count-table prep-table">
+      <thead>
+        <tr>
+          <th style="width: 15%;">半成品料名</th>
+          <th style="width: 8%;">分類</th>
+          <th class="num" style="width: 12%;">今日累計製作量</th>
+          <th class="num" style="width: 12%;">今日訂單消耗</th>
+          <th class="num highlight-th" style="width: 14%;">目前剩餘半成品</th>
+          <th style="width: 17%;">今日已報廢半成品（含時間）</th>
+          <th style="width: 22%;">作為半成品報廢量處理</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (item of state.visiblePrepItems; track item.prepId) {
+        <tr [class.counted]="(state.prepEntry(item.prepId).wasteQty ?? 0) > 0">
+          <td class="name">
+            <strong>{{ item.name }}</strong>
+          </td>
+          <td>
+            <span class="tag cat-tag">{{ item.category }}</span>
+          </td>
+          <!-- 今日累計製作量 -->
+          <td class="num" data-label="今日累計製作量">
+            <strong>{{ item.currentQty }}</strong> {{ item.unit }}
+          </td>
+          <!-- 今日訂單消耗 -->
+          <td class="num order-col" data-label="今日訂單消耗">
+            <strong>{{ item.orderConsumed }}</strong> {{ item.unit }}
+          </td>
+          <!-- 目前剩餘半成品 -->
+          <td class="num theoretical-col" data-label="目前剩餘半成品">
+            <strong class="theo-val">{{ state.prepRemaining(item) }}</strong> {{ item.unit }}
+            @if (item.currentQty - item.orderConsumed - item.wastedQty < 0) {
+              <small class="short">（訂單消耗大於已登錄製作量）</small>
+            }
+          </td>
+          <!-- 今日已報廢半成品（含時間紀錄） -->
+          <td class="waste-col" data-label="今日已報廢半成品">
+            <div><strong>{{ item.wastedQty }}</strong> {{ item.unit }}</div>
+            @if (item.wastageLogs?.length) {
+              <div class="time-log-list">
+                @for (wlog of item.wastageLogs!; track wlog.logId) {
+                  <span class="time-log-chip waste-log-chip" [title]="(wlog.note ? wlog.note + ' · ' : '') + '登記人：' + wlog.staffName">
+                    <strong>{{ time(wlog.createdAt).slice(11, 16) }}</strong>
+                    報廢 {{ wlog.wastedQty }}{{ item.unit }}
+                  </span>
+                }
+              </div>
+            }
+          </td>
+          <!-- 作為半成品報廢量處理 -->
+          <td class="input" data-label="作為半成品報廢量處理">
+            <div class="waste-action-box">
+              <div class="prep-input-box">
+                <input type="number" min="0" step="0.5" class="prep-qty-input"
+                  placeholder="輸入報廢量"
+                  [(ngModel)]="state.prepEntry(item.prepId).wasteQty" [disabled]="ui.busy">
+                <span class="unit-text">{{ item.unit }}</span>
+              </div>
+              <button type="button" class="text-button fill-rem-btn"
+                [disabled]="ui.busy || state.prepRemaining(item) <= 0"
+                (click)="state.fillRemainingToWaste(item)">
+                帶入剩餘
+              </button>
+              <button type="button" class="button small secondary waste-submit-btn"
+                [disabled]="ui.busy || !state.prepEntry(item.prepId).wasteQty || state.prepEntry(item.prepId).wasteQty! <= 0"
+                (click)="state.addSinglePrepWastage(item)">
+                轉報廢
+              </button>
+            </div>
+          </td>
+        </tr>
+        } @empty {
+        <tr>
+          <td colspan="7" class="muted">無相符的半成品資料。</td>
+        </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+
+  <label class="field note">
+    剩餘半成品報廢原因／備註（選填）
+    <input name="prepWastageNote" maxlength="255" [(ngModel)]="state.prepWastageNote" placeholder="例如：打烊剩餘茶湯倒掉、超過最佳賞味時間報廢" [disabled]="ui.busy">
+  </label>
+
+  <div class="submit-bar">
+    <span>已填寫待轉報廢半成品：{{ state.enteredWasteCount }} 項</span>
+    <button class="button primary" (click)="state.submitBatchPrepWastage()" [disabled]="!state.canSubmitPrepWastage">
+      批次將剩餘半成品登記為報廢量
+    </button>
+  </div>
+</section>
+}
 }
 
 <section class="panel" aria-labelledby="history-title">

@@ -55,16 +55,53 @@ export interface PrepIngredient {
   unit: string;
 }
 
+export interface PrepProductionLog {
+  logId: number;
+  prepId: number;
+  prepName: string;
+  producedQty: number;
+  unit: string;
+  usedIngredients: PrepIngredient[];
+  staffId: number;
+  staffName: string;
+  createdAt: string;
+  note?: string | null;
+}
+
+export interface PrepWastageLog {
+  logId: number;
+  prepId: number;
+  prepName: string;
+  wastedQty: number;
+  unit: string;
+  staffId: number;
+  staffName: string;
+  createdAt: string;
+  note?: string | null;
+}
+
 export interface PrepCountItem {
   prepId: number;
   name: string;
   category: string;
   unit: string;
-  currentQty: number;      // 目前數量（今日備量）
+  currentQty: number;      // 今日累計製作量
   orderConsumed: number;   // 今日訂單消耗
-  wastedQty: number;       // 今日報廢
-  theoreticalQty: number;  // 理論的量 = 目前數量 - 訂單消耗 - 報廢
+  wastedQty: number;       // 今日已處理半成品報廢量
+  theoreticalQty: number;  // 目前剩餘半成品 = 今日累計製作量 - 今日訂單消耗 - 今日半成品報廢
   ingredients: PrepIngredient[];
+  productionLogs?: PrepProductionLog[];
+  wastageLogs?: PrepWastageLog[];
+}
+
+export interface PrepProductionSubmit {
+  lines: { prepId: number; producedQty: number }[];
+  note?: string | null;
+}
+
+export interface PrepWastageSubmit {
+  lines: { prepId: number; wastedQty: number }[];
+  note?: string | null;
 }
 
 export interface PrepCountLineSubmit {
