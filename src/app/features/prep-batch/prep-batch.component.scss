@@ -1,0 +1,30 @@
+@use '../../shared/workspace';
+:host { display: block; min-width: 0; }
+.prep-grid { display: grid; grid-template-columns: minmax(280px, 380px) minmax(0, 1fr); gap: 24px; align-items: start; }
+.panel { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 14px; padding: 24px; min-width: 0; }
+h2 { font-size: 21px; margin: 0 0 16px; }
+.panel-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.panel-heading h2 { margin: 0; }
+.date-tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.date-tools input { width: 160px; }
+fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
+.field small { color: var(--text-muted); font-weight: 400; }
+.who { font-size: 14px; color: var(--text-muted); margin: 0 0 16px; }
+.who strong { color: var(--text-main); }
+.action { width: 100%; }
+.totals { display: flex; flex-wrap: wrap; gap: 8px; list-style: none; margin: 0 0 12px; padding: 0; }
+.totals li { display: inline-flex; gap: 8px; padding: 6px 12px; border-radius: 999px; background: var(--bg-card-sub); font-size: 13px; }
+.totals b { color: var(--primary-accent); font-variant-numeric: tabular-nums; }
+.table-scroll { overflow: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; text-align: left; }
+th, td { padding: 10px; border-bottom: 1px solid var(--border-color); vertical-align: top; }
+th { background: var(--bg-card-sub); font-weight: 600; white-space: nowrap; }
+td { overflow-wrap: anywhere; }
+.num { text-align: end; font-variant-numeric: tabular-nums; }
+.nowrap { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.muted { color: var(--text-muted); font-size: 13px; }
+.signin { text-align: center; padding-block: 70px; }
+.signin p { max-width: 40em; margin: 0 auto 24px; }
+.loading { padding: 12px 0; }
+@media (max-width: 900px) { .prep-grid { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 500px) { .panel { padding: 18px; } .date-tools input { width: 145px; } }

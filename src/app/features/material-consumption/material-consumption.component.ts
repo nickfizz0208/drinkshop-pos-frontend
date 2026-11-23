@@ -1,11 +1,10 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { ConsumptionRecord, DeductItem, MaterialItem, WastageDetail } from '../../models/consumption';
+import { ConsumptionRecord, MaterialItem, WastageDetail } from '../../models/consumption';
 import { ConsumptionApiService } from '../../services/consumption-api.service';
 import { PosApiService, errorMessage } from '../../services/pos-api.service';
 import { IconComponent } from '../../shared/icon.component';
-import { ModalComponent } from '../../shared/modal.component';
 import { UiStateService } from '../../shared/ui-state.service';
 
 export interface MaterialSeries {
@@ -18,18 +17,6 @@ export interface MaterialSeries {
   pathD: string;
 }
 
-export interface DeductRow {
-  inventoryId: number;
-  name: string;
-  unit: string;
-  category: string;
-  bookQty: number;
-  orderQty: number;
-  wastageQty: number;
-  deductQty: number;
-  selected: boolean;
-}
-
 const PALETTE = [
   '#2e7d32', '#1976d2', '#d84315', '#8e24aa', '#00838f',
   '#c2185b', '#f57f17', '#4e342e', '#00695c', '#3949ab'
@@ -37,7 +24,7 @@ const PALETTE = [
 
 @Component({
   selector: 'app-material-consumption',
-  imports: [CommonModule, FormsModule, IconComponent, ModalComponent],
+  imports: [CommonModule, FormsModule, IconComponent],
   templateUrl: './material-consumption.component.html',
   styleUrl: './material-consumption.component.scss'
 })
@@ -79,12 +66,6 @@ export class MaterialConsumptionComponent implements OnInit {
   showWastageDetailsTable = true;
 
   // 店長扣庫確認彈窗狀態
-  showDeductModal = false;
-  deducting = false;
-  deductError = '';
-  deductNote = '';
-  deductScope: 'all' | 'order' | 'wastage' = 'all';
-  deductRows: DeductRow[] = [];
 
   // 圖表設定
   readonly svgWidth = 920;
@@ -371,117 +352,5 @@ export class MaterialConsumptionComponent implements OnInit {
   get topMaterial(): MaterialSeries | null {
     if (this.seriesList.length === 0) return null;
     return [...this.seriesList].sort((a, b) => b.total - a.total)[0] || null;
-  }
-
-  // ==========================================
-  // 店長確認扣庫功能 (Confirm Deduct)
-  // ==========================================
-
-  openDeductModal(): void {
-    this.deductError = '';
-    this.deductNote = `${this.currentYear} 年 ${this.currentMonth} 月 店長物料消耗扣庫確認`;
-    this.deductScope = 'all';
-
-    // 彙總所有真實原料（inventory_id < 100000，排除半成品 prep_item）
-    const invMap = new Map<number, DeductRow>();
-
-    // 從 wastageMaterials 與 orderMaterials 取得原料基準檔
-    const allRaw = [...this.wastageMaterials, ...this.orderMaterials];
-    for (const mat of allRaw) {
-      if (mat.inventory_id < 100000 && !invMap.has(mat.inventory_id)) {
-        invMap.set(mat.inventory_id, {
-          inventoryId: mat.inventory_id,
-          name: mat.name,
-          unit: mat.base_unit || '份',
-          category: mat.category || '未分類',
-          bookQty: mat.book_qty ?? 0,
-          orderQty: 0,
-          wastageQty: 0,
-          deductQty: 0,
-          selected: false
-        });
-      }
-    }
-
-    // 計算當月訂單消耗
-    for (const r of this.orderRecords) {
-      if (r.inventory_id < 100000 && invMap.has(r.inventory_id)) {
-        const item = invMap.get(r.inventory_id)!;
-        item.orderQty = Math.round((item.orderQty + r.total_consumed) * 100) / 100;
-      }
-    }
-
-    // 計算當月報廢消耗
-    for (const w of this.wastageRecords) {
-      if (w.inventory_id < 100000 && invMap.has(w.inventory_id)) {
-        const item = invMap.get(w.inventory_id)!;
-        item.wastageQty = Math.round((item.wastageQty + w.total_consumed) * 100) / 100;
-      }
-    }
-
-    // 依據 deductScope 計算預設扣除數量
-    this.deductRows = Array.from(invMap.values()).map(row => {
-      const sum = Math.round((row.orderQty + row.wastageQty) * 100) / 100;
-      return {
-        ...row,
-        deductQty: sum,
-        selected: sum > 0
-      };
-    }).sort((a, b) => b.deductQty - a.deductQty || a.inventoryId - b.inventoryId);
-
-    this.showDeductModal = true;
-  }
-
-  closeDeductModal(): void {
-    if (!this.deducting) {
-      this.showDeductModal = false;
-    }
-  }
-
-  setDeductScope(scope: 'all' | 'order' | 'wastage'): void {
-    this.deductScope = scope;
-    for (const row of this.deductRows) {
-      let qty = 0;
-      if (scope === 'all') qty = Math.round((row.orderQty + row.wastageQty) * 100) / 100;
-      else if (scope === 'order') qty = row.orderQty;
-      else if (scope === 'wastage') qty = row.wastageQty;
-
-      row.deductQty = qty;
-      row.selected = qty > 0;
-    }
-  }
-
-  toggleSelectAllDeduct(selectAll: boolean): void {
-    for (const row of this.deductRows) {
-      row.selected = selectAll;
-    }
-  }
-
-  get selectedDeductCount(): number {
-    return this.deductRows.filter(r => r.selected && r.deductQty > 0).length;
-  }
-
-  async executeDeduct(): Promise<void> {
-    const toDeduct = this.deductRows
-      .filter(r => r.selected && r.deductQty > 0)
-      .map(r => ({ inventoryId: r.inventoryId, deductQty: r.deductQty }));
-
-    if (toDeduct.length === 0) {
-      this.deductError = '請至少勾選一項扣除數量大於 0 的原料品項';
-      return;
-    }
-
-    this.deducting = true;
-    this.deductError = '';
-    try {
-      const res = await this.api.confirmDeduct(toDeduct, this.deductNote);
-      this.ui.notice = res.message || '店長已確認扣庫完成！帳面庫存已更新';
-      this.showDeductModal = false;
-      await this.loadData();
-    } catch (err) {
-      this.deductError = errorMessage(err);
-    } finally {
-      this.deducting = false;
-    }
   }
 }

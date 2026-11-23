@@ -26,7 +26,7 @@ describe('物料消耗趨勢元件 (MaterialConsumptionComponent)', () => {
   };
 
   beforeEach(async () => {
-    api = jasmine.createSpyObj<ConsumptionApiService>('ConsumptionApiService', ['getMonthlyConsumption', 'confirmDeduct']);
+    api = jasmine.createSpyObj<ConsumptionApiService>('ConsumptionApiService', ['getMonthlyConsumption']);
     api.getMonthlyConsumption.and.resolveTo(mockData);
 
     await TestBed.configureTestingModule({
@@ -81,23 +81,6 @@ describe('物料消耗趨勢元件 (MaterialConsumptionComponent)', () => {
     expect(component.selectedIds.size).toBe(3);
     expect(component.seriesList.length).toBe(3);
   });
-
-  it('店長可開啟扣庫彈窗並計算待扣除項目', async () => {
-    await component.loadData();
-    component.openDeductModal();
-    expect(component.showDeductModal).toBeTrue();
-    expect(component.deductRows.length).toBeGreaterThan(0);
-  });
-
-  it('店長確認執行扣庫時應呼叫 confirmDeduct API 並刷新數據', async () => {
-    api.confirmDeduct.and.resolveTo({ success: true, message: '店長確認扣除完成', deductedCount: 2 });
-    await component.loadData();
-    component.openDeductModal();
-    await component.executeDeduct();
-    expect(api.confirmDeduct).toHaveBeenCalled();
-    expect(component.showDeductModal).toBeFalse();
-  });
-
   it('可以切換「使用分類整理查看」檢視模式', async () => {
     await component.loadData();
     expect(component.isCategoryGrouped).toBeFalse();

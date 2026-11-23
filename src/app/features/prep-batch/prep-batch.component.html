@@ -1,0 +1,76 @@
+<!-- 備料：登記誰煮了什麼半成品、幾份。只做紀錄，不扣原料、不改半成品數量。 -->
+@if (ui.preview) {
+  <section class="panel signin"><h2>登入後登記備料</h2><p>記下誰煮了哪些半成品、幾份。預覽不會登記。</p>
+    <button class="button primary" type="button" (click)="ui.openLogin()">員工登入</button></section>
+} @else {
+  @if (error) { <p class="alert error" role="alert">{{ error }}</p> }
+  <div class="prep-grid">
+    <section class="panel" aria-labelledby="prep-form-title">
+      <h2 id="prep-form-title">登記備料</h2>
+      @if (!canCreate) { <p class="alert warning">只能登記今天的備料；正在看 {{ date }} 的紀錄。</p> }
+      <form (ngSubmit)="submit()">
+        <fieldset [disabled]="ui.busy || !canCreate || loading">
+          <label class="field">半成品
+            <select name="prepId" [(ngModel)]="prepId" required>
+              <option [ngValue]="null">選擇半成品</option>
+              @for (group of prepGroups; track group.category) {
+              <optgroup [label]="group.category">@for (p of group.preps; track p.prepId) { <option [ngValue]="p.prepId">{{ p.name }}</option> }</optgroup>
+              }
+            </select>
+          </label>
+          <label class="field">份數
+            <span class="numpad-field"><input #qtyInput name="qty" type="number" [(ngModel)]="qty" min="0.01" max="99999999.99" step="0.01" required
+              inputmode="decimal"><app-numpad-button [for]="qtyInput" label="份數" /></span>
+          </label>
+          @if (isPos) {
+          <label class="field">誰煮的
+            <select name="madeBy" [(ngModel)]="madeBy" required>
+              <option [ngValue]="null">選擇員工</option>
+              @for (s of staff; track s.staffId) { <option [ngValue]="s.staffId">{{ s.name }}</option> }
+            </select>
+          </label>
+          } @else {
+          <p class="who">登記人：<strong>{{ me }}</strong>（記在自己名下）</p>
+          }
+          <label class="field">備註 <small>可不填</small>
+            <input name="note" type="text" [(ngModel)]="note" maxlength="200" placeholder="例如：茶葉換新批">
+          </label>
+          <button type="submit" class="button primary action">登記</button>
+        </fieldset>
+      </form>
+    </section>
+
+    <section class="panel" aria-labelledby="prep-list-title">
+      <div class="panel-heading">
+        <h2 id="prep-list-title">備料紀錄</h2>
+        <div class="date-tools">
+          <label for="prep-date">日期</label>
+          <input id="prep-date" type="date" [(ngModel)]="date" (change)="load()" [disabled]="ui.busy || loading">
+          <button class="button secondary small" type="button" (click)="load()" [disabled]="ui.busy || loading">重新整理</button>
+        </div>
+      </div>
+      @if (loading) { <p class="loading" role="status">正在讀取備料紀錄…</p> }
+      @else {
+        @if (totals.length) {
+        <ul class="totals" aria-label="這一天各半成品合計">@for (t of totals; track t.name) { <li><span>{{ t.name }}</span><b>{{ t.qty }} 份</b></li> }</ul>
+        }
+        <div class="table-scroll">
+          <table>
+            <thead><tr><th>時間</th><th>半成品</th><th class="num">份數</th><th>誰煮的</th><th>備註</th></tr></thead>
+            <tbody>
+              @for (row of rows; track row.batchId) {
+              <tr>
+                <td class="nowrap">{{ time(row) }}</td>
+                <td>{{ row.prepName }}</td>
+                <td class="num">{{ row.qty }}</td>
+                <td>{{ row.madeByName }}@if (row.recordedBy !== row.madeBy) { <small class="muted">（{{ row.recordedByName }}登記）</small> }</td>
+                <td>{{ row.note ?? '' }}</td>
+              </tr>
+              } @empty { <tr><td colspan="5" class="muted">這一天還沒有備料紀錄。</td></tr> }
+            </tbody>
+          </table>
+        </div>
+      }
+    </section>
+  </div>
+}

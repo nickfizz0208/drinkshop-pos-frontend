@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { firstValueFrom, timeout } from 'rxjs';
-import { ConfirmDeductResponse, DeductItem, MonthlyConsumptionResponse } from '../models/consumption';
+import { MonthlyConsumptionResponse } from '../models/consumption';
 import { API_TIMEOUT_MS, PosApiService } from './pos-api.service';
 
 @Injectable({ providedIn: 'root' })
@@ -23,17 +23,6 @@ export class ConsumptionApiService {
       // 若後端未登入或離線預覽，回傳一組預設展示資料，讓畫面不中斷
       return this.generatePreviewData(year, month);
     }
-  }
-
-  async confirmDeduct(items: DeductItem[], note?: string): Promise<ConfirmDeductResponse> {
-    const headers = this.posApi.authHeaders();
-    return await firstValueFrom(
-      this.http.post<ConfirmDeductResponse>(
-        '/api/inventory-consumption/confirm-deduct',
-        { items, note },
-        { headers }
-      ).pipe(timeout(API_TIMEOUT_MS))
-    );
   }
 
   private generatePreviewData(year: number, month: number): MonthlyConsumptionResponse {

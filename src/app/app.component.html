@@ -41,16 +41,22 @@
       <button class="rail-link" [class.active]="ui.view === 'orders'" [disabled]="ui.busy"
         (click)="switchView('orders')"><app-icon name="receipt-text" />訂單管理</button>
       }
+      <!-- 打卡、班表、檢核表、備料、盤點是門市作業，總部帳號看不到（物料消耗也只給店長，見 consumptionAllowed） -->
+      @if (!isHq) {
       <button class="rail-link" [class.active]="ui.view === 'time-tracker'" [disabled]="ui.busy"
         (click)="switchView('time-tracker')"><app-icon name="clock" />打卡</button>
       <button class="rail-link" [class.active]="ui.view === 'schedule'" [disabled]="ui.busy"
         (click)="switchView('schedule')"><app-icon name="calendar" />班表</button>
       <button class="rail-link" [class.active]="ui.view === 'checklist'" [disabled]="ui.busy"
         (click)="switchView('checklist')"><app-icon name="list-checks" />檢核表</button>
+      <!-- 備料：POS 機（選煮的人）與個人帳號（記自己）都可以登記 -->
+      <button class="rail-link" [class.active]="ui.view === 'prep'" [disabled]="ui.busy"
+        (click)="switchView('prep')"><app-icon name="cooking-pot" />備料</button>
       <!-- 盤點只限個人帳號（記在員工本人名下）；POS 共用帳號看不到 -->
       @if (!isPos) {
       <button class="rail-link" [class.active]="ui.view === 'inventory-count'" [disabled]="ui.busy"
         (click)="switchView('inventory-count')"><app-icon name="package" />盤點</button>
+      }
       }
       <!-- 原料報廢回報：只有店員、店長的個人帳號（報廢記在員工本人名下；POS 帳號看不到） -->
       @if (storeAllowed) {
@@ -136,10 +142,11 @@
       @case ('pos') { <app-pos /> }
       @case ('orders') { <app-orders /> }
       @case ('store') { <app-store-ops /> }
-      @case ('time-tracker') { <app-time-tracker /> }
-      @case ('schedule') { <app-schedule-shift /> }
-      @case ('checklist') { <app-check-list /> }
-      @case ('inventory-count') { <app-inventory-count /> }
+      @case ('time-tracker') { @if (!isHq) { <app-time-tracker /> } }
+      @case ('schedule') { @if (!isHq) { <app-schedule-shift /> } }
+      @case ('checklist') { @if (!isHq) { <app-check-list /> } }
+      @case ('prep') { @if (!isHq) { <app-prep-batch /> } }
+      @case ('inventory-count') { @if (!isHq) { <app-inventory-count /> } }
       @case ('sale-status') { <app-sale-status /> }
       @case ('material-consumption') { @if (consumptionAllowed) { <app-material-consumption /> } }
       @case ('hq-report') { @if (isHq) { <app-hq-report /> } }

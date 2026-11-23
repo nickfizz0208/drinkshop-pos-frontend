@@ -177,6 +177,19 @@ describe('POS 工作台', () => {
       await app.switchView('store'); expect(ui.view).toBe('store');
     }
   });
+  it('總部帳號看不到打卡、班表、檢核表、盤點、物料消耗、備料，也切不過去；店長照常可以', async () => {
+    await signIn();
+    staff.set({ staffId: 5, username: 'hq', name: '總部', level: 'HQ' }); ui.view = 'recipes';
+    for (const view of ['time-tracker', 'schedule', 'checklist', 'inventory-count', 'material-consumption', 'prep'] as const) {
+      await app.switchView(view); expect(ui.view).toBe('recipes');
+    }
+    expect(app.consumptionAllowed).toBeFalse();
+    await app.switchView('hq-report'); expect(ui.view).toBe('hq-report');
+    staff.set({ staffId: 6, username: 'boss', name: '店長', level: 'MANAGER' });
+    for (const view of ['time-tracker', 'schedule', 'checklist', 'inventory-count', 'material-consumption', 'prep'] as const) {
+      await app.switchView(view); expect(ui.view).toBe(view);
+    }
+  });
   it('未開班只鎖點餐與打卡，訂單、排班、檢查表照常使用', async () => {
     api.shiftToday.and.resolveTo({ businessDate: '2026-11-06', shiftStatus: 'NONE', records: [], canViewAll: false });
     await signIn();

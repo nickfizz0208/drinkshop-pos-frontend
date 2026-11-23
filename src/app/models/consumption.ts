@@ -40,19 +40,3 @@ export interface MonthlyConsumptionResponse {
   wastage_materials?: MaterialItem[];
   wastage_details?: WastageDetail[];
 }
-
-export interface DeductItem {
-  inventoryId: number;
-  deductQty: number;
-}
-
-export interface ConfirmDeductRequest {
-  items: DeductItem[];
-  note?: string;
-}
-
-export interface ConfirmDeductResponse {
-  success: boolean;
-  message: string;
-  deductedCount: number;
-}
