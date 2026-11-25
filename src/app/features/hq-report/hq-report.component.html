@@ -6,15 +6,60 @@
         <h2>總部營運與營收分析</h2>
         <p class="subtitle">即時連線資料庫，切換檢視日／月營收、熱銷飲品排行與訂單紀錄。</p>
       </div>
-      <div class="mode-switch" role="group" aria-label="切換日營收或月營收">
+      <div class="mode-switch" role="group" aria-label="切換日營收、月營收或自訂區間">
         <button type="button" class="mode-btn" [class.active]="mode === 'day'" [disabled]="loading"
           (click)="setMode('day')">日營收</button>
         <button type="button" class="mode-btn" [class.active]="mode === 'month'" [disabled]="loading"
           (click)="setMode('month')">月營收</button>
+        <button type="button" class="mode-btn" [class.active]="mode === 'range'" [disabled]="loading"
+          (click)="setMode('range')">區間</button>
       </div>
     </div>
 
-    @if (mode === 'day') {
+    <!-- 分店篩選：區域 → 縣市 → 分店 -->
+    <div class="store-filter" role="group" aria-label="選擇分店範圍">
+      <span class="store-filter-label">分店</span>
+      <select aria-label="選擇區域" [ngModel]="selectedRegion" (ngModelChange)="selectRegion($event)" [disabled]="loading">
+        <option [ngValue]="null">全部區域（{{ stores.length }} 間）</option>
+        @for (r of regions; track r.name) {
+          <option [ngValue]="r.name">{{ r.name }}（{{ r.count }}）</option>
+        }
+      </select>
+      <span class="store-filter-sep" aria-hidden="true">›</span>
+      <select aria-label="選擇縣市" [ngModel]="selectedCity" (ngModelChange)="selectCity($event)" [disabled]="loading || selectedRegion === null">
+        <option [ngValue]="null">{{ selectedRegion === null ? '先選區域' : '全部縣市' }}</option>
+        @for (c of cities; track c.key) {
+          <option [ngValue]="c.key">{{ c.label }}（{{ c.count }}）</option>
+        }
+      </select>
+      <span class="store-filter-sep" aria-hidden="true">›</span>
+      <select aria-label="選擇分店" [ngModel]="selectedStoreId" (ngModelChange)="selectStore($event)" [disabled]="loading || selectedCity === null">
+        <option [ngValue]="null">{{ selectedCity === null ? '先選縣市' : '全部分店' }}</option>
+        @for (st of cityStores; track st.storeId) {
+          <option [ngValue]="st.storeId">{{ st.name }}{{ st.active ? '' : '（停用）' }}</option>
+        }
+      </select>
+      @if (selectedRegion !== null) {
+        <button type="button" class="button secondary small" (click)="clearScope()" [disabled]="loading">清除</button>
+      }
+    </div>
+
+    @if (mode === 'range') {
+      <div class="date-row range-row">
+        <label for="hq-from">期間</label>
+        <input id="hq-from" type="date" [(ngModel)]="rangeFrom" [max]="rangeTo" (change)="changeRange()" [disabled]="loading">
+        <span class="range-sep" aria-hidden="true">～</span>
+        <input id="hq-to" type="date" aria-label="結束日期" [(ngModel)]="rangeTo" [min]="rangeFrom" (change)="changeRange()" [disabled]="loading">
+        <span class="range-days">{{ rangeDays > 0 ? '共 ' + rangeDays + ' 天' : '' }}</span>
+        <div class="month-pills" role="group" aria-label="快速選擇區間">
+          @for (p of rangePresets; track p.days) {
+            <button type="button" class="month-btn" [class.active]="isPresetActive(p.days)" [disabled]="loading"
+              (click)="applyPreset(p.days)">{{ p.label }}</button>
+          }
+        </div>
+        @if (rangeError) { <span class="range-error" role="alert">{{ rangeError }}</span> }
+      </div>
+    } @else if (mode === 'day') {
       <div class="date-row">
         <label for="hq-date">選擇日期</label>
         <input id="hq-date" type="date" [(ngModel)]="selectedDate" (change)="load()" [disabled]="loading">
@@ -45,7 +90,7 @@
   </div>
 
   @if (tab !== 'overview') {
-    <app-hq-detail [view]="tab" [from]="detailFrom" [to]="detailTo" />
+    <app-hq-detail [view]="tab" [from]="detailFrom" [to]="detailTo" [storeIds]="scopeStoreIds" />
   } @else {
   @if (error) {
     <div class="card error-box" role="alert">
@@ -62,7 +107,7 @@
     <!-- 4 張重點 KPI 卡 -->
     <div class="kpi-grid">
       <div class="card kpi-card primary">
-        <span class="kpi-label">{{ data.mode === 'day' ? '當日總營收' : '當月總營收' }}</span>
+        <span class="kpi-label">{{ data.mode === 'day' ? '當日總營收' : data.mode === 'range' ? '區間總營收' : '當月總營收' }}</span>
         <strong class="kpi-value">{{ money(data.summary.revenue) }}</strong>
       </div>
       <div class="card kpi-card">
@@ -80,11 +125,65 @@
       </div>
     </div>
 
+    <!-- 各分店營運比較：全部分店時列出每間店；點一列只看那間店 -->
+    @if (selectedStoreId === null && (data.byStore?.length ?? 0) > 0) {
+      <div class="card table-card store-card">
+        <div class="card-head">
+          <h3>{{ scopeLabel }}・各分店營運狀況（{{ periodLabel(data) }}）</h3>
+          <span class="card-hint">點分店可只看該店</span>
+        </div>
+        <div class="table-wrap">
+          <table class="order-table store-table">
+            <thead>
+              <tr>
+                <th>分店</th>
+                <th>區域／縣市</th>
+                <th>營收</th>
+                <th>占比</th>
+                <th>訂單</th>
+                <th>客單價</th>
+                <th>杯數</th>
+                <th>報廢損耗</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of data.byStore; track row.storeId) {
+                <tr class="store-row" tabindex="0" (click)="selectStore(row.storeId)" (keydown.enter)="selectStore(row.storeId)">
+                  <td>
+                    <strong>{{ row.storeName }}</strong>
+                    @if (!row.active) { <span class="status-pill cancelled">停用</span> }
+                  </td>
+                  <td class="store-place">{{ row.region || '未設定' }}・{{ row.city || '未設定縣市' }}</td>
+                  <td class="num">
+                    {{ money(row.revenue) }}
+                    <div class="rank-track"><div class="rank-fill" [style.width.%]="storeWidthPercent(row)"></div></div>
+                  </td>
+                  <td class="num">{{ storeShare(row) }}%</td>
+                  <td class="num">{{ row.orderCount }}</td>
+                  <td class="num">{{ money(avgTicket(row)) }}</td>
+                  <td class="num">{{ row.totalCups }}</td>
+                  <td class="num">{{ money(row.rawWastageCost) }}@if (row.wastedCups) { <small>（棄單 {{ row.wastedCups }} 杯）</small> }</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    } @else if (selectedStoreId !== null) {
+      <div class="card store-banner">
+        <span>目前只看 <strong>{{ scopeLabel }}</strong></span>
+        <span class="store-banner-actions">
+          <button type="button" class="button secondary small" (click)="selectStore(null)" [disabled]="loading">回到同縣市</button>
+          <button type="button" class="button secondary small" (click)="clearScope()" [disabled]="loading">看全部分店</button>
+        </span>
+      </div>
+    }
+
     <!-- 圖表區：走勢長條圖 + 熱銷飲品排行 -->
     <div class="charts-grid">
       <div class="card chart-card">
         <div class="card-head">
-          <h3>{{ data.mode === 'day' ? data.date + ' 各時段營收圖' : data.year + ' 年 ' + data.month + ' 月 每日營收走勢圖' }}</h3>
+          <h3>{{ periodLabel(data) + (data.mode === 'day' || (data.mode === 'range' && data.from === data.to) ? ' 各時段營收圖' : ' 每日營收走勢圖') }}</h3>
           @if (loading) { <span class="loading-tag">更新中…</span> }
         </div>
         @if (data.trend.length) {
@@ -139,6 +238,7 @@
             <thead>
               <tr>
                 <th>單號</th>
+                @if (selectedStoreId === null) { <th>分店</th> }
                 <th>時間</th>
                 <th>賣出品項</th>
                 <th>杯數</th>
@@ -151,6 +251,7 @@
               @for (order of data.orders; track order.orderId) {
                 <tr>
                   <td>#{{ order.orderId }}</td>
+                  @if (selectedStoreId === null) { <td>{{ order.storeName || '—' }}</td> }
                   <td>{{ order.createdAt }}</td>
                   <td class="items-cell">{{ order.itemsSummary || '—' }}</td>
                   <td>{{ order.totalCups }}</td>

@@ -383,3 +383,56 @@
     border-bottom-color: var(--primary-accent);
   }
 }
+
+/* 分店篩選與各分店營運比較 */
+.store-filter {
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 6px;
+  margin-top: 12px;
+  min-width: 0;
+
+  select {
+    flex: 1 1 0;
+    min-width: 0;
+    max-width: 200px;
+    min-height: 36px;
+    padding: 4px 8px;
+    text-overflow: ellipsis;
+  }
+  select:disabled { opacity: 0.55; }
+  .button { flex: none; white-space: nowrap; }
+}
+
+.store-filter-label { font-weight: 600; flex: none; white-space: nowrap; }
+.store-filter-sep { color: #8a978e; font-size: 1.1rem; flex: none; }
+.store-place { color: #5b6b60; white-space: nowrap; }
+.store-banner-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.store-card {
+  .card-hint { font-size: 0.85rem; color: #6b7a70; }
+  .rank-track { margin-top: 4px; height: 6px; min-width: 80px; }
+}
+
+.store-row {
+  cursor: pointer;
+
+  &:hover, &:focus-visible { background: #f3f8f4; outline: none; }
+  .status-pill { margin-left: 6px; }
+  small { color: #8a6a3a; }
+}
+
+.store-banner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+/* 區間模式 */
+.range-row {
+  .range-sep { color: #8a978e; }
+  .range-days { color: #5b6b60; font-size: 0.9rem; min-width: 4.5em; }
+  .range-error { color: #b3261e; font-size: 0.9rem; }
+}

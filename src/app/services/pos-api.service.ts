@@ -5,7 +5,8 @@ import { ClockToday, ShiftClosingSummary } from '../models/time-clock';
 import { StaffOption } from '../models/schedule';
 import { HqDetailQuery, HqDetails } from '../models/hq-detail';
 import { RecipeDetail, RecipeMaterialOption, RecipeSummary, RecipeUpdate } from '../models/recipe';
-import { HqReportResponse } from '../models/hq-report';
+import { HqReportResponse, HqStore } from '../models/hq-report';
+import { AdminStore, AdminStoreDetail, CityOption, GeocodeResult, StoreForm } from '../models/store-admin';
 import { DeliveryRoute, MemberUpdate, PosConfig, CancelRequest, CreateOrder, ItemStatus, Member, Menu, Order, OrderSummary, Payment, Rule, Staff } from '../models/pos';
 import { DailyShift, Inventory, RawWastageRequest, WastageSummary } from '../models/store-ops';
 
@@ -81,13 +82,43 @@ export class PosApiService {
     if (query.category) params['category'] = query.category;
     if (query.source) params['source'] = query.source;
     if (query.size) params['size'] = query.size;
+    if (query.storeIds?.length) params['storeIds'] = query.storeIds.join(',');
     return this.wait(this.http.get<HqDetails>('/api/hq-reports/details', { headers: this.headers, params }));
   }
-  hqReport(params: { mode: 'day' | 'month'; date?: string; year?: number; month?: number }): Promise<HqReportResponse> {
+  /** 總部分店管理（055）。 */
+  adminStores(): Promise<AdminStore[]> {
+    return this.wait(this.http.get<AdminStore[]>('/api/hq-stores', { headers: this.headers }));
+  }
+  adminStore(id: number): Promise<AdminStoreDetail> {
+    return this.wait(this.http.get<AdminStoreDetail>(`/api/hq-stores/${id}`, { headers: this.headers }));
+  }
+  adminStoreCities(): Promise<CityOption[]> {
+    return this.wait(this.http.get<CityOption[]>('/api/hq-stores/cities', { headers: this.headers }));
+  }
+  createAdminStore(form: StoreForm): Promise<AdminStoreDetail> {
+    return this.wait(this.http.post<AdminStoreDetail>('/api/hq-stores', form, { headers: this.headers }));
+  }
+  updateAdminStore(id: number, form: StoreForm): Promise<AdminStoreDetail> {
+    return this.wait(this.http.put<AdminStoreDetail>(`/api/hq-stores/${id}`, form, { headers: this.headers }));
+  }
+  setAdminStoreActive(id: number, active: boolean, reason: string): Promise<AdminStoreDetail> {
+    return this.wait(this.http.put<AdminStoreDetail>(`/api/hq-stores/${id}/active`, { active, reason }, { headers: this.headers }));
+  }
+  geocodeStoreAddress(address: string): Promise<GeocodeResult> {
+    return this.wait(this.http.get<GeocodeResult>('/api/hq-stores/geocode', { headers: this.headers, params: { address } }));
+  }
+  /** 總部報表的分店清單。 */
+  hqStores(): Promise<HqStore[]> {
+    return this.wait(this.http.get<HqStore[]>('/api/hq-reports/stores', { headers: this.headers }));
+  }
+  hqReport(params: { mode: 'day' | 'month' | 'range'; date?: string; from?: string; to?: string; year?: number; month?: number; storeIds?: number[] | null }): Promise<HqReportResponse> {
     const query: Record<string, string> = { mode: params.mode };
     if (params.date) query['date'] = params.date;
+    if (params.from) query['from'] = params.from;
+    if (params.to) query['to'] = params.to;
     if (params.year !== undefined) query['year'] = String(params.year);
     if (params.month !== undefined) query['month'] = String(params.month);
+    if (params.storeIds?.length) query['storeIds'] = params.storeIds.join(',');
     return this.wait(this.http.get<HqReportResponse>('/api/hq-reports', { headers: this.headers, params: query }));
   }
   shift(date: string): Promise<DailyShift> { return this.wait(this.http.get<DailyShift>(`/api/daily-shifts/${date}`, { headers: this.headers })); }

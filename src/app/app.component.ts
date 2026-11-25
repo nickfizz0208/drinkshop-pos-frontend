@@ -6,7 +6,7 @@ import { FormsModule } from '@angular/forms';
 import { ModalComponent } from './shared/modal.component';
 import { COUNTER_VIEWS, PERSONAL_VIEWS, STORE_LEVELS, UiStateService, VIEW_TITLES, WorkspaceView } from './shared/ui-state.service';
 import { PosApiService, errorMessage } from './services/pos-api.service';
-import { money } from './models/pos';
+import { money, Staff } from './models/pos';
 import { ShiftClosingSummary, ShiftStatus } from './models/time-clock';
 import { ClockRecord } from './models/time-clock';
 import { StaffOption } from './models/schedule';
@@ -25,9 +25,12 @@ import { RecipesComponent } from './features/recipes/recipes.component';
 import { SALE_EDIT_LEVELS } from './features/sale-status/sale-status-state.service';
 import { MaterialConsumptionComponent } from './features/material-consumption/material-consumption.component';
 import { HqReportComponent } from './features/hq-report/hq-report.component';
+import { StoreAdminComponent } from './features/store-admin/store-admin.component';
 import { PrepBatchComponent } from './features/prep-batch/prep-batch.component';
 
 /** 總部帳號看不到的門市頁面。 */
+/** 只有總部帳號能用的頁面。 */
+const HQ_ONLY_VIEWS: WorkspaceView[] = ['hq-report', 'store-admin'];
 const HQ_HIDDEN_VIEWS: WorkspaceView[] = ['time-tracker', 'schedule', 'checklist', 'inventory-count', 'material-consumption', 'prep'];
 
 /**
@@ -38,7 +41,7 @@ const HQ_HIDDEN_VIEWS: WorkspaceView[] = ['time-tracker', 'schedule', 'checklist
   selector: 'app-root',
   imports: [NumpadButtonComponent, NumpadComponent, IconComponent, FormsModule, ModalComponent, PosComponent, OrdersComponent, StoreOpsComponent,
     TimeTrackerComponent, ScheduleShiftComponent, CheckListComponent, InventoryCountComponent, SaleStatusComponent, MaterialConsumptionComponent,
-    RecipesComponent, HqReportComponent, PrepBatchComponent],
+    RecipesComponent, HqReportComponent, StoreAdminComponent, PrepBatchComponent],
   templateUrl: './app.component.html',
   styleUrl: './app.component.scss'
 })
@@ -69,6 +72,11 @@ export class AppComponent {
   /** 配方：登入的帳號都能看（店長、總部可編輯，頁面內與後端控制）。 */
   get canViewRecipes(): boolean { return !this.ui.preview && !!this.api.staff(); }
   /** 點餐、訂單、日結頁可不可以用：未登入的介面預覽可以看；登入後只有 POS 帳號可以，個人帳號不行。 */
+  /** 橫幅顯示的分店（052）：總部帳號顯示「總部」；舊的登入資料還沒有分店時不顯示。 */
+  storeLabel(staff: Staff): string {
+    if (staff.level === 'HQ') return '總部';
+    return staff.storeName ?? '';
+  }
   get counterAllowed(): boolean { const staff = this.api.staff(); return this.ui.preview || !staff || staff.level === 'POS'; }
 
   // ---- 開班／關班：做在上方工具列，只有 POS 帳號看得到。只鎖點餐收銀與訂單管理，其他功能不受影響 ----
@@ -246,7 +254,7 @@ export class AppComponent {
       // POS 共用帳號不能盤點（要記在員工本人名下），也不能看物料消耗
       if (PERSONAL_VIEWS.includes(this.ui.view) || this.ui.view === 'store'
         || (this.ui.view === 'material-consumption' && !this.consumptionAllowed)
-        || (this.ui.view === 'hq-report' && !this.isHq)) this.ui.view = 'pos';
+        || (HQ_ONLY_VIEWS.includes(this.ui.view) && !this.isHq)) this.ui.view = 'pos';
       await this.loadShift();
       if (this.shiftLocked) this.ui.notice = this.shiftStatus === 'NONE' ? '登入成功。點餐與訂單需要先開班。' : '';
       else this.ui.notice = this.pos.pending ? '找到前次待確認訂單，請繼續確認送單結果。' : '登入成功，已載入門市菜單。';
@@ -256,7 +264,7 @@ export class AppComponent {
       if (COUNTER_VIEWS.includes(this.ui.view) || (this.ui.view === 'sale-status' && !this.saleAllowed)
         || (this.ui.view === 'store' && !this.storeAllowed)
         || (this.ui.view === 'material-consumption' && !this.consumptionAllowed)
-        || (this.ui.view === 'hq-report' && !this.isHq)) this.ui.view = 'time-tracker';
+        || (HQ_ONLY_VIEWS.includes(this.ui.view) && !this.isHq)) this.ui.view = 'time-tracker';
       // 總部帳號沒有門市的打卡、班表、檢核表、盤點，直接進總部營運報表
       if (this.hiddenForHq(this.ui.view)) this.ui.view = 'hq-report';
       this.ui.notice = '登入成功。點餐收銀與訂單管理請使用門市 POS 帳號。';
@@ -280,7 +288,7 @@ export class AppComponent {
     if (view === 'recipes' && !this.canViewRecipes) return;
     if (view === 'store' && !this.storeAllowed) return;
     if (view === 'material-consumption' && !this.consumptionAllowed) return;
-    if (view === 'hq-report' && !this.isHq) return;
+    if (HQ_ONLY_VIEWS.includes(view) && !this.isHq) return;
     if (this.hiddenForHq(view)) return;
     if (!this.ui.navigate(view)) return;
     if (view === 'pos') void this.refreshMenu();

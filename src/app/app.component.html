@@ -77,6 +77,9 @@
       @if (isHq) {
       <button type="button" class="rail-link" [class.active]="ui.view === 'hq-report'" [disabled]="ui.busy"
         (click)="switchView('hq-report')"><app-icon name="layout-grid" />營運報表</button>
+      <!-- 分店管理（055）：新增、修改、停用分店與修改紀錄 -->
+      <button type="button" class="rail-link" [class.active]="ui.view === 'store-admin'" [disabled]="ui.busy"
+        (click)="switchView('store-admin')"><app-icon name="shopping-bag" />分店管理</button>
       }
       <!-- 配方：登入的帳號都能看；店長、總部可編輯 -->
       @if (canViewRecipes) {
@@ -113,7 +116,7 @@
         }
         @if (api.staff(); as staff) {
         <span class="staff-avatar" aria-hidden="true">{{ staff.name.slice(0, 1) }}</span><span class="staff-name">{{
-          staff.name }}<small>員工 {{ staff.staffId }}</small></span>
+          staff.name }}<small>{{ storeLabel(staff) ? storeLabel(staff) + ' · ' : '' }}員工 {{ staff.staffId }}</small></span>
         <button class="text-button" [disabled]="ui.busy" (click)="logout()">登出</button>
         }
       </div>
@@ -150,6 +153,7 @@
       @case ('sale-status') { <app-sale-status /> }
       @case ('material-consumption') { @if (consumptionAllowed) { <app-material-consumption /> } }
       @case ('hq-report') { @if (isHq) { <app-hq-report /> } }
+      @case ('store-admin') { @if (isHq) { <app-store-admin /> } }
       @case ('recipes') { @if (canViewRecipes) { <app-recipes /> } }
       }
       }

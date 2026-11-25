@@ -33,7 +33,7 @@ export interface HqDetails {
   toppings?: HqToppings;
   options?: HqOptions;
 }
-export interface HqDetailQuery { from: string; to: string; category?: string; source?: string; size?: string; }
+export interface HqDetailQuery { from: string; to: string; category?: string; source?: string; size?: string; storeIds?: number[] | null; }
 
 /** 冷熱分成四組（趨勢圖、重點數字用）：熱飲、常溫、去冰、有冰。 */
 export const TEMP_GROUPS: { key: string; label: string; members: TempIce[] }[] = [

@@ -13,7 +13,9 @@ export type Source = 'DINE_IN' | 'TAKE_OUT' | 'PHONE_DELIVERY' | 'UBER_EATS';
 // UBER_EATS 僅保留舊資料標籤，新付款按鈕只提供現金、信用卡、LINE Pay。
 export type Payment = 'CASH' | 'CREDIT_CARD' | 'LINE_PAY' | 'UBER_EATS';
 export type ItemStatus = 'PENDING' | 'MAKING' | 'DONE' | 'PICKED_UP' | 'CANCELLED' | 'WASTED';
-export interface Staff { staffId: number; username: string; name: string; level: string; }
+/** storeId、storeName、storeCode：所屬分店（052）；總部帳號是 null。舊的登入資料沒有這三個欄位。 */
+export interface Staff { staffId: number; username: string; name: string; level: string;
+  storeId?: number | null; storeName?: string | null; storeCode?: string | null; }
 /** 飲品。容量價格（024）：price_m 中杯、price_l 大杯、price_bottle 瓶，null＝這杯不賣這個容量。 */
 export interface Product {
   product_id: number; name: string; category: string;

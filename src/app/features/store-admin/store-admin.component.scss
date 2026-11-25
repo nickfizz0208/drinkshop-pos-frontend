@@ -1,0 +1,124 @@
+.store-admin { display: flex; flex-direction: column; gap: 16px; }
+
+.card {
+  background: var(--bg-card, #fff);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 18px 20px;
+}
+
+.toolbar-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+
+  h2 { margin: 0 0 4px; font-size: 1.15rem; }
+  .subtitle { margin: 0; color: var(--text-muted); font-size: 0.9rem; }
+}
+
+.filters {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+
+  input[type=search] { flex: 1 1 220px; width: auto; min-height: 40px; padding: 6px 12px; }
+  select { width: auto; min-width: 130px; min-height: 40px; padding: 6px 10px; }
+  .check { display: inline-flex; align-items: center; gap: 6px; font-size: 0.9rem; }
+}
+
+.error-box { display: flex; justify-content: space-between; align-items: center; color: #9b3e31; p { margin: 0; } }
+.state-box { color: var(--text-muted); text-align: center; }
+
+.group-title { margin: 0 0 10px; font-size: 1rem; small { color: var(--text-muted); font-weight: 400; margin-left: 6px; } }
+
+.table-wrap { overflow-x: auto; }
+.store-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+
+  th { text-align: left; font-weight: 600; color: var(--text-muted); padding: 8px 10px; border-bottom: 1px solid var(--border-color); white-space: nowrap; }
+  td { padding: 10px; border-bottom: 1px solid #eef2ec; vertical-align: middle; }
+  tbody tr { cursor: pointer; }
+  tbody tr:hover, tbody tr:focus-visible { background: #f3f8f4; outline: none; }
+  tr.inactive td { color: #8a978e; }
+  .code { margin-left: 8px; font-size: 0.78rem; padding: 1px 6px; border-radius: 6px; background: #eef2ec; color: #4f6356; }
+  .addr { min-width: 180px; small { display: block; color: var(--text-muted); } }
+  .num { text-align: right; white-space: nowrap; }
+}
+
+.pill {
+  display: inline-block;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  white-space: nowrap;
+  background: #eef2ec;
+  color: #4f6356;
+
+  &[data-state=OPEN] { background: #e3f1e6; color: #1c6b3f; }
+  &[data-state=CLOSED] { background: #eef0f3; color: #55606d; }
+  &[data-state=INACTIVE] { background: #fbe9e6; color: #a44135; }
+}
+
+.ok-text { color: #1c6b3f; }
+.warn-text { color: #9a5b14; }
+.link-text { color: var(--primary-accent); }
+
+/* 分店資料視窗 */
+.info-grid {
+  display: grid;
+  grid-template-columns: 90px 1fr;
+  gap: 8px 14px;
+  margin: 0 0 20px;
+  font-size: 0.92rem;
+
+  dt { color: var(--text-muted); }
+  dd { margin: 0; word-break: break-word; }
+  a { margin-left: 8px; }
+}
+
+.section-title { font-size: 0.95rem; margin: 0 0 10px; }
+
+.log-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 260px;
+  overflow-y: auto;
+
+  li { padding: 10px 0; border-bottom: 1px solid #eef2ec; }
+  .log-head { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; font-size: 0.85rem; }
+  .log-detail { margin: 6px 0 0; font-size: 0.88rem; line-height: 1.6; word-break: break-word; }
+}
+
+.log-action {
+  padding: 1px 8px;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  background: #eef2ec;
+  color: #4f6356;
+
+  &[data-action=CREATE] { background: #e3f1e6; color: #1c6b3f; }
+  &[data-action=DEACTIVATE] { background: #fbe9e6; color: #a44135; }
+  &[data-action=ACTIVATE] { background: #e6eefb; color: #2d4f8a; }
+}
+
+.deactivate-box { margin-top: 18px; padding: 14px; border-radius: 12px; background: #fff6f4; border: 1px solid #f0d6d0; .field { margin-bottom: 6px; } }
+
+/* 表單 */
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.code-field input { text-transform: uppercase; }
+.inline-input { display: flex; gap: 8px; input { flex: 1; min-width: 0; } .button { flex: none; white-space: nowrap; } }
+.alert.success { background: #eef7f0; color: #1c6b3f; border-color: #cfe5d5; }
+.coords-hint { margin-top: -8px; a { margin-left: 4px; } .text-button { min-height: auto; padding: 0; font-size: inherit; } }
+
+@media (max-width: 560px) {
+  .form-row { grid-template-columns: 1fr; gap: 0; }
+  .info-grid { grid-template-columns: 1fr; dt { margin-top: 6px; } }
+}

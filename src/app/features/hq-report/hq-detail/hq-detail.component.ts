@@ -37,6 +37,8 @@ export class HqDetailComponent implements OnChanges {
   @Input({ required: true }) view!: 'products' | 'tempSugar' | 'toppings' | 'options';
   @Input({ required: true }) from!: string;
   @Input({ required: true }) to!: string;
+  /** 分店範圍：null＝全部分店；否則只算這些分店（區域、縣市或單一分店）。 */
+  @Input() storeIds: number[] | null = null;
 
   category = '';
   source = '';
@@ -58,7 +60,7 @@ export class HqDetailComponent implements OnChanges {
     const version = ++this.version;
     this.loading = true; this.error = '';
     try {
-      const data = await this.api.hqDetails({ from: this.from, to: this.to, category: this.category, source: this.source, size: this.size });
+      const data = await this.api.hqDetails({ from: this.from, to: this.to, category: this.category, source: this.source, size: this.size, ...(this.storeIds?.length ? { storeIds: this.storeIds } : {}) });
       if (version === this.version) { this.data = data; this.expanded = null; this.expandedOption = null; this.hovered = null; }
     } catch (err) { if (version === this.version) this.error = errorMessage(err); }
     finally { if (version === this.version) this.loading = false; }

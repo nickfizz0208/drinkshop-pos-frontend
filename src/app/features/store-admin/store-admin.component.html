@@ -1,0 +1,233 @@
+<section class="store-admin" aria-label="分店管理">
+  <!-- 概況與工具列 -->
+  <div class="card toolbar">
+    <div class="toolbar-head">
+      <div>
+        <h2>分店管理</h2>
+        <p class="subtitle">
+          共 {{ stores.length }} 間，啟用 {{ activeCount }} 間，今天營業中 {{ openTodayCount }} 間
+          @if (missingCoordsCount) { ・<span class="warn-text">{{ missingCoordsCount }} 間還沒設定外送座標</span> }
+        </p>
+      </div>
+      <button type="button" class="button primary small" (click)="openCreate()" [disabled]="loading">＋ 新增分店</button>
+    </div>
+    <div class="filters">
+      <input type="search" aria-label="搜尋分店" placeholder="搜尋名稱、代碼、縣市或地址" [(ngModel)]="keyword">
+      <select aria-label="篩選區域" [(ngModel)]="regionFilter">
+        <option [ngValue]="null">全部區域</option>
+        @for (r of regions; track r) { <option [ngValue]="r">{{ r }}</option> }
+      </select>
+      <label class="check">
+        <input type="checkbox" [(ngModel)]="showInactive"> 顯示停用的分店
+      </label>
+      <button type="button" class="button secondary small" (click)="load()" [disabled]="loading">重新整理</button>
+    </div>
+  </div>
+
+  @if (error) {
+    <div class="card error-box" role="alert">
+      <p>{{ error }}</p>
+      <button type="button" class="button secondary small" (click)="load()">重試</button>
+    </div>
+  }
+  @if (loading && !stores.length) {
+    <div class="card state-box" role="status">正在載入分店…</div>
+  }
+
+  @for (g of groups; track g.region) {
+    <div class="card table-card">
+      <h3 class="group-title">{{ g.region }} <small>{{ g.stores.length }} 間</small></h3>
+      <div class="table-wrap">
+        <table class="store-table">
+          <thead>
+            <tr>
+              <th>分店</th>
+              <th>縣市</th>
+              <th>地址／電話</th>
+              <th>員工</th>
+              <th>今天</th>
+              <th>外送座標</th>
+              <th><span class="sr-only">操作</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (s of g.stores; track s.storeId) {
+              <tr [class.inactive]="!s.active" tabindex="0" (click)="openDetail(s)" (keydown.enter)="openDetail(s)">
+                <td>
+                  <strong>{{ s.name }}</strong>
+                  <span class="code">{{ s.code }}</span>
+                </td>
+                <td>{{ s.city || '未設定' }}</td>
+                <td class="addr">
+                  <span>{{ s.address || '—' }}</span>
+                  @if (s.phone) { <small>{{ s.phone }}</small> }
+                </td>
+                <td class="num">{{ s.staffCount }}</td>
+                <td><span class="pill" [attr.data-state]="s.active ? (s.todayShift || 'NONE') : 'INACTIVE'">{{ shiftLabel(s) }}</span></td>
+                <td>@if (s.lat !== null) { <span class="ok-text">已設定</span> } @else { <span class="warn-text">未設定</span> }</td>
+                <td class="num"><span class="link-text">查看 ›</span></td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  } @empty {
+    @if (!loading && !error) {
+      <div class="card state-box">沒有符合條件的分店。</div>
+    }
+  }
+</section>
+
+<!-- 分店資料＋修改紀錄 -->
+@if (detail && !formMode) {
+  <app-modal [title]="detail.store.name" [subtitle]="'分店管理 · ' + detail.store.code" [busy]="toggling" (dismissed)="closeDetail()">
+    <div class="modal-body store-detail">
+      @if (!detail.store.active) {
+        <div class="alert warning">這間分店已停用：該店帳號不能登入，報表照樣看得到歷史資料。</div>
+      }
+      @if (detailError) { <div class="alert error" role="alert">{{ detailError }}</div> }
+
+      <dl class="info-grid">
+        <dt>代碼</dt><dd>{{ detail.store.code }} <small class="muted">（建立後不能改）</small></dd>
+        <dt>區域／縣市</dt><dd>{{ detail.store.region }}・{{ detail.store.city || '未設定縣市' }}</dd>
+        <dt>地址</dt><dd>{{ detail.store.address || '—' }}</dd>
+        <dt>電話</dt><dd>{{ detail.store.phone || '—' }}</dd>
+        <dt>外送座標</dt>
+        <dd>
+          @if (mapUrl(detail.store); as url) {
+            {{ detail.store.lat }}, {{ detail.store.lng }}
+            <a [href]="url" target="_blank" rel="noopener">在地圖上看</a>
+          } @else {
+            <span class="warn-text">未設定（外送路線會用預設起點）</span>
+          }
+        </dd>
+        <dt>員工帳號</dt><dd>{{ detail.store.staffCount }} 個</dd>
+        <dt>今天</dt><dd>{{ shiftLabel(detail.store) }}</dd>
+        <dt>建立時間</dt><dd>{{ detail.store.createdAt || '—' }}</dd>
+        @if (detail.store.updatedAt) { <dt>最後修改</dt><dd>{{ detail.store.updatedAt }}</dd> }
+      </dl>
+
+      <h3 class="section-title">修改紀錄</h3>
+      @if (detailLoading) {
+        <p class="muted">載入中…</p>
+      } @else if (detail.logs.length) {
+        <ol class="log-list">
+          @for (log of detail.logs; track log.logId) {
+            <li>
+              <div class="log-head">
+                <span class="log-action" [attr.data-action]="log.action">{{ auditLabels[log.action] }}</span>
+                <span class="muted">{{ log.createdAt }}・{{ log.staffName || '系統' }}</span>
+              </div>
+              @if (log.detail) { <p class="log-detail">{{ log.detail }}</p> }
+            </li>
+          }
+        </ol>
+      } @else {
+        <p class="muted">還沒有紀錄（055 之前建立的分店沒有新增紀錄）。</p>
+      }
+
+      @if (deactivating) {
+        <div class="deactivate-box">
+          <label class="field">
+            停用原因（必填，會記在修改紀錄）
+            <textarea rows="2" maxlength="200" [(ngModel)]="deactivateReason" placeholder="例如：店面整修、租約到期" [disabled]="toggling"></textarea>
+          </label>
+          <p class="field-hint">停用後該店所有帳號立即無法登入、無法開班和點餐。可以隨時重新啟用。</p>
+        </div>
+      }
+    </div>
+    <div class="modal-footer">
+      @if (detail.store.active) {
+        @if (deactivating) {
+          <button type="button" class="button secondary" (click)="deactivating = false" [disabled]="toggling">取消</button>
+          <button type="button" class="button danger" (click)="confirmDeactivate()" [disabled]="toggling">{{ toggling ? '停用中…' : '確定停用' }}</button>
+        } @else {
+          <button type="button" class="button danger-outline" (click)="deactivating = true; detailError = ''" [disabled]="detailLoading">停用分店</button>
+          <button type="button" class="button primary" (click)="openEdit()" [disabled]="detailLoading">編輯資料</button>
+        }
+      } @else {
+        <button type="button" class="button secondary" (click)="openEdit()" [disabled]="detailLoading || toggling">編輯資料</button>
+        <button type="button" class="button primary" (click)="reactivate()" [disabled]="detailLoading || toggling">{{ toggling ? '啟用中…' : '重新啟用' }}</button>
+      }
+    </div>
+  </app-modal>
+}
+
+<!-- 新增／修改分店 -->
+@if (formMode) {
+  <app-modal [title]="formMode === 'create' ? '新增分店' : '編輯 ' + (detail?.store?.name ?? '')" subtitle="分店管理" [busy]="saving" (dismissed)="closeForm()">
+    <form class="modal-body store-form" (ngSubmit)="save()">
+      @if (formError) { <div class="alert error" role="alert">{{ formError }}</div> }
+      <fieldset [disabled]="saving">
+        <div class="form-row">
+          @if (formMode === 'create') {
+            <label class="field code-field">
+              代碼
+              <input name="code" [(ngModel)]="form.code" maxlength="10" autocomplete="off" placeholder="例如 FS" required>
+              <span class="field-hint">2～10 碼英文或數字，新訂單編號會以代碼開頭，建立後不能改。</span>
+            </label>
+          } @else {
+            <div class="field code-field">
+              代碼
+              <input [value]="detail?.store?.code ?? ''" disabled aria-label="代碼（不能修改）">
+            </div>
+          }
+          <label class="field">
+            分店名稱
+            <input name="name" [(ngModel)]="form.name" maxlength="30" placeholder="例如 鳳山店" required>
+          </label>
+        </div>
+        <label class="field">
+          縣市
+          <select name="city" [(ngModel)]="form.city" required>
+            <option value="" disabled>請選擇縣市</option>
+            @for (g of cityGroups; track g.region) {
+              <optgroup [label]="g.region">
+                @for (c of g.cities; track c) { <option [value]="c">{{ c }}</option> }
+              </optgroup>
+            }
+          </select>
+        </label>
+        <label class="field">
+          電話
+          <input name="phone" [(ngModel)]="form.phone" maxlength="20" inputmode="tel" placeholder="例如 07-1234567">
+        </label>
+        <div class="field">
+          <label for="store-address">地址</label>
+          <div class="inline-input">
+            <input id="store-address" name="address" [(ngModel)]="form.address" maxlength="120" placeholder="例如 高雄市鳳山區光復路一段1號">
+            <button type="button" class="button secondary small" (click)="geocode()" [disabled]="geocoding || !form.address">
+              {{ geocoding ? '查詢中…' : '用地址查座標' }}
+            </button>
+          </div>
+        </div>
+        @if (geocodeError) { <div class="alert error">{{ geocodeError }}</div> }
+        @if (geocodeResult) {
+          <div class="alert" [class.warning]="geocodeResult.needsReview" [class.success]="!geocodeResult.needsReview">
+            地圖找到：{{ geocodeResult.label }}
+            @if (geocodeResult.needsReview) { <br>比對不夠精確，請按「在地圖上看」確認位置，必要時手動修改經緯度。 }
+          </div>
+        }
+        <div class="form-row">
+          <label class="field">
+            緯度
+            <input name="lat" type="number" step="0.0000001" min="-90" max="90" [(ngModel)]="form.lat" placeholder="例如 22.6270000">
+          </label>
+          <label class="field">
+            經度
+            <input name="lng" type="number" step="0.0000001" min="-180" max="180" [(ngModel)]="form.lng" placeholder="例如 120.3590000">
+          </label>
+        </div>
+        <p class="field-hint coords-hint">
+          外送路線的起點。沒填會用系統預設起點。
+          @if (mapUrl(form); as url) { <a [href]="url" target="_blank" rel="noopener">在地圖上看</a>・<button type="button" class="text-button" (click)="clearCoords()">清除座標</button> }
+        </p>
+      </fieldset>
+    </form>
+    <div class="modal-footer">
+      <button type="button" class="button secondary" (click)="closeForm()" [disabled]="saving">取消</button>
+      <button type="button" class="button primary" (click)="save()" [disabled]="saving">{{ saving ? '儲存中…' : (formMode === 'create' ? '新增分店' : '儲存') }}</button>
+    </div>
+  </app-modal>
+}
