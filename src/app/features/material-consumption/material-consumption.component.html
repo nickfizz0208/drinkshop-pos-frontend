@@ -7,7 +7,7 @@
         @if (consumptionMode === 'wastage') {
           依據門市回報之原料報廢紀錄（raw_material_wastage），獨立統計每日原料報廢損耗趨勢與回報人細項。
         } @else {
-          依據訂單銷售之半成品料與直接配方物料（如茶湯、牛奶、加料）統計每日消耗趨勢，不包含原料報廢。
+          統計訂單使用的物料與備料登記使用的原料。
         }
       </p>
     </div>
@@ -21,7 +21,7 @@
           [class.active]="consumptionMode === 'order'"
           (click)="switchConsumptionMode('order')">
           <app-icon name="package" />
-          <span>訂單物料消耗</span>
+          <span>訂單與備料消耗</span>
         </button>
         <button
           type="button"
@@ -182,7 +182,7 @@
   <div class="chart-card card">
     <div class="chart-header">
       <div class="chart-title-area">
-        <h3>{{ currentYear }} 年 {{ currentMonth }} 月 每日{{ consumptionMode === 'wastage' ? '報廢料損耗' : '訂單物料消耗' }}趨勢圖</h3>
+        <h3>{{ currentYear }} 年 {{ currentMonth }} 月 每日{{ consumptionMode === 'wastage' ? '報廢料損耗' : '訂單與備料消耗' }}趨勢圖</h3>
         <span class="chart-unit-hint">單位：依物料各自基準單位計量（滑鼠移至圓點可看詳細數據）</span>
       </div>
       @if (loading) {
@@ -357,7 +357,7 @@
     <div class="details-table-card card">
       <div class="monthly-table-head">
         <div>
-          <h4>{{ currentYear }} 年 {{ currentMonth }} 月 {{ consumptionMode === 'wastage' ? '月報廢料損耗統計明細' : '月物料消耗統計明細（純訂單消耗）' }}</h4>
+          <h4>{{ currentYear }} 年 {{ currentMonth }} 月 {{ consumptionMode === 'wastage' ? '月報廢料損耗統計明細' : '訂單與備料消耗月統計' }}</h4>
           <p class="monthly-table-subtitle">
             @if (consumptionMode === 'wastage') {
               統計本月所有原物料於門市回報的累計報廢損耗量與目前帳面庫存。

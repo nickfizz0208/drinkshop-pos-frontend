@@ -195,7 +195,7 @@
         <button type="button" class="button small primary approve-btn"
           [disabled]="ui.busy || state.approvingId === g.rows[0].countId"
           (click)="state.approveCount(g.rows[0].countId)">
-          {{ state.approvingId === g.rows[0].countId ? '審核中…' : '店長審核並扣除底層原料' }}
+          {{ state.approvingId === g.rows[0].countId ? '審核中…' : '確認並更新帳面庫存' }}
         </button>
       }
     </div>

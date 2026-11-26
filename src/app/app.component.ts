@@ -31,7 +31,7 @@ import { PrepBatchComponent } from './features/prep-batch/prep-batch.component';
 /** 總部帳號看不到的門市頁面。 */
 /** 只有總部帳號能用的頁面。 */
 const HQ_ONLY_VIEWS: WorkspaceView[] = ['hq-report', 'store-admin'];
-const HQ_HIDDEN_VIEWS: WorkspaceView[] = ['time-tracker', 'schedule', 'checklist', 'inventory-count', 'material-consumption', 'prep'];
+const HQ_HIDDEN_VIEWS: WorkspaceView[] = ['time-tracker', 'schedule', 'checklist', 'inventory-count', 'prep'];
 
 /**
  * 工作台外框：登入、登出、切頁，以及上方工具列的開班／關班。
@@ -64,10 +64,13 @@ export class AppComponent {
   /** 停售管理只限門市 POS、店長；其他帳號選單不顯示、也切不過去。 */
   get saleAllowed(): boolean { return SALE_EDIT_LEVELS.includes(this.api.staff()?.level ?? ''); }
   /** 物料消耗只限店長帳號（總部帳號也拿掉了）；其他帳號選單不顯示、也切不過去。 */
-  get consumptionAllowed(): boolean { return this.api.staff()?.level === 'MANAGER'; }
+  get consumptionAllowed(): boolean {
+    const level = this.api.staff()?.level;
+    return level === 'MANAGER' || level === 'HQ';
+  }
   /** 總部營運報表只限 HQ 總部帳號；其他帳號選單不顯示、也切不過去。 */
   get isHq(): boolean { return this.api.staff()?.level === 'HQ'; }
-  /** 總部帳號不用門市的打卡、班表、檢核表、盤點、物料消耗、備料：選單不顯示、也切不過去。 */
+  /** 總部帳號不用門市的打卡、班表、檢核表、盤點、備料：選單不顯示、也切不過去。 */
   private hiddenForHq(view: WorkspaceView): boolean { return this.isHq && HQ_HIDDEN_VIEWS.includes(view); }
   /** 配方：登入的帳號都能看（店長、總部可編輯，頁面內與後端控制）。 */
   get canViewRecipes(): boolean { return !this.ui.preview && !!this.api.staff(); }

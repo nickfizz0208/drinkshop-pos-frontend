@@ -41,7 +41,7 @@
       <button class="rail-link" [class.active]="ui.view === 'orders'" [disabled]="ui.busy"
         (click)="switchView('orders')"><app-icon name="receipt-text" />訂單管理</button>
       }
-      <!-- 打卡、班表、檢核表、備料、盤點是門市作業，總部帳號看不到（物料消耗也只給店長，見 consumptionAllowed） -->
+      <!-- 打卡、班表、檢核表、備料、盤點是門市作業，總部帳號看不到 -->
       @if (!isHq) {
       <button class="rail-link" [class.active]="ui.view === 'time-tracker'" [disabled]="ui.busy"
         (click)="switchView('time-tracker')"><app-icon name="clock" />打卡</button>

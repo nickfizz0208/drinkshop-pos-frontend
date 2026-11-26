@@ -177,13 +177,14 @@ describe('POS 工作台', () => {
       await app.switchView('store'); expect(ui.view).toBe('store');
     }
   });
-  it('總部帳號看不到打卡、班表、檢核表、盤點、物料消耗、備料，也切不過去；店長照常可以', async () => {
+  it('總部可查看物料消耗與營運報表，門市作業只對店長開放', async () => {
     await signIn();
     staff.set({ staffId: 5, username: 'hq', name: '總部', level: 'HQ' }); ui.view = 'recipes';
-    for (const view of ['time-tracker', 'schedule', 'checklist', 'inventory-count', 'material-consumption', 'prep'] as const) {
+    for (const view of ['time-tracker', 'schedule', 'checklist', 'inventory-count', 'prep'] as const) {
       await app.switchView(view); expect(ui.view).toBe('recipes');
     }
-    expect(app.consumptionAllowed).toBeFalse();
+    expect(app.consumptionAllowed).toBeTrue();
+    await app.switchView('material-consumption'); expect(ui.view).toBe('material-consumption');
     await app.switchView('hq-report'); expect(ui.view).toBe('hq-report');
     staff.set({ staffId: 6, username: 'boss', name: '店長', level: 'MANAGER' });
     for (const view of ['time-tracker', 'schedule', 'checklist', 'inventory-count', 'material-consumption', 'prep'] as const) {
