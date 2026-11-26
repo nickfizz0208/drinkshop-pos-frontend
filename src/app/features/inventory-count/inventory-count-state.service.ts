@@ -290,15 +290,25 @@ export class InventoryCountStateService {
 
   approvingId: number | null = null;
 
+  approvalStatus(note: string | null): 'pending' | 'legacy-pending' | 'approved' | null {
+    const text = note?.trimEnd() ?? '';
+    if (text.endsWith('[待店長審核]')) return 'pending';
+    if (text.endsWith('[半成品盤點待店長審核]')) return 'legacy-pending';
+    if (['[店長已確認]', '[店長已審核確認]', '[半成品盤點-店長已確認扣庫]'].some(tag => text.endsWith(tag))) {
+      return 'approved';
+    }
+    return null;
+  }
+
   async approveCount(countId: number): Promise<void> {
     if (this.ui.busy || !this.isManager) return;
     this.approvingId = countId;
     this.ui.busy = true;
+    this.historyError = '';
     try {
       const res = await this.api.approveCount(countId);
       this.ui.notice = res.message || '盤點紀錄已審核並更新帳面庫存';
       await this.load();
-      await this.loadHistory();
     } catch (error) {
       this.historyError = errorMessage(error);
     } finally {

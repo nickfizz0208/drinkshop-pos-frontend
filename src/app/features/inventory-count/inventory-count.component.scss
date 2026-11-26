@@ -57,8 +57,20 @@ p {
   padding: 24px;
 }
 
+.count-filters {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(180px, 220px);
+  align-items: center;
+  gap: 12px 24px;
+  margin-block: 12px;
+}
+
+.count-filters .hint {
+  margin: 0;
+}
+
 .search input {
-  width: 220px;
+  width: 100%;
 }
 
 .date-tools {
@@ -487,9 +499,8 @@ tr.counted td:first-child {
     padding: 18px;
   }
 
-  .search,
-  .search input {
-    width: 100%;
+  .count-filters {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .submit-bar {
@@ -502,7 +513,7 @@ tr.counted td:first-child {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin: 12px 0;
+  margin-bottom: 10px;
 }
 
 .cat-pill {

@@ -27,8 +27,6 @@
 <section class="panel" aria-labelledby="count-title">
   <div class="panel-heading">
     <h2 id="count-title">本次盤點</h2>
-    <label class="search"><span class="sr-only">搜尋原料</span><input type="search" [(ngModel)]="state.search"
-        placeholder="搜尋原料名稱" [disabled]="ui.busy"></label>
   </div>
   <!-- 盤點類型：決定要盤哪些原料、只填箱數還是箱數＋零散；換類型會清空已填的數量 -->
   @if (state.types.length) {
@@ -41,26 +39,31 @@
     </button>
     }
   </div>
-  <!-- 物料分類篩選標籤 -->
-  @if (state.categories.length) {
-  <div class="category-pills" role="group" aria-label="物料分類篩選">
-    <button type="button" class="cat-pill" [class.active]="state.selectedCategory === 'ALL'"
-      [disabled]="ui.busy" (click)="state.selectedCategory = 'ALL'">
-      全部分類 ({{ state.typeItems.length }})
-    </button>
-    @for (cat of state.categories; track cat) {
-    <button type="button" class="cat-pill" [class.active]="state.selectedCategory === cat"
-      [disabled]="ui.busy" (click)="state.selectedCategory = cat">
-      {{ cat }}
-    </button>
-    }
+  <div class="count-filters">
+    <div>
+      @if (state.categories.length) {
+      <div class="category-pills" role="group" aria-label="物料分類篩選">
+        <button type="button" class="cat-pill" [class.active]="state.selectedCategory === 'ALL'"
+          [disabled]="ui.busy" (click)="state.selectedCategory = 'ALL'">
+          全部分類 ({{ state.typeItems.length }})
+        </button>
+        @for (cat of state.categories; track cat) {
+        <button type="button" class="cat-pill" [class.active]="state.selectedCategory === cat"
+          [disabled]="ui.busy" (click)="state.selectedCategory = cat">
+          {{ cat }}
+        </button>
+        }
+      </div>
+      }
+      <p class="hint">
+        @if (state.packOnly) { {{ state.type?.name }}：以較大單位紀錄，不記錄零頭。 }
+        @else { 以最基本單位記錄。 }
+        數量只填整數，開封、用到一半的不算。未填的原料不會更新帳面庫存，也不會記錄在盤點紀錄裡。
+      </p>
+    </div>
+    <label class="search"><span class="sr-only">搜尋原料</span><input type="search" [(ngModel)]="state.search"
+        placeholder="搜尋原料名稱" [disabled]="ui.busy"></label>
   </div>
-  }
-  <p class="hint">
-    @if (state.packOnly) { {{ state.type?.name }}：以較大單位紀錄，不記錄零頭。 }
-    @else { 以最基本單位記錄。 }
-    數量只填整數，開封、用到一半的不算。未填的原料不會更新帳面庫存，也不會記錄在盤點紀錄裡。
-  </p>
   } @else {
   <p class="alert warning" role="status">目前沒有可用的盤點類型。@if (state.isManager) { 請按「管理盤點類型」新增。 } @else { 請店長新增盤點類型。 }</p>
   }
@@ -149,7 +152,7 @@
       </tbody>
     </table>
   </div>
-  <label class="field note">備註（選填）<input name="note" maxlength="255" [(ngModel)]="state.note" placeholder="例如：月底盤點、冰箱 A"
+  <label class="field note">備註（選填）<input name="note" maxlength="247" [(ngModel)]="state.note" placeholder="例如：月底盤點、冰箱 A"
       [disabled]="ui.busy"></label>
   <div class="submit-bar">
     <span>{{ state.type?.name }}：已填 {{ state.countedCount }} / {{ state.typeItems.length }} 項</span>
@@ -169,15 +172,16 @@
   <p class="hint">一次最多查 31 天。</p>
   @if (state.historyError) { <p class="alert error" role="alert">{{ state.historyError }}</p> }
   @for (g of state.groups; track g.requestId) {
+  @let approval = state.approvalStatus(g.note);
   <article class="count-group">
     <button type="button" class="group-head"
       (click)="state.expanded = state.expanded === g.requestId ? null : g.requestId"
       [attr.aria-expanded]="state.expanded === g.requestId">
       <span>
         <span class="tag type">{{ g.typeName }}</span>
-        @if (g.note && (g.note.includes('[半成品盤點待店長審核]') || g.note.includes('[待店長審核]'))) {
+        @if (approval === 'pending' || approval === 'legacy-pending') {
           <span class="tag tag-pending">待店長審核</span>
-        } @else if (g.note && (g.note.includes('[半成品盤點-店長已確認扣庫]') || g.note.includes('[店長已審核確認]') || g.note.includes('[店長已確認]'))) {
+        } @else if (approval === 'approved') {
           <span class="tag tag-approved">✓ 店長已確認</span>
         }
         <strong>{{ time(g.countedAt) }}</strong> · {{ g.countedByName || '員工' }} · {{ g.rows.length }} 項
@@ -191,7 +195,7 @@
     @if (state.expanded === g.requestId) {
     <div class="group-subbar">
       @if (g.note) { <p class="muted">備註：{{ g.note }}</p> }
-      @if (state.isManager && g.note && (g.note.includes('[半成品盤點待店長審核]') || g.note.includes('[待店長審核]'))) {
+      @if (state.isManager && approval === 'pending') {
         <button type="button" class="button small primary approve-btn"
           [disabled]="ui.busy || state.approvingId === g.rows[0].countId"
           (click)="state.approveCount(g.rows[0].countId)">

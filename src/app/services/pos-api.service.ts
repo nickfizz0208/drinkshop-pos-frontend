@@ -209,3 +209,10 @@ export function errorMessage(error: unknown): string {
   }
   return error instanceof Error ? error.message : '操作未完成，請稍後再試。';
 }
+
+export function hqFeatureError(error: unknown, feature: string): string {
+  if (error instanceof HttpErrorResponse && error.status === 404) {
+    return `目前的後端尚未提供${feature}。`;
+  }
+  return errorMessage(error);
+}

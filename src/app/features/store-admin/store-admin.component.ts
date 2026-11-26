@@ -1,7 +1,7 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ModalComponent } from '../../shared/modal.component';
-import { PosApiService, errorMessage } from '../../services/pos-api.service';
+import { PosApiService, errorMessage, hqFeatureError } from '../../services/pos-api.service';
 import { AUDIT_LABELS, AdminStore, AdminStoreDetail, CityOption, GeocodeResult, StoreForm } from '../../models/store-admin';
 
 /** 區域順序（和後端 StoreRegion 一致）。 */
@@ -60,7 +60,7 @@ export class StoreAdminComponent implements OnInit {
     this.loading = true;
     this.error = '';
     try { this.stores = await this.api.adminStores(); }
-    catch (err) { this.error = errorMessage(err); }
+    catch (err) { this.error = hqFeatureError(err, '分店管理'); }
     finally { this.loading = false; }
   }
 

@@ -1,6 +1,6 @@
 import { Component, Input, OnChanges, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { PosApiService, errorMessage } from '../../../services/pos-api.service';
+import { PosApiService, hqFeatureError } from '../../../services/pos-api.service';
 import { HqCount, HqDetailTrendPoint, HqDetails, HqProductStat, SUGAR_GROUPS, TEMP_GROUPS } from '../../../models/hq-detail';
 import { SIZE_LABELS, SOURCE_LABELS, SUGAR_LABELS, Size, Source, Sugar, TEMP_ICE_LABELS, TempIce, money } from '../../../models/pos';
 
@@ -62,7 +62,12 @@ export class HqDetailComponent implements OnChanges {
     try {
       const data = await this.api.hqDetails({ from: this.from, to: this.to, category: this.category, source: this.source, size: this.size, ...(this.storeIds?.length ? { storeIds: this.storeIds } : {}) });
       if (version === this.version) { this.data = data; this.expanded = null; this.expandedOption = null; this.hovered = null; }
-    } catch (err) { if (version === this.version) this.error = errorMessage(err); }
+    } catch (err) {
+      if (version === this.version) {
+        this.data = null;
+        this.error = hqFeatureError(err, '統計細項');
+      }
+    }
     finally { if (version === this.version) this.loading = false; }
   }
 

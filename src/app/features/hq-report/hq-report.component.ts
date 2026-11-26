@@ -2,7 +2,7 @@ import { Component, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HqReportResponse, HqStore, HqStoreRow, HqTopProduct, HqTrendPoint } from '../../models/hq-report';
 import { money } from '../../models/pos';
-import { PosApiService, errorMessage } from '../../services/pos-api.service';
+import { PosApiService, errorMessage, hqFeatureError } from '../../services/pos-api.service';
 import { HqDetailComponent } from './hq-detail/hq-detail.component';
 
 @Component({
@@ -48,6 +48,7 @@ export class HqReportComponent implements OnInit {
 
   /** 分店篩選（區域 → 縣市 → 分店）：都是 null＝全部分店合計。 */
   stores: HqStore[] = [];
+  storeLookupError = '';
   selectedRegion: string | null = null;
   /** 縣市；'' 代表「未設定縣市」。 */
   selectedCity: string | null = null;
@@ -64,8 +65,12 @@ export class HqReportComponent implements OnInit {
   }
 
   private async loadStores(): Promise<void> {
+    this.storeLookupError = '';
     try { this.stores = await this.api.hqStores(); }
-    catch { this.stores = []; }
+    catch (err) {
+      this.stores = [];
+      this.storeLookupError = hqFeatureError(err, '分店篩選');
+    }
   }
 
   /** 有分店的區域（照後端排好的順序）。 */
@@ -210,12 +215,13 @@ export class HqReportComponent implements OnInit {
   }
 
   /** 改了開始或結束日期：檢查通過才重新查詢。 */
-  changeRange(): void {
-    if (!this.rangeFrom || !this.rangeTo) { this.rangeError = '請選擇開始和結束日期'; return; }
-    if (this.rangeFrom > this.rangeTo) { this.rangeError = '開始日期不能晚於結束日期'; return; }
-    if (this.rangeDays > this.MAX_RANGE_DAYS) { this.rangeError = `一次最多查詢 ${this.MAX_RANGE_DAYS} 天`; return; }
-    this.rangeError = '';
-    void this.load();
+  changeRange(): void { void this.load(); }
+
+  private getRangeError(): string {
+    if (!this.rangeFrom || !this.rangeTo) return '請選擇開始和結束日期';
+    if (this.rangeFrom > this.rangeTo) return '開始日期不能晚於結束日期';
+    if (this.rangeDays > this.MAX_RANGE_DAYS) return `一次最多查詢 ${this.MAX_RANGE_DAYS} 天`;
+    return '';
   }
 
   /** 報表期間文字（標題用）。 */
@@ -238,16 +244,23 @@ export class HqReportComponent implements OnInit {
   }
 
   async load(): Promise<void> {
-    this.loading = true;
+    this.report = null;
     this.error = '';
+    this.rangeError = this.mode === 'range' ? this.getRangeError() : '';
+    if (this.rangeError) return;
+    this.loading = true;
     try {
-      this.report = await this.api.hqReport(
+      const report = await this.api.hqReport(
         this.mode === 'range'
           ? { mode: 'range', from: this.rangeFrom, to: this.rangeTo, storeIds: this.scopeStoreIds }
           : this.mode === 'day'
           ? { mode: 'day', date: this.selectedDate, storeIds: this.scopeStoreIds }
           : { mode: 'month', year: this.selectedYear, month: this.selectedMonth, storeIds: this.scopeStoreIds }
       );
+      if (this.mode === 'range' && (report.mode !== 'range' || report.from !== this.rangeFrom || report.to !== this.rangeTo)) {
+        throw new Error('後端回傳的期間與所選區間不符，請重新查詢。');
+      }
+      this.report = report;
     } catch (err) {
       this.error = errorMessage(err);
     } finally {

@@ -9,7 +9,7 @@
           @if (missingCoordsCount) { ・<span class="warn-text">{{ missingCoordsCount }} 間還沒設定外送座標</span> }
         </p>
       </div>
-      <button type="button" class="button primary small" (click)="openCreate()" [disabled]="loading">＋ 新增分店</button>
+      <button type="button" class="button primary small" (click)="openCreate()" [disabled]="loading || !!error">＋ 新增分店</button>
     </div>
     <div class="filters">
       <input type="search" aria-label="搜尋分店" placeholder="搜尋名稱、代碼、縣市或地址" [(ngModel)]="keyword">

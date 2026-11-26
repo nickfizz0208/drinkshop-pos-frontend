@@ -17,6 +17,9 @@
     </div>
 
     <!-- 分店篩選：區域 → 縣市 → 分店 -->
+    @if (storeLookupError) {
+      <p class="subtitle" role="status">{{ storeLookupError }}</p>
+    } @else {
     <div class="store-filter" role="group" aria-label="選擇分店範圍">
       <span class="store-filter-label">分店</span>
       <select aria-label="選擇區域" [ngModel]="selectedRegion" (ngModelChange)="selectRegion($event)" [disabled]="loading">
@@ -43,6 +46,7 @@
         <button type="button" class="button secondary small" (click)="clearScope()" [disabled]="loading">清除</button>
       }
     </div>
+    }
 
     @if (mode === 'range') {
       <div class="date-row range-row">
@@ -90,7 +94,9 @@
   </div>
 
   @if (tab !== 'overview') {
-    <app-hq-detail [view]="tab" [from]="detailFrom" [to]="detailTo" [storeIds]="scopeStoreIds" />
+    @if (!rangeError) {
+      <app-hq-detail [view]="tab" [from]="detailFrom" [to]="detailTo" [storeIds]="scopeStoreIds" />
+    }
   } @else {
   @if (error) {
     <div class="card error-box" role="alert">
