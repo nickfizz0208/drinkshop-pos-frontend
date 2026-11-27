@@ -56,25 +56,32 @@ describe('備料頁（隔離 API）', () => {
 
   it('報廢：原因必填；POS 選處理的人', async () => {
     const c = await create('POS');
-    c.setMode('waste'); c.prepId = 1; c.qty = 1; c.who = 31;
+    c.setMode('waste'); c.prepId = 1; c.qty = 0.29; c.who = 31;
     await c.submit();
     expect(c.error).toBe('請填寫報廢原因。'); expect(api.createWaste).not.toHaveBeenCalled();
     api.createWaste.and.resolveTo(waste({ wasteId: 2 }));
     c.note = '放太久';
     await c.submit();
-    expect(api.createWaste).toHaveBeenCalledWith({ prepId: 1, qty: 1, wastedBy: 31, note: '放太久' });
+    expect(api.createWaste).toHaveBeenCalledWith({ prepId: 1, qty: 0.29, wastedBy: 31, note: '放太久' });
     expect(ui.notice).toContain('已登記報廢');
   });
 
   it('個人帳號：不用選人，也不讀員工清單；份數最多兩位小數；看別天不能登記', async () => {
     const c = await create('MANAGER');
     expect(posApi.staffOptions).not.toHaveBeenCalled();
-    c.prepId = 2; c.qty = 1.234;
-    await c.submit(); expect(c.error).toContain('最多兩位小數');
+    c.prepId = 2;
+    for (const qty of [0, -1, 1.234, 100000000]) {
+      c.qty = qty;
+      await c.submit();
+      expect(c.error).withContext(String(qty)).toContain('最多兩位小數');
+      expect(api.create).not.toHaveBeenCalled();
+    }
     api.create.and.resolveTo(row({ batchId: 4, prepName: '熟波霸', madeBy: 32, madeByName: '店長', recordedBy: 32, recordedByName: '店長' }));
-    c.qty = 1.5;
-    await c.submit();
-    expect(api.create).toHaveBeenCalledWith({ prepId: 2, qty: 1.5 });
+    for (const qty of [0.01, 1.15, 1.5, 99999999.99]) {
+      c.qty = qty;
+      await c.submit();
+      expect(api.create).toHaveBeenCalledWith({ prepId: 2, qty });
+    }
     c.date = '2026-01-01';
     expect(c.canCreate).toBeFalse();
     api.create.calls.reset(); c.qty = 1;

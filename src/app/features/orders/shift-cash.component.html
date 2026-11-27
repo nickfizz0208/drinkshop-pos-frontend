@@ -1,9 +1,12 @@
-<app-modal title="班次與現金" [subtitle]="'SHIFT & CASH / ' + date" (dismissed)="dismissed.emit()">
+<app-modal title="班次與現金" [subtitle]="'SHIFT & CASH / ' + date" [busy]="saving" (dismissed)="dismissed.emit()">
   <div class="modal-body">
+    @if (isManager) {
+    <label class="field">營業日期<input type="date" [(ngModel)]="date" (change)="load()" [disabled]="loading || saving"></label>
+    }
     @if (error) { <p class="alert error" role="alert">{{ error }}</p> }
     @if (loading) { <p class="muted" role="status">正在讀取班次與收款…</p> }
     @else if (loaded) {
-    <div class="status-row"><span class="badge">{{ shift?.status === 'CLOSED' ? '已日結' : shift ? '開班中' : '未開班' }}</span>
+    <div class="status-row"><span class="badge">{{ automatic ? '系統關班' : shift?.status === 'CLOSED' ? '已日結' : shift ? '開班中' : '未開班' }}</span>
       @if (shift) { <span class="muted">開班員工 {{ shift.openedBy }} / {{ shift.openedAt }}</span> }</div>
     @if (shift; as s) {
     <dl class="totals"><div><dt>開班底金</dt><dd>{{ money(s.pettyCash) }}</dd></div>
@@ -12,11 +15,31 @@
     </dl>
     <p class="hint">應有現金為底金加現金淨收款；非現金收款與損耗成本不增減錢櫃。淨收款已扣找零與退款。</p>
     @if (s.status === 'CLOSED') {
-    <dl class="totals"><div><dt>實際清點</dt><dd>{{ s.countedCash === null ? '未建檔' : money(s.countedCash) }}</dd></div>
-      <div><dt>現金差額</dt><dd>{{ s.countedCash === null || s.expectedCash === null ? '未建檔' : money(s.countedCash - s.expectedCash) }}</dd></div>
+    <dl class="totals"><div><dt>實際清點</dt><dd>{{ needsCount ? '待清點' : money(s.countedCash!) }}</dd></div>
+      <div><dt>現金差額</dt><dd>{{ differenceText }}</dd></div>
       <div><dt>銷售杯數</dt><dd>{{ s.cups === null ? '未建檔' : s.cups + ' 杯' }}</dd></div></dl>
+    @if (automatic) {
+    <p class="muted">系統關班時間 {{ s.closedAt }}</p>
+    @if (needsCount) {
+      <p class="alert warning">這筆由系統關班，請店長核對實際現金。</p>
+      @if (isManager) {
+      <form (ngSubmit)="reconcile()">
+        <label class="field">實際清點現金<span class="numpad-field"><input #cashInput type="number" name="countedCash"
+          [(ngModel)]="countedCash" required min="0" max="99999999.99" step="0.01" [disabled]="saving">
+          <app-numpad-button [for]="cashInput" label="實際清點現金" /></span></label>
+        <label class="field">差異原因（有差額時必填）<input name="diffReason" [(ngModel)]="diffReason" maxlength="160" [disabled]="saving"></label>
+        <button class="button primary" type="submit" [disabled]="saving || countedCash === null">{{ saving ? '確認中…' : '確認清點' }}</button>
+      </form>
+      }
+    } @else {
+      <p>清點確認員工 {{ s.closedBy }}</p><p>{{ s.diffReason }}</p>
+    }
+    } @else {
     <p>差額原因：{{ s.diffReason || '無差額' }}</p><p class="muted">關班員工 {{ s.closedBy }} / {{ s.closedAt }}</p>
+    }
     <p class="alert warning">已日結，這個營業日不能接單、改單或登記報廢。</p>
+    } @else if (isManager) {
+    <p>這個營業日仍在營業，請先於門市 POS 完成關班。</p>
     } @else {
     <p class="hint">以上依本次查詢預估；其他工作台仍可能異動，實際結果以後端關班時的結算為準。</p>
     <div class="alert warning">尚有 {{ unfinished }} 張未完成訂單、{{ unpaid }} 張未付款訂單。關班後這個營業日不能再收款、取餐、取消或報廢。</div>
@@ -28,6 +51,6 @@
     }
     }
   </div>
-  <div class="modal-footer"><button type="button" class="button secondary" [disabled]="loading" (click)="load()">重新整理</button>
-    <button type="button" class="button primary" (click)="dismissed.emit()">關閉</button></div>
+  <div class="modal-footer"><button type="button" class="button secondary" [disabled]="loading || saving" (click)="load()">重新整理</button>
+    <button type="button" class="button primary" [disabled]="saving" (click)="dismissed.emit()">關閉</button></div>
 </app-modal>

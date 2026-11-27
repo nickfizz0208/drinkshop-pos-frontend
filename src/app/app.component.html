@@ -100,6 +100,9 @@
           (click)="ui.notice = ''"><span aria-hidden="true">✓</span>{{ ui.notice }}</button> }
       </div>
       <div class="top-right"><span class="date-label">{{ todayLabel }}</span>
+        @if (api.staff()?.level === 'MANAGER') {
+        <button class="button small secondary" [disabled]="ui.busy" (click)="cashReviewOpen = true">關班對帳</button>
+        }
         <!-- 開班／關班：只有門市 POS 帳號 -->
         @if (isPos) {
         <span class="shift-pill" [class.open]="shiftStatus === 'OPEN'" [class.closed]="shiftStatus === 'CLOSED'">
@@ -261,3 +264,6 @@
 
 <!-- 數字小鍵盤：全畫面，由各數字欄位旁的按鈕打開（shared/numpad） -->
 <app-numpad />
+@if (cashReviewOpen && !ui.preview && api.staff()?.level === 'MANAGER') {
+  <app-shift-cash (dismissed)="cashReviewOpen = false" />
+}

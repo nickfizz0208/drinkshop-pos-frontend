@@ -122,6 +122,9 @@ export class PosApiService {
     return this.wait(this.http.get<HqReportResponse>('/api/hq-reports', { headers: this.headers, params: query }));
   }
   shift(date: string): Promise<DailyShift> { return this.wait(this.http.get<DailyShift>(`/api/daily-shifts/${date}`, { headers: this.headers })); }
+  reconcileCash(date: string, countedCash: number, diffReason: string): Promise<DailyShift> {
+    return this.wait(this.http.post<DailyShift>(`/api/daily-shifts/${date}/reconcile`, { countedCash, diffReason }, { headers: this.headers }));
+  }
   inventories(): Promise<Inventory[]> { return this.wait(this.http.get<Inventory[]>('/api/inventories', { headers: this.headers })); }
   wastages(date: string): Promise<WastageSummary> { return this.wait(this.http.get<WastageSummary>('/api/wastages/daily-summary', { headers: this.headers, params: { date } })); }
   monthlyWastages(month: string): Promise<WastageSummary> {

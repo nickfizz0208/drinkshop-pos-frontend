@@ -27,6 +27,7 @@ import { MaterialConsumptionComponent } from './features/material-consumption/ma
 import { HqReportComponent } from './features/hq-report/hq-report.component';
 import { StoreAdminComponent } from './features/store-admin/store-admin.component';
 import { PrepBatchComponent } from './features/prep-batch/prep-batch.component';
+import { ShiftCashComponent } from './features/orders/shift-cash.component';
 
 /** 總部帳號看不到的門市頁面。 */
 /** 只有總部帳號能用的頁面。 */
@@ -41,7 +42,7 @@ const HQ_HIDDEN_VIEWS: WorkspaceView[] = ['time-tracker', 'schedule', 'checklist
   selector: 'app-root',
   imports: [NumpadButtonComponent, NumpadComponent, IconComponent, FormsModule, ModalComponent, PosComponent, OrdersComponent, StoreOpsComponent,
     TimeTrackerComponent, ScheduleShiftComponent, CheckListComponent, InventoryCountComponent, SaleStatusComponent, MaterialConsumptionComponent,
-    RecipesComponent, HqReportComponent, StoreAdminComponent, PrepBatchComponent],
+    RecipesComponent, HqReportComponent, StoreAdminComponent, PrepBatchComponent, ShiftCashComponent],
   templateUrl: './app.component.html',
   styleUrl: './app.component.scss'
 })
@@ -52,6 +53,7 @@ export class AppComponent {
   private readonly orders = inject(OrdersStateService);
   private readonly store = inject(StoreOpsStateService);
   readonly money = money;
+  cashReviewOpen = false;
 
   /** 橫幅上的頁面標題。 */
   get pageTitle(): string { return VIEW_TITLES[this.ui.view]; }
@@ -278,6 +280,7 @@ export class AppComponent {
     this.resetSession();
   }
   private resetSession(): void {
+    this.cashReviewOpen = false;
     this.api.logout(); this.pos.reset(); this.orders.reset(); this.store.reset();
     this.ui.preview = true; this.ui.loginOpen = false; this.ui.password = '';
     this.ui.error = ''; this.ui.notice = ''; this.ui.view = 'pos';

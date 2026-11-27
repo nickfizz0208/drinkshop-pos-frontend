@@ -91,7 +91,10 @@ export class PrepBatchComponent implements OnInit {
   async submit(): Promise<void> {
     if (this.ui.busy || !this.canCreate) return;
     if (this.prepId === null) { this.error = '請選擇半成品。'; return; }
-    if (this.qty === null || !(this.qty > 0) || Math.round(this.qty * 100) !== this.qty * 100) { this.error = '份數要大於 0，最多兩位小數。'; return; }
+    if (this.qty === null || this.qty <= 0 || this.qty > 99999999.99 || Number(this.qty.toFixed(2)) !== this.qty) {
+      this.error = '份數須介於 0.01 到 99999999.99 之間，最多兩位小數。';
+      return;
+    }
     if (this.isPos && this.who === null) { this.error = this.mode === 'made' ? '請選擇是誰做的。' : '請選擇是誰處理的。'; return; }
     const note = this.note.trim();
     if (this.mode === 'waste' && !note) { this.error = '請填寫報廢原因。'; return; }
